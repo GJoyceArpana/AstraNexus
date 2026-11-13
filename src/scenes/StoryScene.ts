@@ -89,7 +89,7 @@ export default class StoryScene extends Phaser.Scene {
       this.nextButton.setText("BACK TO START");
       this.nextButton.removeAllListeners("pointerdown");
       this.nextButton.on("pointerdown", () => {
-        this.scene.start("StartScene");
+        this.scene.start("CustomizationScene");
       });
     }
   }
