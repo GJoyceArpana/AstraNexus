@@ -1,18 +1,18 @@
 
 import Phaser from "phaser";
 
-interface Interactable {
-  name: string;
-  description: string;
-  object: Phaser.GameObjects.GameObject;
-}
-
 type ResourceName = "power" | "oxygen" | "water" | "safety";
 
 interface Resource {
   label: string;
   value: number;
   color: number;
+}
+
+interface Interactable {
+  name: string;
+  description: string;
+  object: Phaser.GameObjects.Image;
 }
 
 interface ObjectAction {
@@ -29,9 +29,8 @@ interface MissionObjective {
 }
 
 export default class LunarWorldScene extends Phaser.Scene {
-  // Astronaut is now a container holding both body and head.
-  private astronaut!: Phaser.GameObjects.Container;
-  private rover!: Phaser.GameObjects.Rectangle;
+  private astronaut!: Phaser.GameObjects.Image;
+  private rover!: Phaser.GameObjects.Image;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
 
@@ -44,56 +43,54 @@ export default class LunarWorldScene extends Phaser.Scene {
   };
 
   private isDriving = false;
+
   private currentInteractable: Interactable | null = null;
   private interactables: Interactable[] = [];
 
   private readonly cooldownDuration = 15000;
 
-  // RESOURCE SYSTEM
+  private readonly W = 1280;
+  private readonly H = 720;
 
   private resources: Record<ResourceName, Resource> = {
     power: {
       label: "POWER",
       value: 100,
-      color: 0xfacc15,
+      color: 0xf6c85f,
     },
     oxygen: {
       label: "OXYGEN",
       value: 100,
-      color: 0x38bdf8,
+      color: 0x53d9f5,
     },
     water: {
       label: "WATER",
       value: 100,
-      color: 0x3b82f6,
+      color: 0x659cff,
     },
     safety: {
       label: "CREW SAFETY",
       value: 100,
-      color: 0x22c55e,
+      color: 0x63dfa1,
     },
   };
 
-  private resourceBars: Record<
+  private resourceBars = {} as Record<
     ResourceName,
     Phaser.GameObjects.Rectangle
-  > = {} as Record<ResourceName, Phaser.GameObjects.Rectangle>;
+  >;
 
-  private resourceTexts: Record<
+  private resourceTexts = {} as Record<
     ResourceName,
     Phaser.GameObjects.Text
-  > = {} as Record<ResourceName, Phaser.GameObjects.Text>;
-
-  // OBJECT ACTIONS
+  >;
 
   private objectActions: Record<string, ObjectAction> = {};
-
-  // DAY 1 MISSION
 
   private objectives: MissionObjective[] = [
     {
       id: "base",
-      title: "Inspect the MoonBase habitat",
+      title: "Inspect the Mars habitat",
       completed: false,
     },
     {
@@ -108,22 +105,17 @@ export default class LunarWorldScene extends Phaser.Scene {
     },
   ];
 
-  private missionPanel!: Phaser.GameObjects.Container;
   private missionProgressText!: Phaser.GameObjects.Text;
   private missionProgressBar!: Phaser.GameObjects.Rectangle;
 
-  private objectiveTexts: Phaser.GameObjects.Text[] = [];
   private objectiveMarks: Phaser.GameObjects.Text[] = [];
+  private objectiveTexts: Phaser.GameObjects.Text[] = [];
 
   private missionCompleted = false;
-
-  // UI
 
   private warningText!: Phaser.GameObjects.Text;
   private interactionText!: Phaser.GameObjects.Text;
   private notificationText!: Phaser.GameObjects.Text;
-
-  // TIMERS
 
   private drainTimer = 0;
   private warningTimer = 0;
@@ -132,234 +124,506 @@ export default class LunarWorldScene extends Phaser.Scene {
     super("LunarWorldScene");
   }
 
-  create() {
+  // =========================================================
+  // 1. ASSET LOADING
+  // =========================================================
+
+  preload(): void {
+    // NASA Mars Trek terrain
+    this.load.image(
+      "mars_terrain",
+      "/assets/game/mars/jezero-ctx-mosaic-3x3.png"
+    );
+
+    // Mars outpost buildings
+    this.load.image(
+      "mars_habitat",
+      "/assets/game/base/base-station.png"
+    );
+
+    this.load.image(
+      "mars_greenhouse",
+      "/assets/game/base/greenhouse.png"
+    );
+
+    this.load.image(
+      "mars_solar",
+      "/assets/game/base/solar-panels.png"
+    );
+
+    this.load.image(
+      "mars_antenna",
+      "/assets/game/base/dish-antenna.png"
+    );
+
+    this.load.image(
+      "mars_oxygen",
+      "/assets/game/base/oxygen-cylinder.png"
+    );
+
+    // Rover
+    this.load.image(
+      "mars_rover",
+      "/assets/game/base/rover.png"
+    );
+
+    // Astronauts
+    this.load.image(
+      "mars_boy",
+      "/assets/game/characters/boy-astronaut.png"
+    );
+
+    this.load.image(
+      "mars_girl",
+      "/assets/game/characters/girl-astronaut.png"
+    );
+  }
+
+  // =========================================================
+  // 2. SCENE CREATION
+  // =========================================================
+
+  create(): void {
     this.createWorld();
-    this.createObjects();
+    this.createBaseObjects();
     this.createAstronaut();
     this.createRover();
 
-    this.createDashboard();
+    this.createTopHUD();
     this.createMissionPanel();
-    this.createMessages();
+    this.createInteractionBar();
+    this.createNotifications();
     this.createControls();
 
     this.updateDashboard();
     this.updateMissionPanel();
+
+    this.cameras.main.fadeIn(700, 20, 10, 5);
   }
 
-  // WORLD
+  // =========================================================
+  // 3. MARS ENVIRONMENT
+  // =========================================================
 
-  private createWorld() {
+  private createWorld(): void {
+    // Deep Mars sky background
     this.add.rectangle(
-      640, 360, 1280, 720, 0x080d20
-    );
+      this.W / 2,
+      this.H / 2,
+      this.W,
+      this.H,
+      0x24101a
+    ).setDepth(-25);
 
-    // Stars
-    for (let i = 0; i < 90; i++) {
-      const x = Phaser.Math.Between(0, 1280);
-      const y = Phaser.Math.Between(0, 720);
-      const size = Phaser.Math.Between(1, 3);
-
-      this.add.circle(
-        x, y, size, 0xffffff, 0.8
+    // Actual NASA Jezero Crater terrain
+    if (this.textures.exists("mars_terrain")) {
+      const terrain = this.add.image(
+        this.W / 2,
+        this.H / 2,
+        "mars_terrain"
       );
+
+      terrain.setDisplaySize(this.W, this.H);
+      terrain.setDepth(-24);
+
+      // Warm Mars colour grading.
+      terrain.setTint(0xe99b72);
+      terrain.setAlpha(0.96);
     }
 
-    // Lunar surface
+    // Subtle atmospheric colour overlay
     this.add.rectangle(
-      640, 640, 1280, 160, 0x555568
+      this.W / 2,
+      this.H / 2,
+      this.W,
+      this.H,
+      0xb94f35,
+      0.15
+    ).setDepth(-23);
+
+    // Horizon glow
+    const horizon = this.add.ellipse(
+      640,
+      350,
+      1250,
+      260,
+      0xf18a58,
+      0.10
     );
 
-    // Craters
-    for (let i = 0; i < 14; i++) {
+    horizon.setDepth(-22);
+
+    // Atmospheric dust particles
+    for (let i = 0; i < 45; i++) {
+      const dust = this.add.circle(
+        Phaser.Math.Between(0, this.W),
+        Phaser.Math.Between(130, this.H),
+        Phaser.Math.FloatBetween(1, 3),
+        0xffc49b,
+        Phaser.Math.FloatBetween(0.12, 0.38)
+      );
+
+      dust.setDepth(-10);
+
+      this.tweens.add({
+        targets: dust,
+        x: dust.x + Phaser.Math.Between(-35, 35),
+        y: dust.y - Phaser.Math.Between(15, 45),
+        alpha: 0.05,
+        duration: Phaser.Math.Between(3000, 6500),
+        repeat: -1,
+        yoyo: true,
+      });
+    }
+
+    // Outpost ground platform
+    this.add.ellipse(
+      650,
+      570,
+      1050,
+      190,
+      0x743b30,
+      0.23
+    ).setDepth(-5);
+
+    // Small terrain lights
+    for (let i = 0; i < 12; i++) {
       const x = Phaser.Math.Between(30, 1250);
-      const y = Phaser.Math.Between(575, 700);
-      const size = Phaser.Math.Between(12, 35);
+      const y = Phaser.Math.Between(400, 640);
 
       this.add.circle(
-        x, y, size, 0x3d4053, 0.6
-      );
+        x,
+        y,
+        Phaser.Math.Between(2, 5),
+        0xf4b08a,
+        0.25
+      ).setDepth(-3);
     }
 
+    // Fixed HUD background
+    this.add.rectangle(
+      640,
+      0,
+      1280,
+      126,
+      0x160d19,
+      0.75
+    )
+      .setOrigin(0.5, 0)
+      .setDepth(20)
+      .setScrollFactor(0);
+
     this.add.text(
-      640, 150, "MOONBASE MISSION", {
-        fontSize: "28px",
-        color: "#ffffff",
+      34,
+      145,
+      "JEZERO CRATER  /  MARS EXPLORATION ZONE 01",
+      {
+        fontFamily: "Orbitron, Arial",
+        fontSize: "12px",
+        color: "#ffe1ce",
+        letterSpacing: 2,
         fontStyle: "bold",
       }
-    ).setOrigin(0.5);
+    ).setDepth(12);
   }
 
-  // INTERACTIVE OBJECTS
+  // =========================================================
+  // 4. MARS OUTPOST STRUCTURES
+  // =========================================================
 
-  private createObjects() {
-    const base = this.add.rectangle(
-      640, 480, 180, 110, 0x94a3b8
+  private addBaseSprite(
+    key: string,
+    x: number,
+    y: number,
+    width: number,
+    depth: number,
+    name: string
+  ): Phaser.GameObjects.Image {
+    const sprite = this.add.image(x, y, key);
+
+    sprite.setDisplaySize(
+      width,
+      width * sprite.height / sprite.width
     );
 
-    this.add.text(
-      640, 480, "MOON BASE", {
-        fontSize: "18px",
-        color: "#111827",
-        fontStyle: "bold",
-      }
-    ).setOrigin(0.5);
+    sprite.setDepth(depth);
+    sprite.setName(name);
 
-    const solar = this.add.rectangle(
-      920, 510, 130, 65, 0x2563eb
+    return sprite;
+  }
+
+  private createBaseObjects(): void {
+    const habitat = this.addBaseSprite(
+      "mars_habitat",
+      620,
+      475,
+      235,
+      4,
+      "Mars Habitat"
     );
 
-    this.add.text(
-      920, 510, "SOLAR", {
-        fontSize: "16px",
-        color: "#ffffff",
-        fontStyle: "bold",
-      }
-    ).setOrigin(0.5);
-
-    const greenhouse = this.add.rectangle(
-      350, 510, 130, 65, 0x16a34a
+    const greenhouse = this.addBaseSprite(
+      "mars_greenhouse",
+      315,
+      500,
+      175,
+      5,
+      "Greenhouse"
     );
 
-    this.add.text(
-      350, 510, "GREENHOUSE", {
-        fontSize: "13px",
-        color: "#ffffff",
-        fontStyle: "bold",
-      }
-    ).setOrigin(0.5);
-
-    const radio = this.add.rectangle(
-      1100, 510, 75, 100, 0x64748b
+    const solar = this.addBaseSprite(
+      "mars_solar",
+      920,
+      535,
+      205,
+      5,
+      "Solar Panels"
     );
 
-    this.add.text(
-      1100, 510, "RADIO", {
-        fontSize: "14px",
-        color: "#ffffff",
-        fontStyle: "bold",
-      }
-    ).setOrigin(0.5);
+    const antenna = this.addBaseSprite(
+      "mars_antenna",
+      1080,
+      450,
+      115,
+      4,
+      "Communication Tower"
+    );
+
+    const oxygen = this.addBaseSprite(
+      "mars_oxygen",
+      790,
+      535,
+      65,
+      5,
+      "Oxygen Station"
+    );
 
     this.interactables = [
       {
-        name: "Moon Base",
+        name: "Mars Habitat",
         description:
-          "Your main lunar shelter. Run a safety inspection to protect the crew.",
-        object: base,
-      },
-      {
-        name: "Solar Panels",
-        description:
-          "Solar panels collect sunlight and recharge the MoonBase power supply.",
-        object: solar,
+          "Inspect the habitat and verify the crew safety systems.",
+        object: habitat,
       },
       {
         name: "Greenhouse",
         description:
-          "The greenhouse supports food production and helps maintain oxygen.",
+          "Check the greenhouse and restore oxygen production.",
         object: greenhouse,
       },
       {
-        name: "Radio Tower",
+        name: "Solar Panels",
         description:
-          "The radio tower keeps communication open with Mission Control.",
-        object: radio,
+          "Activate the solar array to recharge the colony.",
+        object: solar,
+      },
+      {
+        name: "Communication Tower",
+        description:
+          "Establish a communication link with Mission Control.",
+        object: antenna,
+      },
+      {
+        name: "Oxygen Station",
+        description:
+          "Inspect the oxygen storage and life-support equipment.",
+        object: oxygen,
       },
     ];
 
     this.objectActions = {
-      "Moon Base": {
+      "Mars Habitat": {
         resource: "safety",
         amount: 10,
-        message: "Safety inspection complete! Crew safety +10%.",
+        message:
+          "Habitat inspection complete! Crew safety improved.",
         lastUsed: -15000,
       },
 
       "Solar Panels": {
         resource: "power",
         amount: 20,
-        message: "Solar panels recharged! Power +20%.",
+        message:
+          "Solar array activated! Power restored.",
         lastUsed: -15000,
       },
 
       Greenhouse: {
         resource: "oxygen",
         amount: 15,
-        message: "Oxygen production restored! Oxygen +15%.",
+        message:
+          "Greenhouse activated! Oxygen production restored.",
         lastUsed: -15000,
       },
 
-      "Radio Tower": {
+      "Communication Tower": {
         message:
-          "Mission Control: Communication link established. Good work, astronaut!",
+          "Mission Control: Communication link established. Excellent work!",
+        lastUsed: -15000,
+      },
+
+      "Oxygen Station": {
+        resource: "oxygen",
+        amount: 10,
+        message:
+          "Oxygen station inspected! Life-support reserve improved.",
         lastUsed: -15000,
       },
     };
+
+    this.addLocationLabel(620, 355, "MARS HABITAT");
+    this.addLocationLabel(315, 410, "GREENHOUSE");
+    this.addLocationLabel(920, 445, "SOLAR ARRAY");
+    this.addLocationLabel(1080, 355, "COMMUNICATIONS");
+    this.addLocationLabel(790, 460, "OXYGEN STATION");
   }
 
-  // ASTRONAUT
-  // Body and head are children of one container.
-  // Moving the container moves both parts together.
+  private addLocationLabel(
+    x: number,
+    y: number,
+    label: string
+  ): void {
+    const text = this.add.text(x, y, label, {
+      fontFamily: "Orbitron, Arial",
+      fontSize: "10px",
+      color: "#fff0e5",
+      fontStyle: "bold",
+      letterSpacing: 1,
+      backgroundColor: "#321b20dd",
+      padding: {
+        x: 8,
+        y: 5,
+      },
+    })
+      .setOrigin(0.5)
+      .setDepth(14);
 
-  private createAstronaut() {
-    const body = this.add.rectangle(
-      0, 8, 30, 34, 0xffffff
-    );
-
-    body.setStrokeStyle(2, 0x94a3b8);
-
-    const head = this.add.circle(
-      0, -17, 12, 0x93c5fd
-    );
-
-    head.setStrokeStyle(2, 0xffffff);
-
-    const visor = this.add.ellipse(
-      3, -18, 12, 8, 0x1e3a8a
-    );
-
-    // Group all astronaut parts into one object.
-    this.astronaut = this.add.container(
-      600, 590, [
-        body,
-        head,
-        visor,
-      ]
-    );
-
-    this.astronaut.setDepth(10);
-    this.astronaut.setSize(30, 58);
+    this.tweens.add({
+      targets: text,
+      alpha: {
+        from: 0.72,
+        to: 1,
+      },
+      duration: 1500,
+      yoyo: true,
+      repeat: -1,
+    });
   }
 
-  // ROVER
+  // =========================================================
+  // 5. ASTRONAUT
+  // =========================================================
 
-  private createRover() {
-    this.rover = this.add.rectangle(
-      350, 590, 90, 45, 0xf59e0b
+  private createAstronaut(): void {
+    const selectedGender = this.registry.get(
+      "astronautGender"
     );
 
-    this.rover.setStrokeStyle(2, 0x78350f);
+    const selectedTexture = this.registry.get(
+      "astronautTexture"
+    );
+
+    let texture = "mars_boy";
+
+    if (
+      selectedTexture === "girl-astronaut" ||
+      selectedGender === "girl"
+    ) {
+      texture = "mars_girl";
+    }
+
+    if (!this.textures.exists(texture)) {
+      texture = "mars_boy";
+    }
+
+    this.astronaut = this.add.image(
+      540,
+      595,
+      texture
+    );
+
+    this.astronaut.setDisplaySize(66, 105);
+    this.astronaut.setDepth(12);
+    this.astronaut.setName("playerAstronaut");
+
+    const callsign = this.registry.get(
+      "astronautName"
+    ) || "ASTRONAUT";
 
     this.add.text(
-      350, 590, "ROVER", {
-        fontSize: "14px",
-        color: "#111827",
+      540,
+      520,
+      String(callsign).toUpperCase(),
+      {
+        fontFamily: "Orbitron, Arial",
+        fontSize: "10px",
+        color: "#ffffff",
         fontStyle: "bold",
+        backgroundColor: "#321b20dd",
+        padding: {
+          x: 6,
+          y: 4,
+        },
       }
-    ).setOrigin(0.5).setDepth(11);
+    ).setOrigin(0.5).setDepth(13);
   }
 
-  // RESOURCE DASHBOARD
+  // =========================================================
+  // 6. MARS ROVER
+  // =========================================================
 
-  private createDashboard() {
-    this.add.rectangle(
-      640, 48, 1240, 78, 0x111827, 0.96
-    )
-      .setStrokeStyle(2, 0x475569)
+  private createRover(): void {
+    this.rover = this.add.image(
+      400,
+      605,
+      "mars_rover"
+    );
+
+    this.rover.setDisplaySize(112, 72);
+    this.rover.setDepth(11);
+    this.rover.setName("MarsRover");
+  }
+
+  // =========================================================
+  // 7. TOP RESOURCE HUD
+  // =========================================================
+
+  private createTopHUD(): void {
+    const panel = this.add.graphics()
       .setDepth(25)
       .setScrollFactor(0);
 
+    panel.fillStyle(0x21131d, 0.97);
+    panel.fillRoundedRect(18, 16, 1244, 94, 18);
+
+    panel.lineStyle(1.5, 0xb9674b, 0.9);
+    panel.strokeRoundedRect(18, 16, 1244, 94, 18);
+
+    this.add.text(
+      40,
+      27,
+      "ASTRA NEXUS",
+      {
+        fontFamily: "Orbitron, Arial",
+        fontSize: "18px",
+        color: "#ffae7d",
+        fontStyle: "bold",
+        letterSpacing: 2,
+      }
+    ).setDepth(26);
+
+    this.add.text(
+      42,
+      55,
+      "MARSBASE MISSION  •  DAY 01",
+      {
+        fontFamily: "Arial",
+        fontSize: "10px",
+        color: "#e5c1ad",
+        letterSpacing: 1,
+      }
+    ).setDepth(26);
+
     const names: ResourceName[] = [
       "power",
       "oxygen",
@@ -367,226 +631,240 @@ export default class LunarWorldScene extends Phaser.Scene {
       "safety",
     ];
 
-    const startX = 45;
-    const spacing = 305;
+    const positions = [
+      310,
+      550,
+      790,
+      1030,
+    ];
 
     names.forEach((name, index) => {
       const resource = this.resources[name];
-      const x = startX + index * spacing;
+      const x = positions[index];
+
+      this.add.circle(
+        x,
+        42,
+        6,
+        resource.color
+      ).setDepth(27);
 
       this.add.text(
-        x, 17, resource.label, {
-          fontSize: "14px",
-          color: "#cbd5e1",
+        x + 15,
+        30,
+        resource.label,
+        {
+          fontFamily: "Orbitron, Arial",
+          fontSize: "10px",
+          color: "#f2dfd5",
           fontStyle: "bold",
+          letterSpacing: 1,
         }
-      )
-        .setDepth(26)
-        .setScrollFactor(0);
+      ).setDepth(27);
 
       this.add.rectangle(
-        x + 90, 58, 160, 13, 0x334155
+        x + 15,
+        67,
+        145,
+        9,
+        0x49333b
       )
         .setOrigin(0, 0.5)
-        .setDepth(26)
-        .setScrollFactor(0);
+        .setDepth(27);
 
       this.resourceBars[name] = this.add.rectangle(
-        x + 90, 58, 160, 13, resource.color
+        x + 15,
+        67,
+        145,
+        9,
+        resource.color
       )
         .setOrigin(0, 0.5)
-        .setDepth(27)
-        .setScrollFactor(0);
+        .setDepth(28);
 
       this.resourceTexts[name] = this.add.text(
-        x + 260, 48, "100%", {
-          fontSize: "18px",
+        x + 168,
+        56,
+        "100%",
+        {
+          fontFamily: "Orbitron, Arial",
+          fontSize: "13px",
           color: "#ffffff",
           fontStyle: "bold",
         }
-      )
-        .setDepth(27)
-        .setScrollFactor(0);
+      ).setDepth(28);
     });
   }
 
-  private updateDashboard() {
-    const names: ResourceName[] = [
-      "power",
-      "oxygen",
-      "water",
-      "safety",
-    ];
-
-    names.forEach((name) => {
+  private updateDashboard(): void {
+    (
+      Object.keys(this.resources) as ResourceName[]
+    ).forEach((name) => {
       const resource = this.resources[name];
 
-      this.resourceBars[name].width =
-        160 * (resource.value / 100);
-
-      this.resourceTexts[name].setText(
-        `${Math.round(resource.value)}%`
+      const value = Phaser.Math.Clamp(
+        resource.value,
+        0,
+        100
       );
 
-      const color =
-        resource.value <= 20
-          ? 0xef4444
-          : resource.value <= 50
-            ? 0xf59e0b
-            : resource.color;
+      const color = value <= 20
+        ? 0xef6262
+        : value <= 50
+          ? 0xf4bd58
+          : resource.color;
+
+      this.resourceBars[name].width =
+        145 * (value / 100);
 
       this.resourceBars[name].setFillStyle(color);
+
+      this.resourceTexts[name].setText(
+        `${Math.round(value)}%`
+      );
     });
   }
 
-  // DAY 1 MISSION PANEL
+  // =========================================================
+  // 8. MISSION OBJECTIVES
+  // =========================================================
 
-  private createMissionPanel() {
-    const background = this.add.rectangle(
-      0, 0, 270, 330, 0x111827, 0.96
-    );
+  private createMissionPanel(): void {
+    const panel = this.add.graphics()
+      .setDepth(25)
+      .setScrollFactor(0);
 
-    background.setStrokeStyle(2, 0x38bdf8);
+    panel.fillStyle(0x21131d, 0.96);
+    panel.fillRoundedRect(24, 445, 320, 238, 16);
 
-    const heading = this.add.text(
-      -115, -145, "MISSION CONTROL", {
-        fontSize: "19px",
-        color: "#38bdf8",
-        fontStyle: "bold",
-      }
-    );
+    panel.lineStyle(1.5, 0xb9674b, 0.95);
+    panel.strokeRoundedRect(24, 445, 320, 238, 16);
 
-    const dayLabel = this.add.text(
-      -115, -112, "DAY 1: ESTABLISH BASE", {
-        fontSize: "13px",
-        color: "#facc15",
-        fontStyle: "bold",
-      }
-    );
-
-    const description = this.add.text(
-      -115, -80,
-      "Prepare your lunar outpost for survival.",
+    this.add.text(
+      45,
+      463,
+      "MISSION OBJECTIVES",
       {
-        fontSize: "12px",
-        color: "#cbd5e1",
-        wordWrap: { width: 230 },
-      }
-    );
-
-    const objectiveHeading = this.add.text(
-      -115, -38, "OBJECTIVES", {
+        fontFamily: "Orbitron, Arial",
         fontSize: "14px",
-        color: "#ffffff",
+        color: "#ffae7d",
         fontStyle: "bold",
+        letterSpacing: 1,
       }
-    );
+    ).setDepth(26);
+
+    this.add.text(
+      45,
+      488,
+      "DAY 01  /  ESTABLISH THE OUTPOST",
+      {
+        fontFamily: "Arial",
+        fontSize: "10px",
+        color: "#f1c78c",
+        fontStyle: "bold",
+        letterSpacing: 0.7,
+      }
+    ).setDepth(26);
 
     this.missionProgressText = this.add.text(
-      -115, 115, "PROGRESS: 0 / 3", {
-        fontSize: "14px",
-        color: "#ffffff",
+      45,
+      650,
+      "0 / 3 COMPLETED",
+      {
+        fontFamily: "Orbitron, Arial",
+        fontSize: "11px",
+        color: "#f3e5dc",
         fontStyle: "bold",
       }
-    );
+    ).setDepth(27);
 
     this.add.rectangle(
-      0, 150, 230, 10, 0x334155
-    );
+      45,
+      672,
+      275,
+      5,
+      0x49333b
+    )
+      .setOrigin(0, 0.5)
+      .setDepth(26);
 
     this.missionProgressBar = this.add.rectangle(
-      -115, 150, 0, 10, 0x22c55e
+      45,
+      672,
+      0,
+      5,
+      0x63dfa1
     )
-      .setOrigin(0, 0.5);
+      .setOrigin(0, 0.5)
+      .setDepth(27);
 
-    const footer = this.add.text(
-      -115, 175,
-      "Complete all tasks to finish Day 1.", {
-        fontSize: "11px",
-        color: "#94a3b8",
-        wordWrap: { width: 230 },
-      }
-    );
-
-    this.missionPanel = this.add.container(
-      145, 365, [
-        background,
-        heading,
-        dayLabel,
-        description,
-        objectiveHeading,
-        this.missionProgressText,
-        this.missionProgressBar,
-        footer,
-      ]
-    );
-
-    this.missionPanel.setDepth(28);
-    this.missionPanel.setScrollFactor(0);
-
-    // Add objective rows.
     this.objectives.forEach((objective, index) => {
-      const y = 8 + index * 42;
+      const y = 525 + index * 37;
 
       const mark = this.add.text(
-        -113, y, "[ ]", {
-          fontSize: "17px",
-          color: "#facc15",
+        47,
+        y,
+        "○",
+        {
+          fontSize: "18px",
+          color: "#f1c96c",
           fontStyle: "bold",
         }
-      );
+      ).setDepth(27);
 
-      const text = this.add.text(
-        -85, y, objective.title, {
+      const label = this.add.text(
+        73,
+        y + 2,
+        objective.title,
+        {
+          fontFamily: "Arial",
           fontSize: "12px",
-          color: "#ffffff",
-          wordWrap: { width: 185 },
+          color: "#f2e4dd",
+          wordWrap: {
+            width: 245,
+          },
         }
-      );
-
-      this.missionPanel.add([mark, text]);
+      ).setDepth(27);
 
       this.objectiveMarks.push(mark);
-      this.objectiveTexts.push(text);
+      this.objectiveTexts.push(label);
     });
   }
 
-  private updateMissionPanel() {
-    const completedCount = this.objectives.filter(
-      (objective) => objective.completed
+  private updateMissionPanel(): void {
+    const completed = this.objectives.filter(
+      objective => objective.completed
     ).length;
 
     this.missionProgressText.setText(
-      `PROGRESS: ${completedCount} / ${this.objectives.length}`
+      `${completed} / ${this.objectives.length} COMPLETED`
     );
 
-    const percentage =
-      completedCount / this.objectives.length;
-
     this.missionProgressBar.width =
-      230 * percentage;
+      275 * completed / this.objectives.length;
 
     this.objectives.forEach((objective, index) => {
-      const mark = this.objectiveMarks[index];
-      const text = this.objectiveTexts[index];
+      this.objectiveMarks[index]
+        .setText(objective.completed ? "✓" : "○")
+        .setColor(
+          objective.completed
+            ? "#63dfa1"
+            : "#f1c96c"
+        );
 
-      if (objective.completed) {
-        mark.setText("[✓]");
-        mark.setColor("#22c55e");
-        text.setColor("#86efac");
-      } else {
-        mark.setText("[ ]");
-        mark.setColor("#facc15");
-        text.setColor("#ffffff");
-      }
+      this.objectiveTexts[index].setColor(
+        objective.completed
+          ? "#8ce8b8"
+          : "#f2e4dd"
+      );
     });
   }
 
-  private completeObjective(id: string) {
+  private completeObjective(id: string): void {
     if (this.missionCompleted) return;
 
     const objective = this.objectives.find(
-      (item) => item.id === id
+      item => item.id === id
     );
 
     if (!objective || objective.completed) return;
@@ -597,97 +875,147 @@ export default class LunarWorldScene extends Phaser.Scene {
 
     this.showNotification(
       `OBJECTIVE COMPLETE: ${objective.title}`,
-      "#86efac"
+      "#8ce8b8"
     );
 
-    const allCompleted = this.objectives.every(
-      (item) => item.completed
-    );
-
-    if (allCompleted) {
+    if (
+      this.objectives.every(
+        item => item.completed
+      )
+    ) {
       this.completeDayOne();
     }
   }
 
-  private completeDayOne() {
+  private completeDayOne(): void {
     if (this.missionCompleted) return;
 
     this.missionCompleted = true;
 
     this.showNotification(
-      "DAY 1 COMPLETE! Your MoonBase is established. Mission accomplished!",
-      "#facc15"
+      "DAY 01 COMPLETE! Your Mars outpost is established!",
+      "#f4d477"
     );
 
     this.missionProgressText.setText(
-      "DAY 1: COMPLETED!"
+      "DAY 01 COMPLETE!"
     );
 
-    this.missionProgressText.setColor(
-      "#86efac"
-    );
-
-    const unlockText = this.add.text(
-      -115, 205, "DAY 2 UNLOCKED SOON!", {
-        fontSize: "12px",
-        color: "#facc15",
-        fontStyle: "bold",
-      }
-    );
-
-    this.missionPanel.add(unlockText);
+    this.missionProgressText.setColor("#8ce8b8");
   }
 
-  // UI MESSAGES
+  // =========================================================
+  // 9. INTERACTION UI
+  // =========================================================
 
-  private createMessages() {
+  private createInteractionBar(): void {
+    const bar = this.add.graphics()
+      .setDepth(29)
+      .setScrollFactor(0);
+
+    bar.fillStyle(0x21131d, 0.96);
+    bar.fillRoundedRect(390, 650, 500, 48, 14);
+
+    bar.lineStyle(1, 0xb9674b, 0.9);
+    bar.strokeRoundedRect(390, 650, 500, 48, 14);
+
     this.interactionText = this.add.text(
-      640, 665, "", {
-        fontSize: "18px",
-        color: "#ffffff",
-        backgroundColor: "#111827",
-        padding: { x: 12, y: 7 },
+      640,
+      674,
+      "WASD / ARROWS  MOVE     •     E  INTERACT",
+      {
+        fontFamily: "Orbitron, Arial",
+        fontSize: "11px",
+        color: "#f5e4dc",
+        fontStyle: "bold",
+        letterSpacing: 0.5,
       }
     )
       .setOrigin(0.5)
       .setDepth(30)
       .setScrollFactor(0);
+  }
 
+  private createNotifications(): void {
     this.warningText = this.add.text(
-      640, 105, "", {
-        fontSize: "17px",
-        color: "#fca5a5",
-        backgroundColor: "#450a0a",
-        padding: { x: 12, y: 8 },
-        align: "center",
-      }
-    )
-      .setOrigin(0.5)
-      .setDepth(31)
-      .setScrollFactor(0);
-
-    this.warningText.setVisible(false);
-
-    this.notificationText = this.add.text(
-      640, 145, "", {
-        fontSize: "18px",
-        color: "#86efac",
-        backgroundColor: "#052e16",
-        padding: { x: 12, y: 9 },
-        align: "center",
-        wordWrap: { width: 650 },
+      640,
+      132,
+      "",
+      {
+        fontFamily: "Orbitron, Arial",
+        fontSize: "13px",
+        color: "#ffaaaa",
+        backgroundColor: "#481b2acc",
+        padding: {
+          x: 14,
+          y: 9,
+        },
+        fontStyle: "bold",
       }
     )
       .setOrigin(0.5)
       .setDepth(35)
       .setScrollFactor(0);
 
+    this.warningText.setVisible(false);
+
+    this.notificationText = this.add.text(
+      640,
+      175,
+      "",
+      {
+        fontFamily: "Arial",
+        fontSize: "15px",
+        color: "#8ce8b8",
+        backgroundColor: "#321b20ee",
+        padding: {
+          x: 16,
+          y: 11,
+        },
+        align: "center",
+        wordWrap: {
+          width: 650,
+        },
+      }
+    )
+      .setOrigin(0.5)
+      .setDepth(36)
+      .setScrollFactor(0);
+
     this.notificationText.setVisible(false);
   }
 
-  // KEYBOARD CONTROLS
+  private showNotification(
+    message: string,
+    color: string
+  ): void {
+    this.notificationText.setText(message);
+    this.notificationText.setColor(color);
+    this.notificationText.setAlpha(1);
+    this.notificationText.setVisible(true);
 
-  private createControls() {
+    this.tweens.killTweensOf(
+      this.notificationText
+    );
+
+    this.tweens.add({
+      targets: this.notificationText,
+      alpha: 0,
+      delay: 2600,
+      duration: 500,
+
+      onComplete: () => {
+        this.notificationText.setVisible(false);
+        this.notificationText.setAlpha(1);
+      },
+    });
+  }
+
+  // =========================================================
+  // 10. INPUT CONTROLS
+  // =========================================================
+
+  private createControls(): void {
     if (!this.input.keyboard) return;
 
     this.cursors =
@@ -697,24 +1025,30 @@ export default class LunarWorldScene extends Phaser.Scene {
       W: this.input.keyboard.addKey(
         Phaser.Input.Keyboard.KeyCodes.W
       ),
+
       A: this.input.keyboard.addKey(
         Phaser.Input.Keyboard.KeyCodes.A
       ),
+
       S: this.input.keyboard.addKey(
         Phaser.Input.Keyboard.KeyCodes.S
       ),
+
       D: this.input.keyboard.addKey(
         Phaser.Input.Keyboard.KeyCodes.D
       ),
+
       E: this.input.keyboard.addKey(
         Phaser.Input.Keyboard.KeyCodes.E
       ),
     };
   }
 
-  // MAIN GAME LOOP
+  // =========================================================
+  // 11. GAME LOOP
+  // =========================================================
 
-  update(_time: number, delta: number) {
+  update(_time: number, delta: number): void {
     this.updateResourceDrain(delta);
     this.updateWarning(delta);
 
@@ -726,31 +1060,28 @@ export default class LunarWorldScene extends Phaser.Scene {
     this.moveAstronaut();
     this.checkInteractions();
 
-    if (
-      Phaser.Input.Keyboard.JustDown(this.keys.E)
-    ) {
-      // Rover gets priority over nearby equipment.
-      const roverDistance = Phaser.Math.Distance.Between(
-        this.astronaut.x,
-        this.astronaut.y,
-        this.rover.x,
-        this.rover.y
-      );
+    if (Phaser.Input.Keyboard.JustDown(this.keys.E)) {
+      const roverDistance =
+        Phaser.Math.Distance.Between(
+          this.astronaut.x,
+          this.astronaut.y,
+          this.rover.x,
+          this.rover.y
+        );
 
-      if (roverDistance < 85) {
+      if (roverDistance < 95) {
         this.enterRover();
-        return;
-      }
-
-      if (this.currentInteractable) {
+      } else if (this.currentInteractable) {
         this.useObject(this.currentInteractable);
       }
     }
   }
 
-  // ASTRONAUT MOVEMENT
+  // =========================================================
+  // 12. ASTRONAUT MOVEMENT
+  // =========================================================
 
-  private moveAstronaut() {
+  private moveAstronaut(): void {
     const speed = 3;
 
     let dx = 0;
@@ -759,88 +1090,85 @@ export default class LunarWorldScene extends Phaser.Scene {
     if (
       this.cursors.left.isDown ||
       this.keys.A.isDown
-    ) {
-      dx -= speed;
-    }
+    ) dx -= speed;
 
     if (
       this.cursors.right.isDown ||
       this.keys.D.isDown
-    ) {
-      dx += speed;
-    }
+    ) dx += speed;
 
     if (
       this.cursors.up.isDown ||
       this.keys.W.isDown
-    ) {
-      dy -= speed;
-    }
+    ) dy -= speed;
 
     if (
       this.cursors.down.isDown ||
       this.keys.S.isDown
-    ) {
-      dy += speed;
-    }
+    ) dy += speed;
 
     this.astronaut.x = Phaser.Math.Clamp(
       this.astronaut.x + dx,
-      20,
-      1260
-    );
-
-    this.astronaut.y = Phaser.Math.Clamp(
-      this.astronaut.y + dy,
-      540,
-      620
-    );
-  }
-
-  // ROVER MOVEMENT
-
-  private driveRover() {
-    const speed = 5;
-
-    if (
-      this.cursors.left.isDown ||
-      this.keys.A.isDown
-    ) {
-      this.rover.x -= speed;
-    }
-
-    if (
-      this.cursors.right.isDown ||
-      this.keys.D.isDown
-    ) {
-      this.rover.x += speed;
-    }
-
-    if (
-      this.cursors.up.isDown ||
-      this.keys.W.isDown
-    ) {
-      this.rover.y -= speed;
-    }
-
-    if (
-      this.cursors.down.isDown ||
-      this.keys.S.isDown
-    ) {
-      this.rover.y += speed;
-    }
-
-    this.rover.x = Phaser.Math.Clamp(
-      this.rover.x,
       30,
       1250
     );
 
-    this.rover.y = Phaser.Math.Clamp(
-      this.rover.y,
-      560,
-      670
+    this.astronaut.y = Phaser.Math.Clamp(
+      this.astronaut.y + dy,
+      150,
+      635
     );
+
+    if (dx !== 0) {
+      this.astronaut.setFlipX(dx < 0);
+    }
+  }
+
+  // =========================================================
+  // 13. ROVER MOVEMENT
+  // =========================================================
+
+  private driveRover(): void {
+    const speed = 5;
+
+    let dx = 0;
+    let dy = 0;
+
+    if (
+      this.cursors.left.isDown ||
+      this.keys.A.isDown
+    ) dx -= speed;
+
+    if (
+      this.cursors.right.isDown ||
+      this.keys.D.isDown
+    ) dx += speed;
+
+    if (
+      this.cursors.up.isDown ||
+      this.keys.W.isDown
+    ) dy -= speed;
+
+    if (
+      this.cursors.down.isDown ||
+      this.keys.S.isDown
+    ) dy += speed;
+
+    this.rover.x = Phaser.Math.Clamp(
+      this.rover.x + dx,
+      35,
+      1245
+    );
+
+    this.rover.y = Phaser.Math.Clamp(
+      this.rover.y + dy,
+      150,
+      650
+    );
+
+    if (dx !== 0) {
+      this.rover.setFlipX(dx < 0);
+    }
 
     if (
       Phaser.Input.Keyboard.JustDown(this.keys.E)
@@ -849,72 +1177,75 @@ export default class LunarWorldScene extends Phaser.Scene {
     }
   }
 
-  private enterRover() {
+  private enterRover(): void {
     this.isDriving = true;
-    this.astronaut.setVisible(false);
 
+    this.astronaut.setVisible(false);
     this.currentInteractable = null;
 
     this.interactionText.setText(
-      "Driving rover — press E to exit"
+      "ROVER MODE  •  WASD TO DRIVE  •  E TO EXIT"
     );
   }
 
-  private exitRover() {
+  private exitRover(): void {
     this.isDriving = false;
 
     this.astronaut.setPosition(
       Phaser.Math.Clamp(
-        this.rover.x + 65,
-        20,
-        1260
+        this.rover.x + 75,
+        30,
+        1250
       ),
       Phaser.Math.Clamp(
         this.rover.y,
-        540,
-        620
+        150,
+        635
       )
     );
 
     this.astronaut.setVisible(true);
 
     this.interactionText.setText(
-      "WASD / Arrow keys: Move | E: Interact"
+      "WASD / ARROWS  MOVE     •     E  INTERACT"
     );
   }
 
-  // INTERACTION DETECTION
+  // =========================================================
+  // 14. INTERACTION DETECTION
+  // =========================================================
 
-  private checkInteractions() {
+  private checkInteractions(): void {
     let nearest: Interactable | null = null;
     let nearestDistance = Infinity;
 
     for (const item of this.interactables) {
-      const object =
-        item.object as Phaser.GameObjects.Rectangle;
+      const object = item.object;
 
-      // Find the nearest point on the object's boundary.
+      const bounds = object.getBounds();
+
       const closestX = Phaser.Math.Clamp(
         this.astronaut.x,
-        object.x - object.width / 2,
-        object.x + object.width / 2
+        bounds.left,
+        bounds.right
       );
 
       const closestY = Phaser.Math.Clamp(
         this.astronaut.y,
-        object.y - object.height / 2,
-        object.y + object.height / 2
+        bounds.top,
+        bounds.bottom
       );
 
-      const distance = Phaser.Math.Distance.Between(
-        this.astronaut.x,
-        this.astronaut.y,
-        closestX,
-        closestY
-      );
+      const distance =
+        Phaser.Math.Distance.Between(
+          this.astronaut.x,
+          this.astronaut.y,
+          closestX,
+          closestY
+        );
 
       if (
-        distance < 45 &&
+        distance < 55 &&
         distance < nearestDistance
       ) {
         nearestDistance = distance;
@@ -924,37 +1255,40 @@ export default class LunarWorldScene extends Phaser.Scene {
 
     this.currentInteractable = nearest;
 
-    const roverDistance = Phaser.Math.Distance.Between(
-      this.astronaut.x,
-      this.astronaut.y,
-      this.rover.x,
-      this.rover.y
-    );
+    const roverDistance =
+      Phaser.Math.Distance.Between(
+        this.astronaut.x,
+        this.astronaut.y,
+        this.rover.x,
+        this.rover.y
+      );
 
-    if (roverDistance < 85) {
+    if (roverDistance < 95) {
       this.interactionText.setText(
-        "Press E to enter rover"
+        "PRESS E TO ENTER ROVER"
       );
     } else if (nearest) {
       this.interactionText.setText(
-        `Press E to use ${nearest.name}`
+        `PRESS E TO INSPECT ${nearest.name.toUpperCase()}`
       );
     } else {
       this.interactionText.setText(
-        "WASD / Arrow keys: Move | E: Interact"
+        "WASD / ARROWS  MOVE     •     E  INTERACT"
       );
     }
   }
 
-  // OBJECT ACTIONS AND COOLDOWNS
+  // =========================================================
+  // 15. OBJECT ACTIONS
+  // =========================================================
 
-  private useObject(item: Interactable) {
+  private useObject(item: Interactable): void {
     const action = this.objectActions[item.name];
 
     if (!action) return;
 
-    const now = this.time.now;
-    const elapsed = now - action.lastUsed;
+    const elapsed =
+      this.time.now - action.lastUsed;
 
     if (elapsed < this.cooldownDuration) {
       const remaining = Math.ceil(
@@ -963,13 +1297,13 @@ export default class LunarWorldScene extends Phaser.Scene {
 
       this.showNotification(
         `${item.name} is recharging. Try again in ${remaining}s.`,
-        "#fcd34d"
+        "#f4d477"
       );
 
       return;
     }
 
-    action.lastUsed = now;
+    action.lastUsed = this.time.now;
 
     if (action.resource && action.amount) {
       const before =
@@ -980,31 +1314,26 @@ export default class LunarWorldScene extends Phaser.Scene {
         action.amount
       );
 
-      const after =
-        this.resources[action.resource].value;
+      const increase =
+        this.resources[action.resource].value - before;
 
-      const actualIncrease = after - before;
+      this.showNotification(
+        increase > 0
+          ? `${action.message} +${increase}% ${this.resources[action.resource].label}.`
+          : `${this.resources[action.resource].label} is already full!`,
 
-      if (actualIncrease > 0) {
-        this.showNotification(
-          `${action.message} Actual increase: +${actualIncrease}%.`,
-          "#86efac"
-        );
-      } else {
-        this.showNotification(
-          `${this.resources[action.resource].label} is already full!`,
-          "#fcd34d"
-        );
-      }
+        increase > 0
+          ? "#8ce8b8"
+          : "#f4d477"
+      );
     } else {
       this.showNotification(
         action.message,
-        "#93c5fd"
+        "#a8dfff"
       );
     }
 
-    // Complete the corresponding Day 1 objective.
-    if (item.name === "Moon Base") {
+    if (item.name === "Mars Habitat") {
       this.completeObjective("base");
     }
 
@@ -1017,54 +1346,25 @@ export default class LunarWorldScene extends Phaser.Scene {
     }
   }
 
-  // RESOURCE CHANGES
-
   private changeResource(
     name: ResourceName,
     amount: number
-  ) {
-    const resource = this.resources[name];
-
-    resource.value = Phaser.Math.Clamp(
-      resource.value + amount,
-      0,
-      100
-    );
+  ): void {
+    this.resources[name].value =
+      Phaser.Math.Clamp(
+        this.resources[name].value + amount,
+        0,
+        100
+      );
 
     this.updateDashboard();
   }
 
-  // NOTIFICATIONS
+  // =========================================================
+  // 16. RESOURCE DEPLETION
+  // =========================================================
 
-  private showNotification(
-    message: string,
-    color: string
-  ) {
-    this.notificationText.setText(message);
-    this.notificationText.setColor(color);
-    this.notificationText.setVisible(true);
-    this.notificationText.setAlpha(1);
-
-    this.tweens.killTweensOf(
-      this.notificationText
-    );
-
-    this.tweens.add({
-      targets: this.notificationText,
-      alpha: 0,
-      delay: 2500,
-      duration: 500,
-
-      onComplete: () => {
-        this.notificationText.setVisible(false);
-        this.notificationText.setAlpha(1);
-      },
-    });
-  }
-
-  // RESOURCE DRAIN
-
-  private updateResourceDrain(delta: number) {
+  private updateResourceDrain(delta: number): void {
     this.drainTimer += delta;
 
     if (this.drainTimer >= 10000) {
@@ -1083,24 +1383,24 @@ export default class LunarWorldScene extends Phaser.Scene {
     }
   }
 
-  // LOW RESOURCE WARNINGS
+  // =========================================================
+  // 17. RESOURCE WARNINGS
+  // =========================================================
 
-  private updateWarning(delta: number) {
+  private updateWarning(delta: number): void {
     this.warningTimer += delta;
 
     if (this.warningTimer < 500) return;
 
     this.warningTimer = 0;
 
-    const lowResources = Object.entries(
-      this.resources
-    )
+    const low = Object.entries(this.resources)
       .filter(([, resource]) => resource.value <= 20)
       .map(([name]) => name.toUpperCase());
 
-    if (lowResources.length > 0) {
+    if (low.length > 0) {
       this.warningText.setText(
-        `WARNING: LOW ${lowResources.join(", ")}!`
+        `⚠ LOW RESOURCE WARNING: ${low.join(", ")}`
       );
 
       this.warningText.setVisible(true);
