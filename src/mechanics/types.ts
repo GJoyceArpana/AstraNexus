@@ -6,6 +6,14 @@ export type HabitatShell = 'inflatable_kevlar' | 'rigid_composite' | 'regolith_h
 export type RoverTool = 'percussion_drill' | 'regolith_dozer' | 'spectrometer_arm';
 export type BleepHat = 'comms_dish' | 'solar_cap' | 'radiation_dosimeter';
 
+export type {
+    HabitatShellConfig,
+    RoverToolConfig,
+    BleepHatConfig,
+    CombinedLoadoutEffects,
+} from '../systems/TradeOffSystem.ts';
+export { createInitialGameState } from '../systems/TradeOffSystem.ts';
+
 // Task #4: Six power switchboard modules
 export type ModuleId =
     | 'life_support'
