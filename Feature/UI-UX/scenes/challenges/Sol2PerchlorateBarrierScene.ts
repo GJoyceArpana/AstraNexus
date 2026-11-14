@@ -4,8 +4,6 @@ import { ButtonFactory, SoundFX } from "../../components/ButtonFactory.ts";
 import SolChallengeBaseScene from "./SolChallengeBaseScene.ts";
 
 type Sol2GameState =
-    | "INTRO_STORM"
-    | "ASTRONAUT_ENTRY"
     | "ACTION_GAMEPLAY"
     | "ARRAY_PUZZLE"
     | "MISSION_COMPLETE"
@@ -42,12 +40,8 @@ interface SolarArrayStation {
     solarCells: Phaser.GameObjects.Graphics;
     glowGraphic: Phaser.GameObjects.Graphics;
     dustProgressText: Phaser.GameObjects.Text;
-    cleanPercent: number; // 0 to 100
     isCleaned: boolean;
     questionSolved: boolean;
-    promptContainer: Phaser.GameObjects.Container;
-    promptText: Phaser.GameObjects.Text;
-    promptBg: Phaser.GameObjects.Graphics;
 }
 
 interface DustDevilItem {
@@ -58,9 +52,9 @@ interface DustDevilItem {
 }
 
 export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
-    private gameState: Sol2GameState = "INTRO_STORM";
+    private gameState: Sol2GameState = "ACTION_GAMEPLAY";
 
-    // Player Astronaut - Compact Kid Scale (Does not block solar arrays!)
+    // Player Cadet - Compact scale (0.24) placed BELOW the grid lane
     private readonly PLAYER_SCALE = 0.24;
     private astronautContainer!: Phaser.GameObjects.Container;
     private astronautSprite!: Phaser.GameObjects.Image;
@@ -74,7 +68,6 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         A: Phaser.Input.Keyboard.Key;
         S: Phaser.Input.Keyboard.Key;
         D: Phaser.Input.Keyboard.Key;
-        SPACE: Phaser.Input.Keyboard.Key;
     };
 
     // Continuous Dust Storm System
@@ -84,7 +77,6 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     private activeDustSpecks: Phaser.GameObjects.Arc[] = [];
 
     // Visual Containers & Panels
-    private introAlertBanner!: Phaser.GameObjects.Container;
     private equipmentPanelContainer!: Phaser.GameObjects.Container;
     private puzzleModalContainer?: Phaser.GameObjects.Container;
     private missionCompleteModalContainer?: Phaser.GameObjects.Container;
@@ -95,10 +87,11 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     private sunsetOverlay!: Phaser.GameObjects.Graphics;
     private nasaTelemetryPill?: Phaser.GameObjects.Container;
 
-    // Solar Arrays on Arcadia Planitia
+    // Solar Arrays on Arcadia Planitia (Positioned at y = 390, Cadet walks at y = 570 BELOW the grid)
     private solarStations: SolarArrayStation[] = [];
     private cleanedStationsCount = 0;
-    private currentPuzzleStationIdx: number | null = null;
+    private isPuzzleModalOpen = false;
+    private activePuzzleStationIdx: number | null = null;
 
     // Playful Little Dust Devils bouncing around
     private dustDevils: DustDevilItem[] = [];
@@ -191,7 +184,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             title: "SOL 2: DUST DEVIL CLEANUP AT ARCADIA PLANITIA",
             codename: "ARCADIA SOLAR RESTORATION",
             hazardBadge: "PLAYFUL DUST DEVIL WHIRLWINDS",
-            briefing: "A cheeky Martian whirlwind covered our solar panels in sticky red sand! Run across Arcadia Planitia, dodge the bouncy dust devils, solve the science puzzle for each panel, and blow the dust away before sunset!",
+            briefing: "A cheeky Martian whirlwind covered our solar panels in sticky red sand! Walk across Arcadia Planitia below the panels, dodge the bouncy dust devils, solve the science puzzle at each array, and restore 100% base power!",
             nasaFact: "Did you know? Dust devils on Mars can grow taller than Mount Everest! The dry red sand sticks like static cling until neutral gas blows it clean.",
             primaryTarget: "Solve puzzles & blast dust off all 4 solar panels before dark!",
             unit: "Panels Cleaned",
@@ -229,28 +222,27 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         // 5. Setup Base Power Meter Console
         this.createBasePowerMeterHUD();
 
-        // 6. Construct 4 Solar Panel Array Stations across Arcadia Planitia
+        // 6. Construct 4 Solar Panel Array Stations in a clear upper row (y = 390)
         this.createSolarPanelStations();
 
-        // 7. Spawn 3 Playful Little Dust Devils bouncing around the plain
+        // 7. Spawn 3 Playful Little Dust Devils bouncing around
         this.createPlayfulDustDevils();
 
-        // 8. Setup Player Astronaut Character & Controls (Compact scale!)
+        // 8. Setup Player Cadet strictly BELOW the grid (y = 570)
         this.createPlayerAstronaut();
         this.setupKeyboardControls();
 
         // 9. Fetch Live NASA InSight Weather & Dust Telemetry from Backend
         this.fetchNasaDustTelemetry();
 
-        // 10. Start Stage 1: Main Concept Intro Storm Animation
-        this.startDustDevilStrikeIntroAnimation();
+        // 10. Start directly in ACTION_GAMEPLAY (No blocking pop-ups on launch!)
+        this.startDirectActionGameplay();
     }
 
     // =========================================================================
     // ARCADIA PLANITIA SURFACE PANORAMA
     // =========================================================================
     private createArcadiaPlanitiaBase() {
-        // Sky, distant mountains, and wide flat plain
         this.createMartianSurfaceBase(0x1B0E20, 0xE06F38, 0x984428);
 
         // Arcadia Planitia Flat Horizon Grid lines (subtle atmospheric perspective)
@@ -261,18 +253,23 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             plainDetail.lineBetween(0, y, this.W, y);
         }
 
-        // Arcadia Planitia Landmark Signpost
-        const signContainer = this.add.container(105, 420).setDepth(5);
+        // Dedicated Cadet Walking Lane Guide Line (distinctly BELOW the solar array grid)
+        const walkLane = this.add.graphics().setDepth(10);
+        walkLane.lineStyle(1.5, 0xC45B32, 0.25);
+        walkLane.lineBetween(40, 570, this.W - 40, 570);
+
+        // Landmark Signpost
+        const signContainer = this.add.container(95, 370).setDepth(5);
         const signBg = this.add.graphics();
         signBg.fillStyle(0x0E1A2C, 0.9);
-        signBg.fillRoundedRect(-75, -16, 150, 32, 6);
+        signBg.fillRoundedRect(-70, -14, 140, 28, 6);
         signBg.lineStyle(1.5, UITheme.colors.primaryCyan, 0.8);
-        signBg.strokeRoundedRect(-75, -16, 150, 32, 6);
+        signBg.strokeRoundedRect(-70, -14, 140, 28, 6);
         signContainer.add(signBg);
 
-        const signText = this.add.text(0, 0, "ARCADIA PLANITIA\nSOLAR FIELD 02", {
+        const signText = this.add.text(0, 0, "ARCADIA SOLAR FIELD", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "9px",
+            fontSize: "8.5px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold",
             align: "center"
@@ -286,19 +283,17 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     private createContinuousDustStorm() {
         this.isDustStormActive = true;
 
-        // Dynamic dust storm haze over the Martian plain
         this.dustStormHaze = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0xD05A2A, 0.16).setDepth(20);
 
         this.tweens.add({
             targets: this.dustStormHaze,
-            alpha: 0.28,
+            alpha: 0.26,
             duration: 1800,
             yoyo: true,
             repeat: -1,
             ease: "Sine.easeInOut"
         });
 
-        // Continuous streaming dust particles flying from right to left
         this.ambientDustTimer = this.time.addEvent({
             delay: 160,
             loop: true,
@@ -313,7 +308,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     private spawnDustStormParticle() {
         if (!this.isDustStormActive) return;
 
-        const startY = Phaser.Math.Between(370, 660);
+        const startY = Phaser.Math.Between(340, 660);
         const color = Phaser.Utils.Array.GetRandom([0xD86638, 0xC05220, 0xEE8A45, 0xB84B28]);
         const radius = Phaser.Math.FloatBetween(2, 5.5);
 
@@ -341,14 +336,12 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             this.ambientDustTimer.destroy();
         }
 
-        // Fade out storm haze
         this.tweens.add({
             targets: this.dustStormHaze,
             alpha: 0,
             duration: 1500
         });
 
-        // Fade out existing specks
         this.activeDustSpecks.forEach(p => {
             this.tweens.add({
                 targets: p,
@@ -359,7 +352,6 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         });
         this.activeDustSpecks = [];
 
-        // Spin down and poof away playful dust devils
         this.dustDevils.forEach(d => {
             this.tweens.add({
                 targets: d.container,
@@ -533,14 +525,15 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     }
 
     // =========================================================================
-    // SOLAR PANEL ARRAY STATIONS (4 on Arcadia Planitia)
+    // SOLAR PANEL ARRAY STATIONS (All 4 in a clear upper row: y = 390)
     // =========================================================================
     private createSolarPanelStations() {
+        // Arranged horizontally across the upper plain so they are NEVER blocked by the cadet!
         const positions = [
-            { x: 230, y: 450 },
-            { x: 500, y: 495 },
-            { x: 770, y: 455 },
-            { x: 1040, y: 510 }
+            { x: 220, y: 390 },
+            { x: 490, y: 390 },
+            { x: 760, y: 390 },
+            { x: 1030, y: 390 }
         ];
 
         positions.forEach((pos, idx) => {
@@ -549,51 +542,51 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             // Ground base pad
             const pad = this.add.graphics();
             pad.fillStyle(0x1B2A3D, 0.9);
-            pad.fillRoundedRect(-70, 38, 140, 18, 4);
+            pad.fillRoundedRect(-65, 34, 130, 16, 4);
             pad.lineStyle(1.5, 0x364D6C, 1);
-            pad.strokeRoundedRect(-70, 38, 140, 18, 4);
+            pad.strokeRoundedRect(-65, 34, 130, 16, 4);
             container.add(pad);
 
             // Support pylons
             const pylon = this.add.graphics();
             pylon.lineStyle(4, 0x485E7D, 1);
-            pylon.lineBetween(-30, 40, -15, 10);
-            pylon.lineBetween(30, 40, 15, 10);
-            pylon.lineBetween(0, 40, 0, 10);
+            pylon.lineBetween(-28, 36, -14, 10);
+            pylon.lineBetween(28, 36, 14, 10);
+            pylon.lineBetween(0, 36, 0, 10);
             container.add(pylon);
 
             // Photovoltaic Silicon Cells (Crystalline Blue Solar Glass)
             const solarCells = this.add.graphics();
             solarCells.fillStyle(0x0C3B66, 1);
-            solarCells.fillRoundedRect(-65, -45, 130, 60, 6);
+            solarCells.fillRoundedRect(-65, -45, 130, 58, 6);
             solarCells.lineStyle(2, 0x00E5FF, 0.9);
-            solarCells.strokeRoundedRect(-65, -45, 130, 60, 6);
+            solarCells.strokeRoundedRect(-65, -45, 130, 58, 6);
 
-            // Cell grid lines
+            // Grid lines
             solarCells.lineStyle(1, 0x1A6FA8, 0.7);
-            solarCells.lineBetween(-20, -45, -20, 15);
-            solarCells.lineBetween(20, -45, 20, 15);
-            solarCells.lineBetween(-65, -15, 65, -15);
+            solarCells.lineBetween(-20, -45, -20, 13);
+            solarCells.lineBetween(20, -45, 20, 13);
+            solarCells.lineBetween(-65, -16, 65, -16);
             container.add(solarCells);
 
             // Clean Solar Reflection Glow Halo
             const glowGraphic = this.add.graphics();
-            glowGraphic.fillStyle(0x00E5FF, 0.25);
-            glowGraphic.fillEllipse(0, -15, 150, 75);
+            glowGraphic.fillStyle(0x00E5FF, 0.35);
+            glowGraphic.fillEllipse(0, -16, 145, 70);
             glowGraphic.setAlpha(0);
             container.add(glowGraphic);
 
             // Red Martian Dust Layer Overlay (Initially coated with thick red dust)
             const dustLayer = this.add.graphics();
             dustLayer.fillStyle(0xB84B28, 0.95);
-            dustLayer.fillRoundedRect(-65, -45, 130, 60, 6);
+            dustLayer.fillRoundedRect(-65, -45, 130, 58, 6);
             for (let d = 0; d < 18; d++) {
                 dustLayer.fillStyle(0xD86638, 0.85);
                 dustLayer.fillCircle(-50 + (d * 7) % 110, -35 + (d * 11) % 45, 3.5);
             }
             container.add(dustLayer);
 
-            // Dust Percentage Tag on Station
+            // Status Tag on Station (Above panel)
             const dustProgressText = this.add.text(0, -58, "🔴 DUST: 100%", {
                 fontFamily: UITheme.fonts.heading,
                 fontSize: "10px",
@@ -602,8 +595,8 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             }).setOrigin(0.5);
             container.add(dustProgressText);
 
-            // Station Number Tag
-            const stationTag = this.add.text(0, 46, `SOLAR ARRAY 0${idx + 1}`, {
+            // Station Number Tag (Below panel)
+            const stationTag = this.add.text(0, 42, `SOLAR ARRAY 0${idx + 1}`, {
                 fontFamily: UITheme.fonts.heading,
                 fontSize: "8.5px",
                 color: UITheme.colors.primaryCyanStr,
@@ -611,40 +604,15 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             }).setOrigin(0.5);
             container.add(stationTag);
 
-            // Interactive Interaction Prompt Button
-            const promptContainer = this.add.container(0, -86);
-            promptContainer.setAlpha(0);
-
-            const promptBg = this.add.graphics();
-            promptBg.fillStyle(UITheme.colors.solarGold, 1);
-            promptBg.fillRoundedRect(-85, -14, 170, 28, 6);
-            promptContainer.add(promptBg);
-
-            const promptText = this.add.text(0, 0, "❓ SOLVE PUZZLE (SPACE)", {
-                fontFamily: UITheme.fonts.heading,
-                fontSize: "9px",
-                color: "#080F1D",
-                fontStyle: "bold"
-            }).setOrigin(0.5);
-            promptContainer.add(promptText);
-
-            const promptHit = this.add.rectangle(0, 0, 170, 28, 0x000000, 0.001);
-            promptHit.setInteractive({ useHandCursor: true });
-            promptContainer.add(promptHit);
-
-            promptHit.on("pointerdown", () => {
-                this.interactWithSolarPanel(idx);
-            });
-
-            container.add(promptContainer);
-
-            // Direct Click on panel also interacts
-            const panelHit = this.add.rectangle(0, -15, 130, 60, 0x000000, 0.001);
+            // Direct Click on panel initiates problem puzzle
+            const panelHit = this.add.rectangle(0, -16, 130, 58, 0x000000, 0.001);
             panelHit.setInteractive({ useHandCursor: true });
             container.add(panelHit);
 
             panelHit.on("pointerdown", () => {
-                this.interactWithSolarPanel(idx);
+                if (!this.isPuzzleModalOpen && !this.solarStations[idx].isCleaned) {
+                    this.openArrayPuzzleModal(idx);
+                }
             });
 
             this.solarStations.push({
@@ -656,31 +624,26 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
                 solarCells,
                 glowGraphic,
                 dustProgressText,
-                cleanPercent: 0,
                 isCleaned: false,
-                questionSolved: false,
-                promptContainer,
-                promptText,
-                promptBg
+                questionSolved: false
             });
         });
     }
 
     // =========================================================================
-    // PLAYFUL LITTLE DUST DEVILS BOUNCING AROUND ARCADIA PLANITIA
+    // PLAYFUL LITTLE DUST DEVILS BOUNCING AROUND
     // =========================================================================
     private createPlayfulDustDevils() {
         const devilConfigs = [
-            { x: 380, y: 480, vx: 75, vy: 50, scale: 0.8 },
-            { x: 680, y: 530, vx: -85, vy: 65, scale: 0.9 },
-            { x: 920, y: 470, vx: 60, vy: -70, scale: 0.75 }
+            { x: 360, y: 470, vx: 75, vy: 40, scale: 0.75 },
+            { x: 640, y: 510, vx: -80, vy: 55, scale: 0.8 },
+            { x: 910, y: 470, vx: 60, vy: -55, scale: 0.7 }
         ];
 
         devilConfigs.forEach((cfg, idx) => {
             const container = this.add.container(cfg.x, cfg.y).setDepth(25);
             container.setScale(cfg.scale);
 
-            // Multilayered swirling vortex rings
             const vortexGfx = this.add.graphics();
             vortexGfx.fillStyle(0xDF6B35, 0.45);
             vortexGfx.fillEllipse(0, 0, 70, 22);
@@ -714,16 +677,17 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
                 container,
                 vx: cfg.vx,
                 vy: cfg.vy,
-                radius: 34 * cfg.scale
+                radius: 32 * cfg.scale
             });
         });
     }
 
     // =========================================================================
-    // PLAYER ASTRONAUT CREATION & CONTROLS (Compact Scale, Clean Visor)
+    // PLAYER CADET CREATION (BELOW THE GRID: y = 570, NO ROTATION!)
     // =========================================================================
     private createPlayerAstronaut() {
-        this.astronautContainer = this.add.container(-60, 520).setDepth(30);
+        // Starts at x = 110, y = 570 - strictly BELOW the solar arrays (y = 390)
+        this.astronautContainer = this.add.container(110, 570).setDepth(30);
 
         const custom = this.registry.get("astronautCustomization") as any;
         const avatarKey = custom?.gender === "girl" ? "girl-astronaut" : "boy-astronaut";
@@ -731,9 +695,10 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
 
         this.astronautSprite = this.add.image(0, 0, textureToUse);
         this.astronautSprite.setScale(this.PLAYER_SCALE);
+        this.astronautSprite.setAngle(0); // STRICTLY 0 ROTATION
         this.astronautContainer.add(this.astronautSprite);
 
-        // Low-G ground shadow (compact scale)
+        // Ground shadow below cadet feet
         const shadow = this.add.ellipse(0, 24, 34, 10, 0x070E1A, 0.45);
         this.astronautContainer.addAt(shadow, 0);
 
@@ -755,21 +720,13 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
                 W: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
                 A: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
                 S: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-                D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-                SPACE: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
+                D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)
             };
-
-            // Spacebar interacts with nearest panel
-            this.wasdKeys.SPACE.on("down", () => {
-                if (this.gameState === "ACTION_GAMEPLAY") {
-                    this.interactWithNearestPanel();
-                }
-            });
         }
 
-        // Pointer click to move astronaut on plain
+        // Pointer click to move cadet along the walking path below the grids
         this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-            if (this.gameState === "ACTION_GAMEPLAY" && pointer.y >= 400 && pointer.y <= 660) {
+            if (this.gameState === "ACTION_GAMEPLAY" && !this.isPuzzleModalOpen && pointer.y >= 460) {
                 this.targetX = pointer.x;
                 this.targetY = pointer.y;
             }
@@ -777,187 +734,13 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     }
 
     // =========================================================================
-    // STAGE 1: DUST DEVIL STRIKE INTRO ANIMATION
+    // DIRECT GAMEPLAY START (No annoying pop-ups blocking the screen!)
     // =========================================================================
-    private startDustDevilStrikeIntroAnimation() {
-        this.gameState = "INTRO_STORM";
-
-        // Cinematic Dust Storm Gust sweeping across the screen
-        const stormVortex = this.add.container(1320, 480).setDepth(50);
-        const stormGfx = this.add.graphics();
-        stormGfx.fillStyle(0xDF6B35, 0.6);
-        stormGfx.fillEllipse(0, 0, 160, 45);
-        stormGfx.fillStyle(0xB84B28, 0.7);
-        stormGfx.fillEllipse(0, -60, 110, 32);
-        stormGfx.fillStyle(0xEE8A45, 0.85);
-        stormGfx.fillEllipse(0, -130, 60, 18);
-        stormVortex.add(stormGfx);
-
-        this.tweens.add({
-            targets: stormVortex,
-            x: -200,
-            duration: 2200,
-            ease: "Quad.easeInOut",
-            onUpdate: () => {
-                if (Phaser.Math.Between(0, 10) > 6) {
-                    const dustPuff = this.add.circle(stormVortex.x, stormVortex.y - Phaser.Math.Between(10, 80), Phaser.Math.Between(6, 16), 0xC05220, 0.75).setDepth(52);
-                    this.tweens.add({
-                        targets: dustPuff,
-                        scale: 2.2,
-                        alpha: 0,
-                        duration: 800,
-                        onComplete: () => dustPuff.destroy()
-                    });
-                }
-            },
-            onComplete: () => {
-                stormVortex.destroy();
-            }
-        });
-
-        // Kid-Friendly Warning Banner
-        this.introAlertBanner = this.add.container(640, 230).setDepth(60);
-        const bW = 680;
-        const bH = 76;
-
-        const bG = this.add.graphics();
-        bG.fillStyle(0x1F0A0E, 0.95);
-        bG.fillRoundedRect(-bW / 2, -bH / 2, bW, bH, 12);
-        bG.lineStyle(2.5, UITheme.colors.emergencyRed, 1);
-        bG.strokeRoundedRect(-bW / 2, -bH / 2, bW, bH, 12);
-        this.introAlertBanner.add(bG);
-
-        const alertTitle = this.add.text(0, -14, "🌪️ WHOOSH! DUST DEVIL STRIKE!", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "15px",
-            color: UITheme.colors.emergencyRedStr,
-            fontStyle: "bold",
-            letterSpacing: 1.5
-        }).setOrigin(0.5);
-
-        const alertSub = this.add.text(0, 14, "Red sand covered our solar panels! The base is losing power. Let's clean them before dark!", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: "#FFFFFF",
-            fontStyle: "bold"
-        }).setOrigin(0.5);
-
-        this.introAlertBanner.add([alertTitle, alertSub]);
-
-        this.tweens.add({
-            targets: this.introAlertBanner,
-            scaleX: 1.03,
-            scaleY: 1.03,
-            duration: 600,
-            yoyo: true,
-            repeat: -1
-        });
-
-        SoundFX.playAlert();
-
-        this.time.delayedCall(2400, () => {
-            if (this.gameState === "INTRO_STORM") {
-                this.triggerAstronautEntry();
-            }
-        });
-    }
-
-    // =========================================================================
-    // STAGE 2: ASTRONAUT ENTRANCE & KID-FRIENDLY BRIEFING
-    // =========================================================================
-    private triggerAstronautEntry() {
-        this.gameState = "ASTRONAUT_ENTRY";
-
-        if (this.introAlertBanner) {
-            this.tweens.add({
-                targets: this.introAlertBanner,
-                alpha: 0,
-                duration: 350,
-                onComplete: () => this.introAlertBanner.destroy()
-            });
-        }
-
-        // Astronaut walks into the scene with Martian low-G bounce
-        this.tweens.add({
-            targets: this.astronautContainer,
-            x: 160,
-            duration: 1200,
-            ease: "Quad.easeOut",
-            onComplete: () => {
-                this.tweens.add({
-                    targets: this.astronautContainer,
-                    y: 524,
-                    duration: 750,
-                    yoyo: true,
-                    repeat: -1
-                });
-
-                this.showAstronautSpeech();
-            }
-        });
-    }
-
-    private showAstronautSpeech() {
-        const speechC = this.add.container(260, 440).setDepth(60);
-
-        const bubbleW = 350;
-        const bubbleH = 88;
-
-        const bg = this.add.graphics();
-        bg.fillStyle(0x061122, 0.96);
-        bg.fillRoundedRect(0, -bubbleH / 2, bubbleW, bubbleH, 10);
-        bg.lineStyle(2, UITheme.colors.primaryCyan, 0.95);
-        bg.strokeRoundedRect(0, -bubbleH / 2, bubbleW, bubbleH, 10);
-        bg.fillTriangle(0, 0, -12, 10, 0, 16);
-        speechC.add(bg);
-
-        const dialogue = this.add.text(16, -26, "Cadet! A cheeky dust devil buried our solar panels!\nPower is dropping fast!\nGo to each solar panel, solve its science puzzle,\nand blast the red dust clean!", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
-            color: "#FFFFFF",
-            lineSpacing: 4
-        });
-        speechC.add(dialogue);
-
-        const btnBg = this.add.graphics();
-        btnBg.fillStyle(UITheme.colors.solarGold, 1);
-        btnBg.fillRoundedRect(16, 14, 180, 24, 4);
-        speechC.add(btnBg);
-
-        const btnText = this.add.text(106, 26, "LET'S GO! 🚀", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10.5px",
-            color: "#050C1A",
-            fontStyle: "bold"
-        }).setOrigin(0.5);
-        speechC.add(btnText);
-
-        const hit = this.add.rectangle(106, 26, 180, 24, 0x000000, 0.001);
-        hit.setInteractive({ useHandCursor: true });
-        speechC.add(hit);
-
-        hit.on("pointerdown", () => {
-            SoundFX.playClick();
-            this.tweens.add({
-                targets: speechC,
-                alpha: 0,
-                duration: 200,
-                onComplete: () => {
-                    speechC.destroy();
-                    this.startActionGameplay();
-                }
-            });
-        });
-    }
-
-    // =========================================================================
-    // STAGE 3: ACTION GAMEPLAY (Walk around, dodge dust devils, solve puzzles)
-    // =========================================================================
-    private startActionGameplay() {
+    private startDirectActionGameplay() {
         this.gameState = "ACTION_GAMEPLAY";
-        this.setActionFeedback("🏃 RUN TO EACH SOLAR PANEL, SOLVE ITS SCIENCE PUZZLE & BLAST THE DUST AWAY!", true);
+        this.setActionFeedback("🏃 WALK TO SOLAR ARRAY 01 TO SOLVE ITS SCIENCE PUZZLE & RESTORE POWER!", true);
 
-        // Instruction Banner
+        // Clean guidance pill banner at top
         const banner = this.add.container(640, 128).setDepth(35);
         const bG = this.add.graphics();
         bG.fillStyle(0x061426, 0.92);
@@ -966,9 +749,9 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         bG.strokeRoundedRect(-280, -16, 560, 32, 8);
         banner.add(bG);
 
-        const bannerText = this.add.text(0, 0, "MOVE: [W/A/S/D / ARROWS / CLICK] · INTERACT: [SPACE / CLICK PANEL]", {
+        const bannerText = this.add.text(0, 0, "WALK TO EACH SOLAR ARRAY TO UNLOCK & CLEAN IT! [W/A/S/D / CLICK]", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "10.5px",
+            fontSize: "10px",
             color: UITheme.colors.solarGoldStr,
             fontStyle: "bold"
         }).setOrigin(0.5);
@@ -984,52 +767,18 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         });
     }
 
-    private interactWithNearestPanel() {
-        let nearestIdx = -1;
-        let minDist = 150;
-
-        this.solarStations.forEach((st, idx) => {
-            const dist = Phaser.Math.Distance.Between(this.astronautContainer.x, this.astronautContainer.y, st.x, st.y);
-            if (dist < minDist) {
-                minDist = dist;
-                nearestIdx = idx;
-            }
-        });
-
-        if (nearestIdx >= 0) {
-            this.interactWithSolarPanel(nearestIdx);
-        } else {
-            this.showSurfaceFloatingText(this.astronautContainer.x, this.astronautContainer.y, "MOVE CLOSER TO A SOLAR PANEL!", UITheme.colors.solarGoldStr);
-        }
-    }
-
-    private interactWithSolarPanel(idx: number) {
-        if (this.gameState !== "ACTION_GAMEPLAY") return;
-
-        const st = this.solarStations[idx];
-        const dist = Phaser.Math.Distance.Between(this.astronautContainer.x, this.astronautContainer.y, st.x, st.y);
-        if (dist > 180) {
-            this.showSurfaceFloatingText(st.x, st.y, "MOVE ASTRONAUT CLOSER!", UITheme.colors.solarGoldStr);
-            return;
-        }
-
-        if (!st.questionSolved) {
-            // Open the unique puzzle modal for this specific array!
-            this.openArrayPuzzleModal(idx);
-        } else if (!st.isCleaned) {
-            // Puzzle is solved: Blast wind to clean!
-            this.cleanSolarPanel(idx);
-        } else {
-            this.showSurfaceFloatingText(st.x, st.y, "✔ THIS ARRAY IS 100% CLEAN & SHINING!", UITheme.colors.bioGreenStr);
-        }
-    }
-
     // =========================================================================
-    // UNIQUE KID-FRIENDLY SCIENCE PUZZLE FOR EVERY ARRAY
+    // AUTOMATIC PROBLEM POP-UP AS CADET APPROACHES AN ARRAY
     // =========================================================================
     private openArrayPuzzleModal(stationIdx: number) {
-        this.gameState = "ARRAY_PUZZLE";
-        this.currentPuzzleStationIdx = stationIdx;
+        if (this.isPuzzleModalOpen) return;
+        this.isPuzzleModalOpen = true;
+        this.activePuzzleStationIdx = stationIdx;
+
+        // Stop cadet walking while solving
+        this.targetX = null;
+        this.targetY = null;
+        this.isMoving = false;
 
         const challenge = this.arrayChallenges[stationIdx];
         this.puzzleModalContainer = this.add.container(640, 365).setDepth(75);
@@ -1241,18 +990,43 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     private handleCorrectArrayPuzzleSolved() {
         SoundFX.playToggle(true);
 
-        if (this.currentPuzzleStationIdx !== null) {
-            const st = this.solarStations[this.currentPuzzleStationIdx];
+        const stationIdx = this.activePuzzleStationIdx;
+        if (stationIdx !== null) {
+            const st = this.solarStations[stationIdx];
             st.questionSolved = true;
 
-            // Update prompt on station to ready for wind blast!
-            st.promptText.setText("💨 BLAST DUST (SPACE)");
-            st.promptBg.clear();
-            st.promptBg.fillStyle(UITheme.colors.primaryCyan, 1);
-            st.promptBg.fillRoundedRect(-85, -14, 170, 28, 6);
-        }
+            // Trigger Wind blast from cadet to the solar panel
+            this.triggerWindBlastEffect(this.astronautContainer.x, this.astronautContainer.y - 10, st.x, st.y);
 
-        this.refreshEquipmentPanel();
+            // Clean the grid immediately! Remove red dust and illuminate in glowing blue!
+            st.dustLayer.setAlpha(0); // Dust disappears
+            st.glowGraphic.setAlpha(0.7); // Crystalline clean cyan glow
+            this.tweens.add({
+                targets: st.glowGraphic,
+                alpha: 0.35,
+                duration: 650,
+                yoyo: true,
+                repeat: -1
+            });
+
+            st.isCleaned = true;
+            st.dustProgressText.setText("✔ CLEAN 100%");
+            st.dustProgressText.setColor(UITheme.colors.bioGreenStr);
+
+            this.cleanedStationsCount++;
+            const newPower = 20 + this.cleanedStationsCount * 20;
+            this.updatePowerMeterVisual(newPower);
+            this.updateVisorProgress(this.cleanedStationsCount, 4, "Panels Cleaned");
+
+            this.refreshEquipmentPanel();
+
+            const nextNum = stationIdx + 2;
+            const guidance = nextNum <= 4
+                ? `✨ ARRAY 0${stationIdx + 1} CLEAN! WALK TO ARRAY 0${nextNum} ➔`
+                : "🌟 ALL ARRAYS CLEAN! 100% POWER RESTORED!";
+
+            this.showSurfaceFloatingText(st.x, st.y, guidance, UITheme.colors.bioGreenStr);
+        }
 
         this.tweens.add({
             targets: this.puzzleModalContainer,
@@ -1261,69 +1035,15 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             duration: 220,
             onComplete: () => {
                 this.puzzleModalContainer?.destroy();
-                this.gameState = "ACTION_GAMEPLAY";
-                this.showSurfaceFloatingText(
-                    this.astronautContainer.x,
-                    this.astronautContainer.y,
-                    "✔ TOOL UNLOCKED! PRESS SPACE TO BLAST DUST!",
-                    UITheme.colors.bioGreenStr
-                );
+                this.isPuzzleModalOpen = false;
+                this.activePuzzleStationIdx = null;
+
+                // Check if all 4 panels are now clean!
+                if (this.cleanedStationsCount >= 4) {
+                    this.handleAllArraysFixed();
+                }
             }
         });
-    }
-
-    // =========================================================================
-    // DUST CLEANING & ARRAY RESTORATION
-    // =========================================================================
-    private cleanSolarPanel(idx: number) {
-        const st = this.solarStations[idx];
-        if (st.isCleaned) return;
-
-        // Face astronaut toward panel
-        this.astronautSprite.setScale(st.x < this.astronautContainer.x ? -this.PLAYER_SCALE : this.PLAYER_SCALE, this.PLAYER_SCALE);
-
-        // Visual Wind Stream Blast from Astronaut to Solar Array
-        this.triggerWindBlastEffect(this.astronautContainer.x, this.astronautContainer.y - 10, st.x, st.y - 15);
-
-        // Advance cleaning by 50% per blast (2 blasts cleans completely!)
-        st.cleanPercent = Math.min(100, st.cleanPercent + 50);
-        SoundFX.playToggle(true);
-
-        const remainingDustAlpha = Math.max(0, 1.0 - (st.cleanPercent / 100));
-        st.dustLayer.setAlpha(remainingDustAlpha);
-
-        if (st.cleanPercent >= 100) {
-            st.isCleaned = true;
-            st.dustProgressText.setText("✔ CLEAN 100%");
-            st.dustProgressText.setColor(UITheme.colors.bioGreenStr);
-            st.promptContainer.setAlpha(0);
-
-            // Flash solar cells with bright blue cyan glow
-            st.glowGraphic.setAlpha(0.65);
-            this.tweens.add({
-                targets: st.glowGraphic,
-                alpha: 0.35,
-                duration: 600,
-                yoyo: true,
-                repeat: -1
-            });
-
-            this.cleanedStationsCount++;
-            const newPower = 20 + this.cleanedStationsCount * 20;
-            this.updatePowerMeterVisual(newPower);
-            this.updateVisorProgress(this.cleanedStationsCount, 4, "Panels Cleaned");
-
-            this.showSurfaceFloatingText(st.x, st.y, `✔ ARRAY 0${idx + 1} RESTORED (+20% POWER)!`, UITheme.colors.bioGreenStr);
-
-            // Check if all 4 panels are clean -> Stop dust storm & Show Mission Complete!
-            if (this.cleanedStationsCount >= 4) {
-                this.handleAllArraysFixed();
-            }
-        } else {
-            const dustPct = 100 - st.cleanPercent;
-            st.dustProgressText.setText(`DUST: ${dustPct}%`);
-            this.showSurfaceFloatingText(st.x, st.y, `💨 BLASTING DUST... ${st.cleanPercent}% CLEAN!`, UITheme.colors.primaryCyanStr);
-        }
     }
 
     private triggerWindBlastEffect(fromX: number, fromY: number, toX: number, toY: number) {
@@ -1367,7 +1087,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             });
         }
 
-        this.time.delayedCall(200, () => {
+        this.time.delayedCall(220, () => {
             windG.destroy();
             this.isBlowingWind = false;
         });
@@ -1402,7 +1122,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             });
         }
 
-        // Sky clears into warm twilight
+        // Sky clears into warm sunset
         this.tweens.add({
             targets: this.sunsetOverlay,
             alpha: 0.55,
@@ -1415,7 +1135,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         });
 
         // Show Big Kid-Friendly Mission Complete Modal!
-        this.time.delayedCall(1500, () => {
+        this.time.delayedCall(1200, () => {
             this.showMissionCompleteModal();
         });
     }
@@ -1482,7 +1202,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             50,
             "✔ 100% Base Power Restored Before Sunset!\n" +
             "✔ The Dust Storm has been cleared away from the plain!\n" +
-            "✔ All 4 science challenges solved with smart engineering!",
+            "✔ All 4 solar arrays are sparkling clean and online!",
             {
                 fontFamily: UITheme.fonts.heading,
                 fontSize: "11px",
@@ -1515,7 +1235,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     }
 
     // =========================================================================
-    // STAGE 4: THE NIGHT SHIFT EVENT DECISION (Simple, Kid-Friendly Words)
+    // THE NIGHT SHIFT EVENT DECISION (Simple, Kid-Friendly Words)
     // =========================================================================
     private showNightDecisionEvent() {
         this.gameState = "NIGHT_DECISION";
@@ -1545,7 +1265,6 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             letterSpacing: 1.5
         }).setOrigin(0.5);
 
-        // Exact Event Text simplified for kids
         const eventText = this.add.text(
             0,
             -modalH / 2 + 66,
@@ -1566,7 +1285,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         const cardH = 290;
         const cardY = 40;
 
-        // Choice A Card (Simple, Kid-Friendly Words)
+        // Choice A Card
         this.createNightChoiceCard(
             -modalW / 4 - 8,
             cardY,
@@ -1581,7 +1300,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             () => this.executeNightChoice("A")
         );
 
-        // Choice B Card (Simple, Kid-Friendly Words)
+        // Choice B Card
         this.createNightChoiceCard(
             modalW / 4 + 8,
             cardY,
@@ -1725,7 +1444,6 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     private executeNightChoice(choice: "A" | "B") {
         SoundFX.playToggle(true);
 
-        // Sync decision to AstraNexus Backend NASA API
         fetch("http://localhost:3001/api/nasa/sol2/event-decision", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1734,7 +1452,6 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             console.warn("Backend API sync offline, running in local fallback mode:", err);
         });
 
-        // Store states requested by User
         if (choice === "A") {
             this.registry.set("lockedSuitportPlug", true);
             this.registry.set("modules_suitport_locked", true);
@@ -1752,7 +1469,6 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             this.registry.set("sol2Choice", "LET_PIPE_FREEZE");
         }
 
-        // Transition to phase = 'NIGHT'
         this.registry.set("phase", "NIGHT");
 
         if (typeof window !== "undefined" && window.localStorage) {
@@ -1769,7 +1485,6 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             }
         }
 
-        // Dismiss Modal and Display Night Debrief Card
         if (this.nightDecisionModalContainer) {
             this.tweens.add({
                 targets: this.nightDecisionModalContainer,
@@ -1787,7 +1502,6 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     private showNightShiftCompleteCelebration(choice: "A" | "B") {
         this.gameState = "NIGHT_ACTIVE";
 
-        // Night falls completely across Arcadia Planitia
         this.sunsetOverlay.clear();
         this.sunsetOverlay.fillStyle(0x060312, 0.78);
         this.sunsetOverlay.fillRect(0, 0, this.W, this.H);
@@ -1853,7 +1567,6 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             lineSpacing: 8
         }).setOrigin(0, 0.5);
 
-        // Advance to Sol 3 Button
         const advanceBtn = ButtonFactory.createButton({
             scene: this,
             x: 0,
@@ -1876,14 +1589,14 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     }
 
     // =========================================================================
-    // GAME LOOP: UPDATE (Movement, Dust Devils, Interaction)
+    // GAME LOOP: UPDATE (Movement, Proximity Check, No Rotation!)
     // =========================================================================
     update(_time: number, delta: number) {
         if (this.gameState !== "ACTION_GAMEPLAY") return;
 
         const dt = delta / 1000;
 
-        // 1. Player Astronaut Movement (WASD / Arrows / Pointer)
+        // 1. Cadet Movement along the Walking Path (Strictly NO Rotation!)
         let dx = 0;
         let dy = 0;
 
@@ -1903,10 +1616,11 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             this.astronautContainer.x += (dx / len) * this.astronautSpeed * dt;
             this.astronautContainer.y += (dy / len) * this.astronautSpeed * dt;
 
-            // Flip compact sprite depending on horizontal movement
+            // Flip horizontally, STRICTLY 0 rotation
             if (dx !== 0) {
                 this.astronautSprite.setScale(dx < 0 ? -this.PLAYER_SCALE : this.PLAYER_SCALE, this.PLAYER_SCALE);
             }
+            this.astronautSprite.setAngle(0);
         } else if (this.targetX !== null && this.targetY !== null) {
             const dist = Phaser.Math.Distance.Between(this.astronautContainer.x, this.astronautContainer.y, this.targetX, this.targetY);
             if (dist > 8) {
@@ -1915,6 +1629,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
                 this.astronautContainer.x += Math.cos(angle) * this.astronautSpeed * dt;
                 this.astronautContainer.y += Math.sin(angle) * this.astronautSpeed * dt;
                 this.astronautSprite.setScale(this.targetX < this.astronautContainer.x ? -this.PLAYER_SCALE : this.PLAYER_SCALE, this.PLAYER_SCALE);
+                this.astronautSprite.setAngle(0);
             } else {
                 this.targetX = null;
                 this.targetY = null;
@@ -1930,12 +1645,28 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         } else {
             this.astronautSprite.y = 0;
         }
+        this.astronautSprite.setAngle(0); // Guarantees zero rotation
 
-        // Clamp astronaut to Arcadia Planitia surface plain bounds
+        // CLAMP: Keep cadet strictly on the walking path BELOW the solar array grid!
+        // Arrays are at y = 390 (bottom at ~436). Cadet is clamped between 520 and 640!
         this.astronautContainer.x = Phaser.Math.Clamp(this.astronautContainer.x, 60, this.W - 60);
-        this.astronautContainer.y = Phaser.Math.Clamp(this.astronautContainer.y, 410, 650);
+        this.astronautContainer.y = Phaser.Math.Clamp(this.astronautContainer.y, 520, 640);
 
-        // 2. Playful Dust Devils bouncing around Arcadia Planitia (Active until arrays fixed!)
+        // 2. Proximity Check: As cadet goes near an unsolved grid, the problem pops up!
+        if (!this.isPuzzleModalOpen) {
+            for (let idx = 0; idx < this.solarStations.length; idx++) {
+                const st = this.solarStations[idx];
+                if (!st.questionSolved && !st.isCleaned) {
+                    const distH = Math.abs(this.astronautContainer.x - st.x);
+                    if (distH < 140) {
+                        this.openArrayPuzzleModal(idx);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 3. Playful Dust Devils bouncing around (active until all arrays fixed)
         if (this.isDustStormActive) {
             this.dustDevils.forEach(devil => {
                 devil.container.x += devil.vx * dt;
@@ -1949,15 +1680,15 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
                     devil.vx *= -1;
                 }
 
-                if (devil.container.y < 420) {
-                    devil.container.y = 420;
+                if (devil.container.y < 430) {
+                    devil.container.y = 430;
                     devil.vy *= -1;
                 } else if (devil.container.y > 630) {
                     devil.container.y = 630;
                     devil.vy *= -1;
                 }
 
-                if (!this.isKnockedBack) {
+                if (!this.isKnockedBack && !this.isPuzzleModalOpen) {
                     const distToPlayer = Phaser.Math.Distance.Between(
                         devil.container.x,
                         devil.container.y,
@@ -1965,20 +1696,12 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
                         this.astronautContainer.y
                     );
 
-                    if (distToPlayer < devil.radius + 20) {
+                    if (distToPlayer < devil.radius + 18) {
                         this.triggerDustDevilKnockback(devil);
                     }
                 }
             });
         }
-
-        // 3. Update Solar Station Prompt Visibility
-        this.solarStations.forEach(st => {
-            if (!st.isCleaned) {
-                const dist = Phaser.Math.Distance.Between(this.astronautContainer.x, this.astronautContainer.y, st.x, st.y);
-                st.promptContainer.setAlpha(dist < 140 ? 1 : 0);
-            }
-        });
     }
 
     private triggerDustDevilKnockback(devil: DustDevilItem) {
@@ -1986,28 +1709,22 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         SoundFX.playAlert();
 
         const pushAngle = Phaser.Math.Angle.Between(devil.container.x, devil.container.y, this.astronautContainer.x, this.astronautContainer.y);
-        const pushDist = 50;
+        const pushDist = 45;
 
+        // Push away slightly, but NO ROTATION!
         this.tweens.add({
             targets: this.astronautContainer,
             x: Phaser.Math.Clamp(this.astronautContainer.x + Math.cos(pushAngle) * pushDist, 80, this.W - 80),
-            y: Phaser.Math.Clamp(this.astronautContainer.y + Math.sin(pushAngle) * pushDist, 420, 640),
-            duration: 350,
-            ease: "Back.easeOut"
-        });
-
-        // 360 spin wobble
-        this.tweens.add({
-            targets: this.astronautSprite,
-            angle: 360,
-            duration: 400,
+            y: Phaser.Math.Clamp(this.astronautContainer.y + Math.sin(pushAngle) * pushDist, 520, 640),
+            duration: 300,
+            ease: "Back.easeOut",
             onComplete: () => {
-                this.astronautSprite.setAngle(0);
                 this.isKnockedBack = false;
             }
         });
 
-        this.showSurfaceFloatingText(this.astronautContainer.x, this.astronautContainer.y, "🌪️ BOUNCY DUST GUST!", UITheme.colors.solarGoldStr);
+        this.astronautSprite.setAngle(0); // Never rotate!
+        this.showSurfaceFloatingText(this.astronautContainer.x, this.astronautContainer.y - 20, "🌪️ DUST GUST!", UITheme.colors.solarGoldStr);
     }
 
     protected isTargetMet(): boolean {

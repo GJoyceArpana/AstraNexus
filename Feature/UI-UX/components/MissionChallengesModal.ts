@@ -43,7 +43,6 @@ export class MissionChallengesModal {
 
     private contentContainer!: Phaser.GameObjects.Container;
     private tabButtons: Phaser.GameObjects.Container[] = [];
-    private sol2ModalContainer?: Phaser.GameObjects.Container;
 
     private readonly challenges: Record<number, SolChallengeDetail> = {
         1: {
@@ -328,11 +327,6 @@ export class MissionChallengesModal {
 
         // Re-render Challenge details
         this.renderSolChallenge(sol);
-
-        // When Sol 2 is clicked on, immediately display "YOUR MISSION", under that "Dust Devil Cleanup", and "START MISSION" button below that
-        if (sol === 2) {
-            this.showSol2MissionModal();
-        }
     }
 
     /**
@@ -719,157 +713,6 @@ export class MissionChallengesModal {
      * Dedicated mission launch prompt shown as soon as Sol 2 is clicked:
      * Displays "YOUR MISSION", "Dust Devil Cleanup", and a "START MISSION" button.
      */
-    private showSol2MissionModal() {
-        if (this.sol2ModalContainer) {
-            this.sol2ModalContainer.destroy();
-            this.sol2ModalContainer = undefined;
-        }
-
-        const { width, height } = this.scene.scale;
-        const modal = this.scene.add.container(0, 0).setDepth(250);
-        this.sol2ModalContainer = modal;
-
-        // Dark dim backdrop
-        const backdrop = this.scene.add.rectangle(0, 0, width, height, 0x000000, 0.72)
-            .setOrigin(0)
-            .setInteractive();
-        modal.add(backdrop);
-
-        const cardW = 560;
-        const cardH = 340;
-        const cardX = (width - cardW) / 2;
-        const cardY = (height - cardH) / 2;
-
-        // Tech frame
-        const frame = this.scene.add.graphics();
-        frame.fillStyle(UITheme.colors.cardBg, 0.98);
-        frame.fillRoundedRect(cardX, cardY, cardW, cardH, 16);
-        frame.lineStyle(2.5, UITheme.colors.primaryCyan, 1);
-        frame.strokeRoundedRect(cardX, cardY, cardW, cardH, 16);
-
-        // Gold corner accents
-        frame.lineStyle(3, UITheme.colors.solarGold, 1);
-        frame.lineBetween(cardX, cardY + 24, cardX, cardY);
-        frame.lineBetween(cardX, cardY, cardX + 24, cardY);
-        frame.lineBetween(cardX + cardW - 24, cardY, cardX + cardW, cardY);
-        frame.lineBetween(cardX + cardW, cardY, cardX + cardW, cardY + 24);
-        frame.lineBetween(cardX, cardY + cardH - 24, cardX, cardY + cardH);
-        frame.lineBetween(cardX, cardY + cardH, cardX + 24, cardY + cardH);
-        frame.lineBetween(cardX + cardW - 24, cardY + cardH, cardX + cardW, cardY + cardH);
-        frame.lineBetween(cardX + cardW, cardY + cardH, cardX + cardW, cardY + cardH - 24);
-        modal.add(frame);
-
-        // Close button
-        const closeBtn = ButtonFactory.createButton({
-            scene: this.scene,
-            x: cardX + cardW - 32,
-            y: cardY + 28,
-            width: 32,
-            height: 32,
-            text: "✕",
-            fontSize: "14px",
-            primaryColor: 0x3A1414,
-            textColor: UITheme.colors.emergencyRedStr,
-            onClick: () => {
-                SoundFX.playClick();
-                modal.destroy();
-                this.sol2ModalContainer = undefined;
-            }
-        });
-        modal.add(closeBtn);
-
-        // 1. "YOUR MISSION"
-        const yourMission = this.scene.add.text(width / 2, cardY + 54, "YOUR MISSION", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "14px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold",
-            letterSpacing: 4
-        }).setOrigin(0.5);
-        modal.add(yourMission);
-
-        // Decorative separator line
-        const sep = this.scene.add.graphics();
-        sep.lineStyle(1.5, UITheme.colors.primaryCyan, 0.5);
-        sep.lineBetween(width / 2 - 100, cardY + 76, width / 2 + 100, cardY + 76);
-        modal.add(sep);
-
-        // 2. Under that: "Dust Devil Cleanup"
-        const missionTitle = this.scene.add.text(width / 2, cardY + 114, "Dust Devil Cleanup", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "28px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold",
-            letterSpacing: 2
-        }).setOrigin(0.5);
-        modal.add(missionTitle);
-
-        // Subtitle / Briefing text
-        const missionDesc = this.scene.add.text(width / 2, cardY + 168,
-            "Arcadia Planitia solar panels are buried under thick red dust!\n" +
-            "Run across the plain in your puffy EVA suit with your Wind-Blower,\n" +
-            "dodge playful little dust devils, and blast the panels clean before sunset!", {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "13px",
-            color: "#D0E2FF",
-            align: "center",
-            lineSpacing: 5
-        }).setOrigin(0.5);
-        modal.add(missionDesc);
-
-        // Target badge
-        const badgeBg = this.scene.add.graphics();
-        badgeBg.fillStyle(0x0C223D, 0.9);
-        badgeBg.fillRoundedRect(width / 2 - 210, cardY + 218, 420, 32, 8);
-        badgeBg.lineStyle(1, UITheme.colors.solarGold, 0.7);
-        badgeBg.strokeRoundedRect(width / 2 - 210, cardY + 218, 420, 32, 8);
-        modal.add(badgeBg);
-
-        const badgeText = this.scene.add.text(width / 2, cardY + 234, "🌪️ TARGET: DODGE DUST DEVILS · CLEAN 4 SOLAR PANELS", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10.5px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold",
-            letterSpacing: 1
-        }).setOrigin(0.5);
-        modal.add(badgeText);
-
-        // 3. Below that: "START MISSION" button
-        const startBtn = ButtonFactory.createButton({
-            scene: this.scene,
-            x: width / 2,
-            y: cardY + 288,
-            width: 270,
-            height: 46,
-            text: "START MISSION",
-            fontSize: "15px",
-            primaryColor: UITheme.colors.solarGold,
-            textColor: "#0A111E",
-            icon: "🚀",
-            onClick: () => {
-                SoundFX.playClick();
-                modal.destroy();
-                this.sol2ModalContainer = undefined;
-                this.launchSolScene(2);
-            }
-        });
-        modal.add(startBtn);
-
-        // Entrance animation
-        modal.setScale(0.96);
-        modal.setAlpha(0);
-        this.scene.tweens.add({
-            targets: modal,
-            scaleX: 1,
-            scaleY: 1,
-            alpha: 1,
-            duration: 220,
-            ease: "Back.easeOut"
-        });
-
-        this.container.add(modal);
-    }
-
     private launchSolScene(sol: number) {
         SoundFX.playClick();
         const solKey = this.getSolSceneKey(sol);
@@ -899,10 +742,6 @@ export class MissionChallengesModal {
     }
 
     public close() {
-        if (this.sol2ModalContainer) {
-            this.sol2ModalContainer.destroy();
-            this.sol2ModalContainer = undefined;
-        }
         this.container.destroy();
         this.callbacks.onClose();
     }
