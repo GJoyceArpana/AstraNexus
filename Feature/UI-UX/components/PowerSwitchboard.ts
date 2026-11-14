@@ -53,13 +53,31 @@ export class PowerSwitchboard {
             perk: "+15% Life Support regen"
         },
         {
-            id: "comms_dish",
-            name: "DEEP SPACE COMMS",
-            icon: "📡",
-            description: "Earth uplink & real-time NASA telemetry feeds.",
+            id: "moxie",
+            name: "MOXIE OXYGEN CONVERTER",
+            icon: "💨",
+            description: "High-temperature electrolysis converting CO₂ to O₂.",
             powerDrawKW: 10,
             isPowered: true,
-            perk: "Enables live DONKI warnings"
+            perk: "+25% O₂ Generation"
+        },
+        {
+            id: "ice_melter",
+            name: "SUBSURFACE ICE MELTER",
+            icon: "💧",
+            description: "Heated thermal drill for subterranean ice extraction.",
+            powerDrawKW: 15,
+            isPowered: false,
+            perk: "+50% Water Production"
+        },
+        {
+            id: "suitport",
+            name: "REAR-ENTRY SUITPORT",
+            icon: "🚪",
+            description: "HEPA air-curtain & toxic perchlorate decontamination.",
+            powerDrawKW: 12,
+            isPowered: false,
+            perk: "Perchlorate dust isolation"
         },
         {
             id: "rover_charger",
@@ -69,24 +87,6 @@ export class PowerSwitchboard {
             powerDrawKW: 15,
             isPowered: false,
             perk: "+25% Rover surface mobility"
-        },
-        {
-            id: "science_lab",
-            name: "ASTROBIOLOGY LAB",
-            icon: "🔬",
-            description: "Automated analysis of Martian regolith & ice samples.",
-            powerDrawKW: 14,
-            isPowered: false,
-            perk: "+30% Research points"
-        },
-        {
-            id: "shield_generator",
-            name: "MAGNETIC SHIELD",
-            icon: "🛡",
-            description: "Deflects incoming solar flare energetic particles.",
-            powerDrawKW: 25,
-            isPowered: false,
-            perk: "+50% Radiation protection"
         }
     ];
 
@@ -114,6 +114,28 @@ export class PowerSwitchboard {
     private init() {
         const { width, height } = this.scene.scale;
 
+        // Apply Sol 2 Night Shift Event State from Registry
+        const lockedSuitport = this.scene.registry.get("lockedSuitportPlug");
+        const icePipeFrozen = this.scene.registry.get("icePipeFrozen");
+        const currentPhase = this.scene.registry.get("phase");
+
+        if (lockedSuitport) {
+            const suitportMod = this.modules.find(m => m.id === "suitport");
+            if (suitportMod) {
+                suitportMod.isPowered = true;
+                suitportMod.isEssential = true;
+                suitportMod.perk = "🔒 LOCKED: NIGHT DECONTAMINATION";
+            }
+        }
+
+        if (icePipeFrozen) {
+            const iceMelterMod = this.modules.find(m => m.id === "ice_melter");
+            if (iceMelterMod) {
+                iceMelterMod.description = "⚠ OUTDOOR VALVE FROZEN: -50% Yield.";
+                iceMelterMod.perk = "⚠ 50% Water Yield (+25%)";
+            }
+        }
+
         // Dark Modal Backdrop
         const backdrop = this.scene.add.rectangle(0, 0, width, height, 0x040914, 0.88).setOrigin(0);
         backdrop.setInteractive(); // Blocks clicks underneath
@@ -140,10 +162,16 @@ export class PowerSwitchboard {
             fontStyle: "bold"
         }).setOrigin(0.5);
 
-        const subText = this.scene.add.text(width / 2, panelY + 62, "Route available power plugs (Maximum 3 Active simultaneously) to critical Mars modules", {
+        const subTitleStr = currentPhase === "NIGHT"
+            ? (lockedSuitport 
+                ? "NIGHT SHIFT ACTIVE (-95°C) · SUITPORT LOCKED · 2 FREE PLUGS TO ALLOCATE ACROSS MOXIE, ICE MELTER, GREENHOUSE"
+                : "NIGHT SHIFT ACTIVE (-95°C) · ALL 3 PLUGS FREE TO ALLOCATE ACROSS LIFE SUPPORT")
+            : "Route available power plugs (Maximum 3 Active simultaneously) to critical Mars modules";
+
+        const subText = this.scene.add.text(width / 2, panelY + 62, subTitleStr, {
             fontFamily: UITheme.fonts.body,
-            fontSize: "14px",
-            color: UITheme.colors.textSecondary
+            fontSize: "13px",
+            color: currentPhase === "NIGHT" ? UITheme.colors.solarGoldStr : UITheme.colors.textSecondary
         }).setOrigin(0.5);
         this.container.add([headerText, subText]);
 

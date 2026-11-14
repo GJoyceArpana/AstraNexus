@@ -64,19 +64,19 @@ export class MissionChallengesModal {
         },
         2: {
             solNumber: 2,
-            title: "SOL 2: DUST DEVIL CLEANUP",
+            title: "SOL 2: DUST DEVIL CLEANUP AT ARCADIA PLANITIA",
             codename: "DUST DEVIL CLEANUP",
             icon: "🌪️",
             hazardBadge: "ELECTROSTATIC DUST DEVIL VORTICES",
-            briefing: "A swarm of electrostatic Martian dust devils has converged on Outpost Sol, burying the photovoltaic solar arrays in thick red dust and choking power generation. Pilot the rover into the dust devil vortices with the electrostatic dissipator to neutralize the vortices and restore solar efficiency.",
-            nasaFact: "NASA Spirit and Opportunity rovers frequently tracked Martian dust devils up to 8 km high. Dust devils generate powerful electrostatic charges causing dust to cling to solar glass until cleaned.",
-            primaryTarget: "Neutralize 3 electrostatic dust devils and restore solar array efficiency to 100%.",
-            progressMetric: "Dust Devils Cleared",
+            briefing: "Arcadia Planitia is a wide, flat plain ideal for solar panels—until a mischievous Martian dust devil spins through! Run around in a puffy astronaut suit with a specialized wind-blower tool, dodge playful dust devils bouncing around, clean the panels, and establish your Night Shift protocol before sunset.",
+            nasaFact: "NASA Spirit and Opportunity rovers frequently tracked Martian dust devils up to 8 km high. Dust devils generate powerful electrostatic charges causing dust to cling to solar glass until neutralized by high-velocity wind-blowers and ion dissipators.",
+            primaryTarget: "Dodge dust devils & blast dust off all 4 solar arrays with Wind-Blower.",
+            progressMetric: "Arrays Cleaned",
             currentVal: 0,
-            targetVal: 3,
-            unit: "Vortices",
-            actionButtonText: "🌪️ DISPERSE DUST DEVIL",
-            secondaryActionText: "🧹 CLEAN SOLAR GLASS"
+            targetVal: 4,
+            unit: "Arrays",
+            actionButtonText: "💨 BLAST WIND-BLOWER (SPACE)",
+            secondaryActionText: "🛡️ DODGE DUST DEVILS"
         },
         3: {
             solNumber: 3,
@@ -806,9 +806,9 @@ export class MissionChallengesModal {
 
         // Subtitle / Briefing text
         const missionDesc = this.scene.add.text(width / 2, cardY + 168,
-            "A high-velocity Martian dust devil has swept across Outpost Sol,\n" +
-            "coating the solar photovoltaic arrays and dropping base power.\n" +
-            "Deploy your rover to disperse the dust vortices and clean the panels!", {
+            "Arcadia Planitia solar panels are buried under thick red dust!\n" +
+            "Run across the plain in your puffy EVA suit with your Wind-Blower,\n" +
+            "dodge playful little dust devils, and blast the panels clean before sunset!", {
             fontFamily: UITheme.fonts.body,
             fontSize: "13px",
             color: "#D0E2FF",
@@ -820,12 +820,12 @@ export class MissionChallengesModal {
         // Target badge
         const badgeBg = this.scene.add.graphics();
         badgeBg.fillStyle(0x0C223D, 0.9);
-        badgeBg.fillRoundedRect(width / 2 - 190, cardY + 218, 380, 32, 8);
+        badgeBg.fillRoundedRect(width / 2 - 210, cardY + 218, 420, 32, 8);
         badgeBg.lineStyle(1, UITheme.colors.solarGold, 0.7);
-        badgeBg.strokeRoundedRect(width / 2 - 190, cardY + 218, 380, 32, 8);
+        badgeBg.strokeRoundedRect(width / 2 - 210, cardY + 218, 420, 32, 8);
         modal.add(badgeBg);
 
-        const badgeText = this.scene.add.text(width / 2, cardY + 234, "🌪️ TARGET: DISPERSE 3 DUST DEVILS · RESTORE 100% POWER", {
+        const badgeText = this.scene.add.text(width / 2, cardY + 234, "🌪️ TARGET: DODGE DUST DEVILS · CLEAN 4 SOLAR PANELS", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "10.5px",
             color: UITheme.colors.solarGoldStr,
