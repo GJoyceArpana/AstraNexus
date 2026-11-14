@@ -388,7 +388,8 @@ export class MissionChallengesModal {
             fontSize: "11px",
             color: UITheme.colors.emergencyRedStr,
             fontStyle: "bold",
-            letterSpacing: 0.5
+            letterSpacing: 0.5,
+            wordWrap: { width: colW - 64 }
         });
         this.contentContainer.add(hazardText);
 
@@ -525,18 +526,61 @@ export class MissionChallengesModal {
         this.contentContainer.add(statusTag);
 
         // Interactive Engineering Action Buttons
-        const buttonY = topY + 230;
+        const buttonY = topY + 215;
 
-        // Primary Action Button
-        const primaryBtn = ButtonFactory.createButton({
+        // 1. Full Dedicated Sol Martian Surface Scene Launch Button (Primary CTA)
+        const launchSceneBtn = ButtonFactory.createButton({
             scene: this.scene,
             x: rightX + colW / 2,
             y: buttonY + 24,
+            text: `🚀 DEPLOY TO SOL 0${sol} MARTIAN SURFACE ➔`,
+            width: colW - 40,
+            height: 46,
+            primaryColor: UITheme.colors.solarGold,
+            secondaryColor: 0x1A1406,
+            textColor: UITheme.colors.solarGoldStr,
+            fontSize: "14px",
+            icon: "🚀",
+            onClick: () => {
+                SoundFX.playClick();
+                const solKey = this.getSolSceneKey(sol);
+                this.close();
+
+                // Stop any existing Sol challenge scenes to ensure zero scene stacking or WebGL conflicts
+                const allSolKeys = [
+                    "Sol1DirtFortressScene",
+                    "Sol2PerchlorateBarrierScene",
+                    "Sol3RedGaleScene",
+                    "Sol4ISRUProductionScene",
+                    "Sol5SilenceCommsLagScene",
+                    "Sol6ColonyGridlockScene",
+                    "Sol7JourneyHomeMAVScene"
+                ];
+
+                for (const key of allSolKeys) {
+                    if (this.scene.scene.isActive(key) || this.scene.scene.isSleeping(key) || this.scene.scene.isPaused(key)) {
+                        this.scene.scene.stop(key);
+                    }
+                }
+
+                // Sleep MarsWorldScene cleanly and launch dedicated challenge scene on top
+                this.scene.scene.sleep("MarsWorldScene");
+                this.scene.scene.launch(solKey);
+                this.scene.scene.bringToTop(solKey);
+            }
+        });
+        this.contentContainer.add(launchSceneBtn);
+
+        // 2. In-Modal Quick Action Button
+        const primaryBtn = ButtonFactory.createButton({
+            scene: this.scene,
+            x: rightX + colW / 2,
+            y: buttonY + 78,
             text: data.actionButtonText,
             width: colW - 40,
-            height: 48,
+            height: 42,
             primaryColor: UITheme.colors.primaryCyan,
-            fontSize: "14px",
+            fontSize: "13px",
             onClick: () => {
                 SoundFX.playClick();
                 this.handlePrimaryAction(sol);
@@ -544,17 +588,17 @@ export class MissionChallengesModal {
         });
         this.contentContainer.add(primaryBtn);
 
-        // Secondary Action Button (if present)
+        // 3. Secondary Action Button (if present)
         if (data.secondaryActionText) {
             const secondaryBtn = ButtonFactory.createButton({
                 scene: this.scene,
                 x: rightX + colW / 2,
-                y: buttonY + 84,
+                y: buttonY + 128,
                 text: data.secondaryActionText,
                 width: colW - 40,
-                height: 44,
+                height: 42,
                 primaryColor: UITheme.colors.marsAmber,
-                fontSize: "13px",
+                fontSize: "12.5px",
                 onClick: () => {
                     SoundFX.playClick();
                     this.handleSecondaryAction(sol);
@@ -563,23 +607,36 @@ export class MissionChallengesModal {
             this.contentContainer.add(secondaryBtn);
         }
 
-        // Complete & Proceed Button
+        // 4. Complete & Proceed Button
         const completeBtn = ButtonFactory.createButton({
             scene: this.scene,
             x: rightX + colW / 2,
-            y: topY + colH - 42,
+            y: topY + colH - 36,
             text: progressPct >= 1.0 ? "✦ ADVANCE TO NEXT SOL ✦" : "✦ MARK SOL OBJECTIVE COMPLETE ✦",
             width: colW - 40,
-            height: 52,
+            height: 46,
             primaryColor: progressPct >= 1.0 ? UITheme.colors.bioGreen : UITheme.colors.cardHover,
             secondaryColor: UITheme.colors.solarGold,
-            fontSize: "15px",
+            fontSize: "14px",
             onClick: () => {
                 SoundFX.playClick();
                 this.completeCurrentSol(sol);
             }
         });
         this.contentContainer.add(completeBtn);
+    }
+
+    private getSolSceneKey(sol: number): string {
+        switch (sol) {
+            case 1: return "Sol1DirtFortressScene";
+            case 2: return "Sol2PerchlorateBarrierScene";
+            case 3: return "Sol3RedGaleScene";
+            case 4: return "Sol4ISRUProductionScene";
+            case 5: return "Sol5SilenceCommsLagScene";
+            case 6: return "Sol6ColonyGridlockScene";
+            case 7: return "Sol7JourneyHomeMAVScene";
+            default: return "Sol1DirtFortressScene";
+        }
     }
 
     /**
@@ -637,8 +694,10 @@ export class MissionChallengesModal {
                 SoundFX.playAlert();
                 break;
             case 3:
-                // Scraped dust
+                // Scraped dust off solar glass
                 SoundFX.playClick();
+                stateRecord.currentVal = Math.min(10, stateRecord.currentVal + 2);
+                this.renderSolChallenge(sol);
                 break;
             case 7:
                 // Jettison 50kg samples

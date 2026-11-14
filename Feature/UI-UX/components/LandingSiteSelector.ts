@@ -534,8 +534,9 @@ export class LandingSiteSelector {
         });
         const focusText = this.scene.add.text(45, 318, data.targetFocus, {
             fontFamily: UITheme.fonts.body,
-            fontSize: "14px",
-            color: "#FFFFFF"
+            fontSize: "13.5px",
+            color: "#FFFFFF",
+            wordWrap: { width: 560 }
         });
 
         const hazardTitle = this.scene.add.text(45, 348, "ENVIRONMENTAL HAZARD BRIEFING:", {
@@ -546,8 +547,9 @@ export class LandingSiteSelector {
         });
         const hazardText = this.scene.add.text(45, 368, data.hazard, {
             fontFamily: UITheme.fonts.body,
-            fontSize: "14px",
-            color: "#FFA8A8"
+            fontSize: "13.5px",
+            color: "#FFA8A8",
+            wordWrap: { width: 560 }
         });
 
         this.previewContainer.add([focusTitle, focusText, hazardTitle, hazardText]);

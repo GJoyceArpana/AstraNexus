@@ -46,19 +46,11 @@ export class WarningNotification {
 
     private displayBanner(payload: NotificationPayload) {
         const { width } = this.scene.scale;
-        // Keep the gameplay toast in the open band and leave room for action buttons.
-        const bannerW = 560;
-        const modalIsOpen = this.scene.children.list.some(child => {
-            const renderable = child as Phaser.GameObjects.GameObject & { visible?: boolean; depth?: number };
-            return child !== this.currentBanner && child.active && renderable.visible !== false
-                && (renderable.depth ?? 0) >= 150 && (renderable.depth ?? 0) < 200;
-        });
-        const bannerH = modalIsOpen ? 56 : 74;
-        // During play, use the open band between the top HUD and objective card.
-        // During a modal, shrink the toast into the otherwise empty top margin.
-        const targetY = modalIsOpen ? 4 : 188;
+        const bannerW = 600;
+        const bannerH = 84;
+        const targetY = 188;
 
-        const container = this.scene.add.container(width / 2 + 20, -bannerH);
+        const container = this.scene.add.container(width / 2, -bannerH);
         container.setDepth(200); // Above all HUD
 
         // Colors based on type
@@ -111,17 +103,18 @@ export class WarningNotification {
         container.add(iconText);
 
         // Texts
-        const titleText = this.scene.add.text(-bannerW / 2 + 75, -bannerH / 2 + (modalIsOpen ? 8 : 16), payload.title.toUpperCase(), {
+        const titleText = this.scene.add.text(-bannerW / 2 + 75, -bannerH / 2 + 14, payload.title.toUpperCase(), {
             fontFamily: UITheme.fonts.heading,
             fontSize: "13px",
             color: primaryColorStr,
             fontStyle: "bold"
         });
-        const msgText = this.scene.add.text(-bannerW / 2 + 75, -bannerH / 2 + (modalIsOpen ? 24 : 36), payload.message, {
+        const msgText = this.scene.add.text(-bannerW / 2 + 75, -bannerH / 2 + 34, payload.message, {
             fontFamily: UITheme.fonts.body,
-            fontSize: "13px",
+            fontSize: "12.5px",
             color: "#FFFFFF",
-            wordWrap: { width: payload.actionLabel ? 280 : 440 }
+            lineSpacing: 3,
+            wordWrap: { width: payload.actionLabel ? 320 : 470 }
         });
         container.add([titleText, msgText]);
 

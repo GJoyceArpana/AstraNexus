@@ -27,7 +27,6 @@ export class RoleSelector {
 
         this.selectedRole = (this.scene.registry.get("playerRole") as GameRole) || "cadet";
         this.init();
-        this.scene.input.keyboard?.on("keydown", this.handleKeyboard, this);
     }
 
     public getContainer(): Phaser.GameObjects.Container {
@@ -81,32 +80,8 @@ export class RoleSelector {
         this.container.add(backBtn);
 
         this.updateCardSelection();
-
-        const roleKeyboardHint = this.scene.add.text(width / 2, height - 28, "← / →  CHOOSE ROLE     ENTER  CONTINUE", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
-            color: "#B7C8D4",
-            fontStyle: "bold"
-        }).setOrigin(0.5);
-        this.container.add(roleKeyboardHint);
     }
 
-    private handleKeyboard(event: KeyboardEvent) {
-        const key = event.key.toLowerCase();
-        if (key === "arrowleft" || key === "a") {
-            event.preventDefault();
-            this.selectedRole = "cadet";
-            this.updateCardSelection();
-        } else if (key === "arrowright" || key === "d") {
-            event.preventDefault();
-            this.selectedRole = "director";
-            this.updateCardSelection();
-        } else if (key === "enter" || key === " ") {
-            event.preventDefault();
-            this.scene.registry.set("playerRole", this.selectedRole);
-            this.callbacks.onRoleSelected(this.selectedRole);
-        }
-    }
     private createSpaceBackground(w: number, h: number) {
         // Deep space gradient
         const bg = this.scene.add.rectangle(0, 0, w, h, UITheme.colors.spaceDark).setOrigin(0);
@@ -136,8 +111,14 @@ export class RoleSelector {
         this.cadetGlow = this.scene.add.graphics();
         this.cadetCardContainer.add(this.cadetGlow);
 
-        // Render as live UI to avoid the baked checkerboard artwork.
-        this.renderCadetCard(w * scale, h * scale);
+        // If card_cadet image exists, render it; otherwise render styled fallback
+        if (this.scene.textures.exists("card_cadet")) {
+            const cardImg = this.scene.add.image(0, 0, "card_cadet");
+            cardImg.setScale(scale);
+            this.cadetCardContainer.add(cardImg);
+        } else {
+            this.renderCadetFallback(w, h);
+        }
 
         // Top Hit Shield for Card
         const cardShield = this.scene.add.rectangle(0, 0, w * scale, h * scale, 0x000000, 0.001);
@@ -167,7 +148,6 @@ export class RoleSelector {
         cardShield.on("pointerdown", () => {
             this.selectedRole = "cadet";
             this.updateCardSelection();
-
         });
 
         // Dedicated Interactive "CHOOSE CADET" Button positioned over the card's action area
@@ -186,7 +166,6 @@ export class RoleSelector {
                 this.selectedRole = "cadet";
                 this.scene.registry.set("playerRole", "cadet");
                 this.updateCardSelection();
-
                 this.callbacks.onRoleSelected("cadet");
             }
         });
@@ -202,8 +181,13 @@ export class RoleSelector {
         this.directorGlow = this.scene.add.graphics();
         this.directorCardContainer.add(this.directorGlow);
 
-        // Render as live UI to avoid the baked checkerboard artwork.
-        this.renderDirectorCard(w * scale, h * scale);
+        if (this.scene.textures.exists("card_director")) {
+            const cardImg = this.scene.add.image(0, 0, "card_director");
+            cardImg.setScale(scale);
+            this.directorCardContainer.add(cardImg);
+        } else {
+            this.renderDirectorFallback(w, h);
+        }
 
         // Top Hit Shield for Card
         const cardShield = this.scene.add.rectangle(0, 0, w * scale, h * scale, 0x000000, 0.001);
@@ -233,7 +217,6 @@ export class RoleSelector {
         cardShield.on("pointerdown", () => {
             this.selectedRole = "director";
             this.updateCardSelection();
-
         });
 
         // Dedicated Interactive "CHOOSE DIRECTOR" Button
@@ -252,7 +235,6 @@ export class RoleSelector {
                 this.selectedRole = "director";
                 this.scene.registry.set("playerRole", "director");
                 this.updateCardSelection();
-
                 this.callbacks.onRoleSelected("director");
             }
         });
@@ -261,90 +243,88 @@ export class RoleSelector {
         this.container.add(this.directorCardContainer);
     }
 
-    private renderCadetCard(w: number, h: number) {
+    private renderCadetFallback(w: number, h: number) {
         const bg = this.scene.add.graphics();
-        bg.fillStyle(0x111B29, 0.98);
-        bg.fillRoundedRect(-w / 2, -h / 2, w, h, 22);
-        bg.lineStyle(1.5, 0x3A4B5B, 0.95);
-        bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 22);
-        bg.fillStyle(UITheme.colors.primaryCyan, 1);
-        bg.fillRoundedRect(-w / 2 + 16, -h / 2 + 12, w - 32, 4, 2);
+        bg.fillStyle(0x0E192E, 0.96);
+        bg.fillRoundedRect(-w / 2, -h / 2, w, h, 20);
+        bg.lineStyle(2.5, UITheme.colors.primaryCyan, 0.9);
+        bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 20);
         this.cadetCardContainer.add(bg);
 
-        const halo = this.scene.add.circle(0, -72, 62, 0x1C485C, 0.52)
-            .setStrokeStyle(1.5, UITheme.colors.primaryCyan, 0.55);
-        const portrait = this.scene.add.image(0, -72, "boy_avatar_1").setScale(0.32);
-        const tag = this.scene.add.text(0, -176, "FIELD OPERATIONS · TRAINING MODE", {
+        // Circular Icon Badge
+        const badgeCircle = this.scene.add.circle(0, -95, 38, 0x07152B);
+        badgeCircle.setStrokeStyle(2, UITheme.colors.primaryCyan, 1);
+        const badgeIcon = this.scene.add.text(0, -95, "👨‍🚀", { fontSize: "38px" }).setOrigin(0.5);
+        this.cadetCardContainer.add([badgeCircle, badgeIcon]);
+
+        const title = this.scene.add.text(0, -28, "JUNIOR CADET", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "9px",
+            fontSize: "22px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold",
-            letterSpacing: 0.7
+            letterSpacing: 1
         }).setOrigin(0.5);
-        const title = this.scene.add.text(0, 32, "JUNIOR CADET", {
+
+        const badgeTag = this.scene.add.text(0, 4, "✦ STANDARD RECON CLEARANCE ✦", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "20px",
-            color: "#F3F6F8",
+            fontSize: "10.5px",
+            color: UITheme.colors.solarGoldStr,
             fontStyle: "bold"
         }).setOrigin(0.5);
-        const desc = this.scene.add.text(0, 64, "Explore Mars with helpful guidance\nand forgiving resource pressure.", {
+
+        const desc = this.scene.add.text(0, 68, "Perfect for newer astronauts!\nFocus on exploration, surface mobility,\nand learning about Mars with guided telemetry.", {
             fontFamily: UITheme.fonts.body,
-            fontSize: "12px",
-            color: "#B6C4CD",
+            fontSize: "13px",
+            color: "#D0E2FF",
             align: "center",
-            lineSpacing: 4
-        }).setOrigin(0.5, 0);
-        const feature = this.scene.add.text(0, 98, "✓  Guided mission steps\n✓  Lower life-support drain", {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "10px",
-            color: "#7EE0C0",
-            align: "left",
-            lineSpacing: 3
-        }).setOrigin(0.5, 0);
-        this.cadetCardContainer.add([halo, portrait, tag, title, desc, feature]);
+            lineSpacing: 5,
+            wordWrap: { width: 300 }
+        }).setOrigin(0.5);
+
+        this.cadetCardContainer.add([title, badgeTag, desc]);
     }
-    private renderDirectorCard(w: number, h: number) {
+
+    private renderDirectorFallback(w: number, h: number) {
         const bg = this.scene.add.graphics();
-        bg.fillStyle(0x111B29, 0.98);
-        bg.fillRoundedRect(-w / 2, -h / 2, w, h, 22);
-        bg.lineStyle(1.5, 0x3A4B5B, 0.95);
-        bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 22);
-        bg.fillStyle(UITheme.colors.solarGold, 1);
-        bg.fillRoundedRect(-w / 2 + 16, -h / 2 + 12, w - 32, 4, 2);
+        bg.fillStyle(0x0E192E, 0.96);
+        bg.fillRoundedRect(-w / 2, -h / 2, w, h, 20);
+        bg.lineStyle(2.5, UITheme.colors.solarGold, 0.9);
+        bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 20);
         this.directorCardContainer.add(bg);
 
-        const halo = this.scene.add.circle(0, -72, 62, 0x4A3823, 0.46)
-            .setStrokeStyle(1.5, UITheme.colors.solarGold, 0.6);
-        const portrait = this.scene.add.image(0, -72, "girl_avatar_1").setScale(0.32);
-        const tag = this.scene.add.text(0, -176, "COMMAND SYSTEMS · ADVANCED MODE", {
+        // Circular Icon Badge
+        const badgeCircle = this.scene.add.circle(0, -95, 38, 0x07152B);
+        badgeCircle.setStrokeStyle(2, UITheme.colors.solarGold, 1);
+        const badgeIcon = this.scene.add.text(0, -95, "🎖️", { fontSize: "38px" }).setOrigin(0.5);
+        this.directorCardContainer.add([badgeCircle, badgeIcon]);
+
+        const title = this.scene.add.text(0, -28, "FLIGHT DIRECTOR", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "9px",
+            fontSize: "22px",
             color: UITheme.colors.solarGoldStr,
             fontStyle: "bold",
-            letterSpacing: 0.7
+            letterSpacing: 1
         }).setOrigin(0.5);
-        const title = this.scene.add.text(0, 32, "FLIGHT DIRECTOR", {
+
+        const badgeTag = this.scene.add.text(0, 4, "✦ ADVANCED MISSION COMMAND ✦", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "20px",
-            color: "#F3F6F8",
+            fontSize: "10.5px",
+            color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
         }).setOrigin(0.5);
-        const desc = this.scene.add.text(0, 64, "Lead a demanding Mars operation\nwith tighter resource limits.", {
+
+        const desc = this.scene.add.text(0, 68, "For seasoned commanders!\nManage demanding ECLSS life support,\npower grids, and severe Martian weather.", {
             fontFamily: UITheme.fonts.body,
-            fontSize: "12px",
-            color: "#B6C4CD",
+            fontSize: "13px",
+            color: "#FFFFFF",
             align: "center",
-            lineSpacing: 4
-        }).setOrigin(0.5, 0);
-        const feature = this.scene.add.text(0, 98, "✓  Higher resource drain\n✓  Greater crew-risk pressure", {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "10px",
-            color: "#F2CB83",
-            align: "left",
-            lineSpacing: 3
-        }).setOrigin(0.5, 0);
-        this.directorCardContainer.add([halo, portrait, tag, title, desc, feature]);
+            lineSpacing: 5,
+            wordWrap: { width: 300 }
+        }).setOrigin(0.5);
+
+        this.directorCardContainer.add([title, badgeTag, desc]);
     }
+
     private updateCardSelection() {
         const w = 390 * 0.82;
         const h = 500 * 0.82;
@@ -362,7 +342,6 @@ export class RoleSelector {
     }
 
     public destroy() {
-        this.scene.input.keyboard?.off("keydown", this.handleKeyboard, this);
         this.container.destroy();
     }
 }
