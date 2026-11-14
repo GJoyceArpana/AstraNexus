@@ -30,6 +30,9 @@ export class OutpostSolScene extends Phaser.Scene {
 
     preload() {
         // Preload any essential base images if not already preloaded by BootScene
+        if (!this.textures.exists("sand-base-station")) {
+            this.load.image("sand-base-station", "/assets/game/base/sand-base-station.png");
+        }
         if (!this.textures.exists("base-station")) {
             this.load.image("base-station", "/assets/game/base/base-station.png");
         }

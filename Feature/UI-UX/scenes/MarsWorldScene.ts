@@ -97,6 +97,7 @@ export class MarsWorldScene extends Phaser.Scene {
 
         // Mars base assets
         this.load.image("base-station", "/assets/game/base/base-station.png");
+        this.load.image("sand-base-station", "/assets/game/base/sand-base-station.png");
         this.load.image("greenhouse", "/assets/game/base/greenhouse.png");
         this.load.image("solar-panels", "/assets/game/base/solar-panels.png");
         this.load.image("dish-antenna", "/assets/game/base/dish-antenna.png");
@@ -307,14 +308,16 @@ export class MarsWorldScene extends Phaser.Scene {
         });
 
         // Module 2: Mars Habitat Dome (Center: x=660, y=440)
-        const habImg = this.add.image(660, 440, "base-station");
-        habImg.setScale(0.65);
-        habImg.setDepth(10);
-
         const isGlass = this.baseMaterial === "glass";
+        let habImg: Phaser.GameObjects.Image;
+
         if (isGlass) {
-            // Glass Biosphere: cyan tint and dynamic animated bio-halo glow
+            // Glass Biosphere Dome
+            habImg = this.add.image(660, 440, "base-station");
+            habImg.setScale(0.65);
+            habImg.setDepth(10);
             habImg.setTint(0xD0F8FF);
+
             const domeGlow = this.add.ellipse(660, 428, 230, 145, 0x00E5FF, 0.18);
             domeGlow.setDepth(9);
             this.tweens.add({
@@ -328,18 +331,51 @@ export class MarsWorldScene extends Phaser.Scene {
                 ease: "Sine.easeInOut"
             });
         } else {
-            // Sand Regolith Vault: terracotta ochre tint and heavy interlocking basalt sand foundation
-            habImg.setTint(0xE0936C);
-            const sandFoundation = this.add.ellipse(660, 475, 275, 78, 0xC46B42, 0.45);
-            sandFoundation.setStrokeStyle(2, 0xFFD600, 0.55);
-            sandFoundation.setDepth(9);
+            // Sintered Sand Base Station: monolithic architecture made out of Martian sand and covered in dunes
+            const sandKey = this.textures.exists("sand-base-station") ? "sand-base-station" : "base-station";
+            habImg = this.add.image(660, 440, sandKey);
+            habImg.setScale(sandKey === "sand-base-station" ? 0.42 : 0.65);
+            habImg.setDepth(10);
+            if (sandKey !== "sand-base-station") {
+                habImg.setTint(0xE0936C);
+            }
+
+            // Realistic Martian sand dunes banked up against the foundation
+            const duneBack = this.add.ellipse(660, 470, 390, 105, 0x98411D, 0.55);
+            duneBack.setDepth(9);
+
+            const duneFront = this.add.ellipse(660, 486, 335, 72, 0xC46B42, 0.65);
+            duneFront.setStrokeStyle(2, 0xE89363, 0.6);
+            duneFront.setDepth(9);
+
+            // Fine windblown sand dust particles drifting around the sand station
+            for (let i = 0; i < 16; i++) {
+                const sandMote = this.add.circle(
+                    660 + Phaser.Math.Between(-180, 180),
+                    440 + Phaser.Math.Between(-80, 80),
+                    Phaser.Math.FloatBetween(1.0, 2.2),
+                    0xE0936C,
+                    Phaser.Math.FloatBetween(0.25, 0.65)
+                );
+                sandMote.setDepth(11);
+                this.tweens.add({
+                    targets: sandMote,
+                    x: sandMote.x + Phaser.Math.Between(25, 55),
+                    y: sandMote.y + Phaser.Math.Between(-12, 12),
+                    alpha: 0.1,
+                    duration: Phaser.Math.Between(3000, 5000),
+                    yoyo: true,
+                    repeat: -1,
+                    ease: "Sine.easeInOut"
+                });
+            }
         }
 
-        const habName = isGlass ? "OUTPOST SOL GLASS BIOSPHERE DOME" : "OUTPOST SOL SINTERED REGOLITH VAULT";
+        const habName = isGlass ? "OUTPOST SOL GLASS BIOSPHERE DOME" : "OUTPOST SOL SINTERED SAND VAULT";
         this.modules.push({
             id: "hab",
             name: habName,
-            icon: isGlass ? "🌐" : "🏛️",
+            icon: isGlass ? "🌐" : "🏜️",
             x: 660,
             y: 440,
             sprite: habImg,
@@ -684,10 +720,10 @@ export class MarsWorldScene extends Phaser.Scene {
         const isGlass = this.baseMaterial === "glass";
         this.warningSystem.show({
             type: "INFO",
-            title: isGlass ? "GLASS BIOSPHERE INSPECTION" : "REGOLITH VAULT INSPECTION",
+            title: isGlass ? "GLASS BIOSPHERE INSPECTION" : "SINTERED SAND VAULT INSPECTION",
             message: isGlass
                 ? "Fused silica dome: 92% daylight transmission. Atmospheric scrubbers nominal at 1.0 ATM."
-                : "Sintered basalt vault: +55% passive cosmic ray defense active. Structural regolith shell integrity 100%.",
+                : "Monolithic sand structure: 100% sintered regolith walls banked in Martian sand dunes. Cosmic ray defense active (+55%).",
             durationMs: 4500
         });
     }
