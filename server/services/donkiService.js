@@ -1,6 +1,11 @@
-const NASA_BASE_URL = "https://api.nasa.gov/DONKI";
+
+const NASA_BASE_URL =
+  "https://ccmc.gsfc.nasa.gov/DONKI-API/get";
+
 const CACHE_DURATION = 10 * 60 * 1000;
-const REQUEST_TIMEOUT = 8000;
+const REQUEST_TIMEOUT = 15000;
+const MAX_RANGE_DAYS = 30;
+const DEFAULT_RANGE_DAYS = 7;
 
 const cache = new Map();
 
@@ -12,43 +17,76 @@ export class DonkiError extends Error {
   }
 }
 
+// Format a date as YYYY-MM-DD in UTC.
 function formatDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
+// Validate date format and actual calendar date.
 function parseDate(value, field) {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    throw new DonkiError(`Invalid ${field}. Use YYYY-MM-DD.`, 400);
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(value)
+  ) {
+    throw new DonkiError(
+      `Invalid ${field}. Use YYYY-MM-DD.`,
+      400
+    );
   }
 
   const date = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime()) || formatDate(date) !== value) {
-    throw new DonkiError(`Invalid ${field}. Use YYYY-MM-DD.`, 400);
+
+  if (
+    Number.isNaN(date.getTime()) ||
+    formatDate(date) !== value
+  ) {
+    throw new DonkiError(
+      `Invalid ${field}. Use YYYY-MM-DD.`,
+      400
+    );
   }
 
   return date;
 }
 
-export function resolveDateRange(startDateValue, endDateValue) {
+// Default: latest seven days.
+// Maximum: 30 days.
+export function resolveDateRange(
+  startDateValue,
+  endDateValue
+) {
   const today = new Date();
+
   const endDate = endDateValue
     ? parseDate(endDateValue, "endDate")
     : new Date(`${formatDate(today)}T00:00:00.000Z`);
+
   const startDate = startDateValue
     ? parseDate(startDateValue, "startDate")
     : new Date(endDate);
 
   if (!startDateValue) {
-    startDate.setUTCDate(startDate.getUTCDate() - 7);
+    startDate.setUTCDate(
+      startDate.getUTCDate() - DEFAULT_RANGE_DAYS
+    );
   }
 
   if (startDate > endDate) {
-    throw new DonkiError("startDate must be on or before endDate.", 400);
+    throw new DonkiError(
+      "startDate must be on or before endDate.",
+      400
+    );
   }
 
-  const rangeInDays = (endDate - startDate) / (24 * 60 * 60 * 1000);
-  if (rangeInDays > 30) {
-    throw new DonkiError("Date range cannot exceed 30 days.", 400);
+  const rangeInDays =
+    (endDate.getTime() - startDate.getTime()) /
+    (24 * 60 * 60 * 1000);
+
+  if (rangeInDays > MAX_RANGE_DAYS) {
+    throw new DonkiError(
+      "Date range cannot exceed 30 days.",
+      400
+    );
   }
 
   return {
@@ -57,113 +95,249 @@ export function resolveDateRange(startDateValue, endDateValue) {
   };
 }
 
-function normalizeEvent(item, type, index) {
-  const id = item.messageID || item.flrID || item.activityID || item.cmeID;
-  const issuedAt =
-    item.messageIssueTime ||
-    item.beginTime ||
-    item.startTime ||
-    item.issueTime ||
-    null;
-
+// Normalize NASA Solar Flare records.
+function normalizeSolarFlare(item) {
   return {
-    id: id || `${type.toLowerCase()}-${index}`,
-    type,
-    issuedAt,
-    title:
-      item.messageType ||
-      item.classType ||
-      item.note ||
-      `${type} event`,
-    description:
-      item.messageBody ||
-      item.note ||
-      item.comments ||
-      "",
-    sourceUrl: item.messageURL || null,
-    classType: item.classType || null
+    flrID: item.flrID ?? null,
+    beginTime: item.beginTime ?? null,
+    peakTime: item.peakTime ?? null,
+    endTime: item.endTime ?? null,
+    classType: item.classType ?? null,
+    sourceLocation: item.sourceLocation ?? null,
+    activeRegionNum: item.activeRegionNum ?? null,
+    instruments: Array.isArray(item.instruments)
+      ? item.instruments
+      : [],
+    link: item.link ?? null
   };
 }
 
+// Normalize NASA CME records.
+function normalizeCME(item) {
+  const analyses = Array.isArray(item.cmeAnalyses)
+    ? item.cmeAnalyses
+    : [];
+
+  const preferredAnalysis =
+    analyses.find(
+      (analysis) => analysis.isMostAccurate === true
+    ) ?? analyses[0] ?? null;
+
+  return {
+    activityID: item.activityID ?? null,
+    startTime: item.startTime ?? null,
+    sourceLocation: item.sourceLocation ?? null,
+    activeRegionNum: item.activeRegionNum ?? null,
+    catalog: item.catalog ?? null,
+    note: item.note ?? null,
+
+    cmeAnalyses: analyses.map((analysis) => ({
+      speed: analysis.speed ?? null,
+      latitude: analysis.latitude ?? null,
+      longitude: analysis.longitude ?? null,
+      halfAngle: analysis.halfAngle ?? null,
+      isMostAccurate: analysis.isMostAccurate ?? null
+    })),
+
+    speed: preferredAnalysis?.speed ?? null,
+    latitude: preferredAnalysis?.latitude ?? null,
+    longitude: preferredAnalysis?.longitude ?? null,
+    halfAngle: preferredAnalysis?.halfAngle ?? null,
+    isMostAccurate:
+      preferredAnalysis?.isMostAccurate ?? null,
+
+    link: item.link ?? null
+  };
+}
+
+// Normalize NASA DONKI notifications.
+function normalizeNotification(item) {
+  return {
+    messageID: item.messageID ?? null,
+    messageType: item.messageType ?? null,
+    messageIssueTime: item.messageIssueTime ?? null,
+    messageBody: item.messageBody ?? null,
+    messageURL: item.messageURL ?? null
+  };
+}
+
+// Request data from the official NASA CCMC DONKI API.
 async function fetchDonki(endpoint, range) {
-  const apiKey = process.env.NASA_API_KEY;
-  if (!apiKey) {
-    throw new DonkiError("NASA DONKI is not configured.", 502);
-  }
+  const baseUrl = (
+    process.env.NASA_DONKI_BASE_URL || NASA_BASE_URL
+  ).replace(/\/+$/, "");
 
   const params = new URLSearchParams({
     startDate: range.startDate,
-    endDate: range.endDate,
-    api_key: apiKey
+    endDate: range.endDate
   });
+
+  const url = `${baseUrl}/${endpoint}?${params.toString()}`;
+
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+  const timeout = setTimeout(
+    () => controller.abort(),
+    REQUEST_TIMEOUT
+  );
 
   try {
-    const baseUrl = process.env.NASA_DONKI_BASE_URL || NASA_BASE_URL;
-    const response = await fetch(`${baseUrl}/${endpoint}?${params}`, {
-      signal: controller.signal
+    console.log(`DONKI request: ${endpoint}`);
+
+    const response = await fetch(url, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json"
+      }
     });
 
     if (!response.ok) {
-      throw new DonkiError("NASA DONKI returned an upstream error.", 502);
+      // Do not log the full URL or sensitive query parameters.
+      console.error(
+        "DONKI upstream HTTP status:",
+        response.status,
+        response.statusText
+      );
+
+      throw new DonkiError(
+        `NASA DONKI returned HTTP ${response.status}.`,
+        502
+      );
     }
 
     const data = await response.json();
+
     if (!Array.isArray(data)) {
-      throw new DonkiError("NASA DONKI returned an invalid response.", 502);
+      throw new DonkiError(
+        "NASA DONKI returned an invalid response.",
+        502
+      );
     }
 
     return data;
   } catch (error) {
-    if (error instanceof DonkiError) throw error;
-    if (error.name === "AbortError") {
-      throw new DonkiError("NASA DONKI request timed out.", 502);
+    if (error instanceof DonkiError) {
+      throw error;
     }
-    throw new DonkiError("Unable to reach NASA DONKI.", 502);
+
+    if (error.name === "AbortError") {
+      throw new DonkiError(
+        "NASA DONKI request timed out.",
+        502
+      );
+    }
+
+    console.error(
+      "DONKI connection error:",
+      error.message
+    );
+
+    throw new DonkiError(
+      "Unable to reach NASA DONKI.",
+      502
+    );
   } finally {
     clearTimeout(timeout);
   }
 }
 
-async function getEvents(endpoint, type, startDate, endDate) {
-  const range = resolveDateRange(startDate, endDate);
-  const cacheKey = `${endpoint}:${range.startDate}:${range.endDate}`;
+// Retrieve, normalize, sort and cache events.
+async function getEvents(
+  endpoint,
+  normalizer,
+  startDate,
+  endDate
+) {
+  const range = resolveDateRange(
+    startDate,
+    endDate
+  );
+
+  const cacheKey =
+    `${endpoint}:${range.startDate}:${range.endDate}`;
+
   const cached = cache.get(cacheKey);
 
-  if (cached && Date.now() - cached.fetchedAt < CACHE_DURATION) {
-    return { ...cached.data, cached: true };
+  if (
+    cached &&
+    Date.now() - cached.fetchedAt < CACHE_DURATION
+  ) {
+    return {
+      ...cached.data,
+      cached: true
+    };
   }
 
   const items = await fetchDonki(endpoint, range);
+
   const events = items
-    .map((item, index) => normalizeEvent(item, type, index))
-    .sort(
-      (a, b) =>
-        new Date(b.issuedAt || 0).getTime() -
-        new Date(a.issuedAt || 0).getTime()
-    );
+    .map(normalizer)
+    .sort((a, b) => {
+      const dateA = new Date(
+        a.beginTime ||
+        a.startTime ||
+        a.messageIssueTime ||
+        0
+      ).getTime();
+
+      const dateB = new Date(
+        b.beginTime ||
+        b.startTime ||
+        b.messageIssueTime ||
+        0
+      ).getTime();
+
+      return dateB - dateA;
+    });
+
   const result = {
     source: "NASA DONKI",
     fetchedAt: new Date().toISOString(),
     period: range,
     totalEvents: events.length,
-    latestEvents: events.slice(0, 5),
-    status: events.length > 0 ? "EVENTS_REPORTED" : "NO_EVENTS_REPORTED"
+    data: events,
+    status:
+      events.length > 0
+        ? "EVENTS_REPORTED"
+        : "NO_EVENTS_REPORTED"
   };
 
-  cache.set(cacheKey, { data: result, fetchedAt: Date.now() });
-  return { ...result, cached: false };
+  cache.set(cacheKey, {
+    data: result,
+    fetchedAt: Date.now()
+  });
+
+  return {
+    ...result,
+    cached: false
+  };
 }
 
+// Public service functions.
 export function getSpaceWeather(startDate, endDate) {
-  return getEvents("notifications", "Notification", startDate, endDate);
+  return getEvents(
+    "notifications",
+    normalizeNotification,
+    startDate,
+    endDate
+  );
 }
 
 export function getSolarFlares(startDate, endDate) {
-  return getEvents("FLR", "Solar Flare", startDate, endDate);
+  return getEvents(
+    "FLR",
+    normalizeSolarFlare,
+    startDate,
+    endDate
+  );
 }
 
 export function getCMEs(startDate, endDate) {
-  return getEvents("CME", "CME", startDate, endDate);
+  return getEvents(
+    "CME",
+    normalizeCME,
+    startDate,
+    endDate
+  );
 }
