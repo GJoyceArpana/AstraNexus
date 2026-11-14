@@ -2,6 +2,9 @@
 import Phaser from "phaser";
 
 import BootScene from "./scenes/BootScene";
+import OutpostSolScene from "../Feature/UI-UX/scenes/OutpostSolScene.ts";
+import MarsWorldScene from "../Feature/UI-UX/scenes/MarsWorldScene.ts";
+import SwitchboardModalScene from "../Feature/UI-UX/scenes/SwitchboardModalScene.ts";
 import StartScene from "./scenes/StartScene";
 import StoryScene from "./scenes/StoryScene";
 import CustomizationScene from "./scenes/CustomizationScene";
@@ -113,6 +116,9 @@ const config: Phaser.Types.Core.GameConfig = {
 
     scene: [
         BootScene,
+        OutpostSolScene,
+        MarsWorldScene,
+        SwitchboardModalScene,
         StartScene,
         StoryScene,
         CustomizationScene,

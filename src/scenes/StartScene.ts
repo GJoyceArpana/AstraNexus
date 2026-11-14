@@ -398,7 +398,7 @@ export default class StartScene extends Phaser.Scene {
         });
     }
 
-    private async loadNASAWeather(force = false) {
+    private async loadNASAWeather(_force = false) {
         if (this.weatherLoading) return;
 
         this.weatherLoading = true;
