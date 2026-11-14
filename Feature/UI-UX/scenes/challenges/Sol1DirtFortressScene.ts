@@ -8,6 +8,13 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
     private targetThickness = 3.0;
     private compactionPercent = 0;
 
+    private domeCenterX = 0;
+    private domeBaseY = 0;
+    private gaugeX = 0;
+    private gaugeY = 0;
+    private gaugeW = 0;
+    private gaugeH = 0;
+
     constructor() {
         super("Sol1DirtFortressScene", {
             solNumber: 1,
@@ -60,14 +67,17 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         viewFrame.strokeRoundedRect(viewX, viewY, viewW, viewH, 10);
 
         // Habitat Shell Graphic
+        this.domeCenterX = viewX + viewW / 2;
+        this.domeBaseY = viewY + viewH - 30;
+
         const habDome = this.add.graphics();
         habDome.fillStyle(0x0C2B4E, 0.9);
-        habDome.fillEllipse(viewX + viewW / 2, viewY + viewH - 30, 320, 150);
+        habDome.fillEllipse(this.domeCenterX, this.domeBaseY, 320, 150);
         habDome.lineStyle(3, UITheme.colors.primaryCyan, 1);
-        habDome.strokeEllipse(viewX + viewW / 2, viewY + viewH - 30, 320, 150);
+        habDome.strokeEllipse(this.domeCenterX, this.domeBaseY, 320, 150);
 
         // Internal Crew Life-Sign Glow
-        this.add.text(viewX + viewW / 2, viewY + viewH - 45, "🏠 HABITAT PRESSURIZED CABIN", {
+        this.add.text(this.domeCenterX, this.domeBaseY - 15, "🏠 HABITAT PRESSURIZED CABIN", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
             color: UITheme.colors.primaryCyanStr,
@@ -76,7 +86,16 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
 
         // Dynamic Regolith Shield Layer Graphic (piles up over dome)
         this.regolithMoundGraphics = this.add.graphics();
-        this.updateRegolithVisuals(viewX + viewW / 2, viewY + viewH - 30);
+
+        // Strict Viewport Geometry Mask to contain dome and regolith inside viewFrame
+        const viewMaskG = this.make.graphics();
+        viewMaskG.fillStyle(0xffffff);
+        viewMaskG.fillRoundedRect(viewX, viewY, viewW, viewH, 10);
+        const viewMask = viewMaskG.createGeometryMask();
+        habDome.setMask(viewMask);
+        this.regolithMoundGraphics.setMask(viewMask);
+
+        this.updateRegolithVisuals(this.domeCenterX, this.domeBaseY);
 
         // Dosimeter Telemetry Box
         const radBoxY = topY + 310;
@@ -144,14 +163,19 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             fontStyle: "bold"
         }).setOrigin(1, 0);
 
+        this.gaugeX = rightX + 24;
+        this.gaugeY = gaugeY + 28;
+        this.gaugeW = barW;
+        this.gaugeH = barH;
+
         const trackBg = this.add.graphics();
         trackBg.fillStyle(0x061122, 1);
-        trackBg.fillRoundedRect(rightX + 24, gaugeY + 28, barW, barH, 6);
+        trackBg.fillRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
         trackBg.lineStyle(1, UITheme.colors.panelBorder, 0.8);
-        trackBg.strokeRoundedRect(rightX + 24, gaugeY + 28, barW, barH, 6);
+        trackBg.strokeRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
 
         this.progressFill = this.add.graphics();
-        this.updateProgressGauge(rightX + 24, gaugeY + 28, barW, barH);
+        this.updateProgressGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
 
         // Engineering Action Buttons
         const btnY = topY + 130;
@@ -164,7 +188,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 52,
             fontSize: "14px",
-            text: "🚜 EXCAVATE BASALT REGOLITH (+0.5m)",
+            text: "EXCAVATE BASALT REGOLITH (+0.5m)",
             primaryColor: UITheme.colors.primaryCyan,
             icon: "🚜",
             onClick: () => {
@@ -181,7 +205,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 50,
             fontSize: "14px",
-            text: "🔨 COMPACT DIRT SHIELD (-15% VOIDS)",
+            text: "COMPACT DIRT SHIELD (-15% VOIDS)",
             primaryColor: UITheme.colors.marsAmber,
             icon: "🔨",
             onClick: () => {
@@ -198,7 +222,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 50,
             fontSize: "14px",
-            text: "🛡️ RUN RAD DOSIMETER ATTENUATION SCAN",
+            text: "RUN RAD ATTENUATION SCAN",
             primaryColor: UITheme.colors.bioGreen,
             icon: "🔬",
             onClick: () => {
@@ -261,17 +285,16 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         this.progressFill.fillRoundedRect(x + 2, y + 2, Math.max(8, (w - 4) * pct), h - 4, 4);
     }
 
+    protected isTargetMet(): boolean {
+        return this.currentVal >= this.targetThickness;
+    }
+
     private excavateRegolith(amount: number) {
         this.currentVal = Math.min(3.5, Number((this.currentVal + amount).toFixed(1)));
-        const frameX = (this.W - 1220) / 2;
-        const leftX = frameX + 24;
-        const viewX = leftX + 24;
-        const viewW = 575 - 48;
-        const viewY = (this.H - 660) / 2 + 120;
 
-        this.updateRegolithVisuals(viewX + viewW / 2, viewY + 120);
+        this.updateRegolithVisuals(this.domeCenterX, this.domeBaseY);
         this.updateRadDoseDisplay();
-        this.updateProgressGauge(leftX + 575 + 46, (this.H - 660) / 2 + 152, 575 - 48, 26);
+        this.updateProgressGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
 
         if (this.currentVal >= this.targetThickness) {
             this.setActionFeedback("✔ REGOLITH BARRIER EXCEEDS 3.0m NASA TARGET! RADIATION NORMALIZED.", true);

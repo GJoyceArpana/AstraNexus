@@ -9,6 +9,11 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
     private nuclearOutputKW = 0;   // 0 until deployed
     private habitatTempC = -15;    // Freezing until thermal bus engaged
 
+    private gaugeX = 0;
+    private gaugeY = 0;
+    private gaugeW = 0;
+    private gaugeH = 0;
+
     constructor() {
         super("Sol3RedGaleScene", {
             solNumber: 3,
@@ -60,7 +65,12 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
         stormWindow.lineStyle(2, UITheme.colors.marsAmber, 0.9);
         stormWindow.strokeRoundedRect(viewX, viewY, viewW, viewH, 10);
 
-        // Animated Howling Dust Streaks
+        // Animated Howling Dust Streaks (contained inside stormWindow via Geometry Mask)
+        const stormMaskG = this.make.graphics();
+        stormMaskG.fillStyle(0xffffff);
+        stormMaskG.fillRoundedRect(viewX, viewY, viewW, viewH, 10);
+        const stormMask = stormMaskG.createGeometryMask();
+
         for (let i = 0; i < 35; i++) {
             const p = this.add.circle(
                 viewX + Phaser.Math.Between(0, viewW),
@@ -69,6 +79,7 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
                 0xE3714A,
                 Phaser.Math.FloatBetween(0.3, 0.8)
             );
+            p.setMask(stormMask);
             this.stormParticles.push(p);
 
             this.tweens.add({
@@ -159,14 +170,19 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
             fontStyle: "bold"
         }).setOrigin(1, 0);
 
+        this.gaugeX = rightX + 24;
+        this.gaugeY = gaugeY + 28;
+        this.gaugeW = barW;
+        this.gaugeH = barH;
+
         const trackBg = this.add.graphics();
         trackBg.fillStyle(0x061122, 1);
-        trackBg.fillRoundedRect(rightX + 24, gaugeY + 28, barW, barH, 6);
+        trackBg.fillRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
         trackBg.lineStyle(1, UITheme.colors.panelBorder, 0.8);
-        trackBg.strokeRoundedRect(rightX + 24, gaugeY + 28, barW, barH, 6);
+        trackBg.strokeRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
 
         this.progressFill = this.add.graphics();
-        this.updateGauge(rightX + 24, gaugeY + 28, barW, barH);
+        this.updateGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
 
         // Action Buttons
         const btnY = topY + 130;
@@ -179,7 +195,7 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 52,
             fontSize: "14px",
-            text: "⚛️ DEPLOY 10 kW KILOPOWER STIRLING REACTOR",
+            text: "DEPLOY 10 kW KILOPOWER STIRLING REACTOR",
             primaryColor: UITheme.colors.primaryCyan,
             icon: "⚛️",
             onClick: () => {
@@ -196,7 +212,7 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 50,
             fontSize: "14px",
-            text: "🧹 ENGAGE ELECTROSTATIC SOLAR DUST WIPERS",
+            text: "ENGAGE ELECTROSTATIC SOLAR DUST WIPERS",
             primaryColor: UITheme.colors.solarGold,
             icon: "🧹",
             onClick: () => {
@@ -213,7 +229,7 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 50,
             fontSize: "14px",
-            text: "🔥 DIVERT SODIUM-POTASSIUM HEAT TO CABIN (+21°C)",
+            text: "DIVERT SODIUM-POTASSIUM HEAT TO CABIN (+21°C)",
             primaryColor: UITheme.colors.bioGreen,
             icon: "🔥",
             onClick: () => {
@@ -282,11 +298,14 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
         this.setActionFeedback("🔥 Thermal bus engaged! Heat pipes pumping warmth to cabin (+21°C).", true);
     }
 
+    protected isTargetMet(): boolean {
+        const total = this.solarOutputKW + this.nuclearOutputKW;
+        return total >= this.challengeConfig.targetVal && this.habitatTempC > 0;
+    }
+
     private refreshState() {
         this.updateSurplusDisplay();
-        const frameX = (this.W - 1220) / 2;
-        const rightX = frameX + 24 + 575 + 22;
-        this.updateGauge(rightX + 24, (this.H - 660) / 2 + 152, 575 - 48, 26);
+        this.updateGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
     }
 }
 

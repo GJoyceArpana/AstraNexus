@@ -8,6 +8,11 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
     private foodKg = 2;
     private telemetryStatsText!: Phaser.GameObjects.Text;
 
+    private gaugeX = 0;
+    private gaugeY = 0;
+    private gaugeW = 0;
+    private gaugeH = 0;
+
     constructor() {
         super("Sol4ISRUProductionScene", {
             solNumber: 4,
@@ -125,14 +130,19 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
             fontStyle: "bold"
         }).setOrigin(1, 0);
 
+        this.gaugeX = rightX + 24;
+        this.gaugeY = gaugeY + 28;
+        this.gaugeW = barW;
+        this.gaugeH = barH;
+
         const trackBg = this.add.graphics();
         trackBg.fillStyle(0x061122, 1);
-        trackBg.fillRoundedRect(rightX + 24, gaugeY + 28, barW, barH, 6);
+        trackBg.fillRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
         trackBg.lineStyle(1, UITheme.colors.panelBorder, 0.8);
-        trackBg.strokeRoundedRect(rightX + 24, gaugeY + 28, barW, barH, 6);
+        trackBg.strokeRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
 
         this.progressFill = this.add.graphics();
-        this.updateGauge(rightX + 24, gaugeY + 28, barW, barH);
+        this.updateGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
 
         // Action Buttons
         const btnY = topY + 130;
@@ -145,7 +155,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 52,
             fontSize: "14px",
-            text: "💨 RUN MOXIE 800°C ELECTROLYSIS (+1.2 kg O₂)",
+            text: "RUN MOXIE ELECTROLYSIS (+1.2 kg O₂)",
             primaryColor: UITheme.colors.primaryCyan,
             icon: "💨",
             onClick: () => {
@@ -162,7 +172,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 50,
             fontSize: "14px",
-            text: "💧 DRILL SUBSURFACE GLACIAL ICE (+20 L H₂O)",
+            text: "DRILL SUBSURFACE GLACIAL ICE (+20 L H₂O)",
             primaryColor: UITheme.colors.solarGold,
             icon: "💧",
             onClick: () => {
@@ -179,7 +189,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 50,
             fontSize: "14px",
-            text: "🥔 HARVEST HYDROPONIC POTATO CROPS (+8 kg Food)",
+            text: "HARVEST HYDROPONIC CROPS (+8 kg Food)",
             primaryColor: UITheme.colors.bioGreen,
             icon: "🥔",
             onClick: () => {
@@ -272,11 +282,13 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
         this.setActionFeedback("🥔 Hydroponic LED chamber harvested! +8 kg fresh Martian potatoes.", true);
     }
 
+    protected isTargetMet(): boolean {
+        return this.moxieKg >= 1.5 && this.waterLiters >= 20 && this.foodKg >= 8;
+    }
+
     private refreshState() {
         this.updateStatsDisplay();
-        const frameX = (this.W - 1220) / 2;
-        const rightX = frameX + 24 + 575 + 22;
-        this.updateGauge(rightX + 24, (this.H - 660) / 2 + 152, 575 - 48, 26);
+        this.updateGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
     }
 }
 

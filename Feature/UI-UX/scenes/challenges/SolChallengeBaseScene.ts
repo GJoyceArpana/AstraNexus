@@ -96,47 +96,72 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
         this.mainFrame.lineStyle(2, UITheme.colors.primaryCyan, 0.9);
         this.mainFrame.strokeRoundedRect(frameX, frameY, frameW, frameH, 14);
 
-        // Header accent bar
+        // Header accent bar (62px tall to cleanly accommodate 2 distinct lines on left and right)
         this.mainFrame.fillStyle(UITheme.colors.cardSelected, 0.4);
-        this.mainFrame.fillRoundedRect(frameX, frameY, frameW, 56, { tl: 14, tr: 14, bl: 0, br: 0 });
+        this.mainFrame.fillRoundedRect(frameX, frameY, frameW, 62, { tl: 14, tr: 14, bl: 0, br: 0 });
     }
 
     private createTopBanner() {
         const frameX = (this.W - 1220) / 2;
         const frameY = (this.H - 660) / 2;
 
-        // Title
-        const titleText = this.add.text(
+        // Left Side Line 1: Sol Title
+        this.add.text(
             frameX + 24,
-            frameY + 16,
-            `✦ ${this.challengeConfig.title} · CODENAME: [ ${this.challengeConfig.codename} ] ✦`,
+            frameY + 12,
+            `✦ ${this.challengeConfig.title}`,
             {
                 fontFamily: UITheme.fonts.heading,
-                fontSize: "17px",
+                fontSize: "16px",
                 color: UITheme.colors.primaryCyanStr,
                 fontStyle: "bold",
-                letterSpacing: 2
+                letterSpacing: 1.5
             }
-        );
-        titleText.setDepth(10);
+        ).setDepth(10);
 
-        // Hazard Tag (Top Right)
+        // Left Side Line 2: Codename
         this.add.text(
-            frameX + 1220 - 24,
-            frameY + 18,
-            `⚠ HAZARD: ${this.challengeConfig.hazardBadge}`,
+            frameX + 24,
+            frameY + 36,
+            `MISSION DIRECTIVE: [ ${this.challengeConfig.codename} ]`,
             {
                 fontFamily: UITheme.fonts.heading,
                 fontSize: "11px",
+                color: UITheme.colors.solarGoldStr,
+                fontStyle: "bold"
+            }
+        ).setDepth(10);
+
+        // Right Side Line 1: Hazard Badge
+        this.add.text(
+            frameX + 1220 - 24,
+            frameY + 12,
+            `⚠ HAZARD: ${this.challengeConfig.hazardBadge}`,
+            {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "11.5px",
                 color: UITheme.colors.emergencyRedStr,
                 fontStyle: "bold"
             }
         ).setOrigin(1, 0).setDepth(10);
 
-        // Subtle divider
+        // Right Side Line 2: Primary Target
+        this.add.text(
+            frameX + 1220 - 24,
+            frameY + 36,
+            `🎯 TARGET: ${this.challengeConfig.primaryTarget}`,
+            {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "11px",
+                color: UITheme.colors.bioGreenStr,
+                fontStyle: "bold"
+            }
+        ).setOrigin(1, 0).setDepth(10);
+
+        // Subtle divider below header
         const div = this.add.graphics();
         div.lineStyle(1, UITheme.colors.panelBorder, 0.8);
-        div.lineBetween(frameX + 20, frameY + 56, frameX + 1200, frameY + 56);
+        div.lineBetween(frameX + 20, frameY + 62, frameX + 1200, frameY + 62);
         div.setDepth(10);
     }
 
@@ -158,10 +183,7 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
             textColor: "#FFFFFF",
             onClick: () => {
                 SoundFX.playClick();
-                this.cameras.main.fadeOut(300, 10, 5, 20);
-                this.time.delayedCall(300, () => {
-                    this.scene.start("MarsWorldScene");
-                });
+                this.returnToMars();
             }
         });
         backBtn.setDepth(10);
@@ -185,12 +207,14 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
         });
         advanceBtn.setDepth(10);
 
-        // Action Feedback banner in the middle
+        // Action Feedback banner in the middle with text wrapping
         this.actionFeedbackText = this.add.text(this.W / 2, bottomY, "NASA FLIGHT DIRECTIVE ACTIVE · EXECUTE ENGINEERING CONTROLS", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
             color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
+            fontStyle: "bold",
+            align: "center",
+            wordWrap: { width: 520 }
         }).setOrigin(0.5).setDepth(10);
     }
 
@@ -210,6 +234,12 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
     }
 
     protected completeChallengeAndAdvance() {
+        if (!this.isTargetMet()) {
+            SoundFX.playAlert();
+            this.setActionFeedback("⚠ PRIMARY OBJECTIVE NOT MET YET! COMPLETE NASA DIRECTIVE FIRST.", false);
+            return;
+        }
+
         this.isCompleted = true;
         const nextSol = Math.min(7, this.challengeConfig.solNumber + 1);
         this.registry.set("solLevel", nextSol);
@@ -218,9 +248,30 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
         SoundFX.playToggle(true);
 
         this.time.delayedCall(600, () => {
-            this.scene.start("MarsWorldScene");
+            const marsScene = this.scene.get("MarsWorldScene");
+            if (marsScene) {
+                marsScene.events.emit("solLevelUpdated", nextSol);
+            }
+            this.returnToMars();
         });
     }
+
+    protected returnToMars() {
+        this.cameras.main.fadeOut(300, 10, 5, 20);
+        this.time.delayedCall(300, () => {
+            this.scene.stop();
+            if (this.scene.isSleeping("MarsWorldScene")) {
+                this.scene.wake("MarsWorldScene");
+            } else {
+                this.scene.start("MarsWorldScene");
+            }
+        });
+    }
+
+    /**
+     * Subclasses must report whether the primary NASA directive for this Sol has been satisfied
+     */
+    protected abstract isTargetMet(): boolean;
 
     /**
      * Subclasses must implement their specific visual simulation and engineering controls

@@ -201,13 +201,20 @@ export class Sol6ColonyGridlockScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 44,
             fontSize: "13px",
-            text: "⚡ AUTO-BALANCE SWITCHBOARD LOAD",
+            text: "AUTO-BALANCE SWITCHBOARD LOAD",
             primaryColor: UITheme.colors.solarGold,
+            icon: "⚡",
             onClick: () => {
                 SoundFX.playClick();
                 this.autoBalanceGrid();
             }
         });
+    }
+
+    protected isTargetMet(): boolean {
+        const totalLoadKW = this.gridModules.filter(m => m.active).reduce((sum, m) => sum + m.kw, 0);
+        const activeCount = this.gridModules.filter(m => m.active).length;
+        return activeCount >= 4 && totalLoadKW <= this.maxCapacityKW;
     }
 
     private drawModuleBg(g: Phaser.GameObjects.Graphics, w: number, h: number, active: boolean, essential?: boolean) {

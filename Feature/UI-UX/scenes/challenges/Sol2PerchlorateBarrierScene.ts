@@ -8,6 +8,11 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     public suitportLockStatus = false;
     public hepaAirCurtainActive = false;
 
+    private gaugeX = 0;
+    private gaugeY = 0;
+    private gaugeW = 0;
+    private gaugeH = 0;
+
     constructor() {
         super("Sol2PerchlorateBarrierScene", {
             solNumber: 2,
@@ -156,14 +161,19 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             fontStyle: "bold"
         }).setOrigin(1, 0);
 
+        this.gaugeX = rightX + 24;
+        this.gaugeY = gaugeY + 28;
+        this.gaugeW = barW;
+        this.gaugeH = barH;
+
         const trackBg = this.add.graphics();
         trackBg.fillStyle(0x061122, 1);
-        trackBg.fillRoundedRect(rightX + 24, gaugeY + 28, barW, barH, 6);
+        trackBg.fillRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
         trackBg.lineStyle(1, UITheme.colors.panelBorder, 0.8);
-        trackBg.strokeRoundedRect(rightX + 24, gaugeY + 28, barW, barH, 6);
+        trackBg.strokeRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
 
         this.progressFill = this.add.graphics();
-        this.updateGauge(rightX + 24, gaugeY + 28, barW, barH);
+        this.updateGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
 
         // Action Buttons
         const btnY = topY + 130;
@@ -176,7 +186,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 52,
             fontSize: "14px",
-            text: "🚪 ENGAGE REAR-ENTRY SUITPORT HATCH",
+            text: "ENGAGE REAR-ENTRY SUITPORT HATCH",
             primaryColor: UITheme.colors.primaryCyan,
             icon: "🚪",
             onClick: () => {
@@ -193,7 +203,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 50,
             fontSize: "14px",
-            text: "💨 ACTIVATE HIGH-PRESSURE HEPA AIR CURTAIN",
+            text: "ACTIVATE HEPA AIR CURTAIN",
             primaryColor: UITheme.colors.solarGold,
             icon: "💨",
             onClick: () => {
@@ -210,7 +220,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 50,
             fontSize: "14px",
-            text: "🔬 SHERLOC RAMAN SPECTROMETER SAMPLE",
+            text: "SHERLOC RAMAN SPECTROMETER SAMPLE",
             primaryColor: UITheme.colors.bioGreen,
             icon: "🔬",
             onClick: () => {
@@ -279,11 +289,13 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         this.setActionFeedback("🔬 SHERLOC analysis confirmed: 0.02% perchlorate trace. Within OSHA/NASA bio-limits.", true);
     }
 
+    protected isTargetMet(): boolean {
+        return this.cabinContaminationPct <= 15;
+    }
+
     private refreshState() {
         this.updateToxicityDisplay();
-        const frameX = (this.W - 1220) / 2;
-        const rightX = frameX + 24 + 575 + 22;
-        this.updateGauge(rightX + 24, (this.H - 660) / 2 + 152, 575 - 48, 26);
+        this.updateGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
     }
 }
 

@@ -550,7 +550,7 @@ export class MissionChallengesModal {
             scene: this.scene,
             x: rightX + colW / 2,
             y: buttonY + 70,
-            text: `🚀 ENTER SOL 0${sol} SIMULATION SCENE ➔`,
+            text: `ENTER SOL 0${sol} SIMULATION SCENE ➔`,
             width: colW - 40,
             height: 46,
             primaryColor: UITheme.colors.solarGold,
@@ -561,7 +561,8 @@ export class MissionChallengesModal {
             onClick: () => {
                 SoundFX.playClick();
                 this.close();
-                this.scene.scene.start(this.getSolSceneKey(sol));
+                this.scene.scene.sleep("MarsWorldScene");
+                this.scene.scene.launch(this.getSolSceneKey(sol));
             }
         });
         this.contentContainer.add(launchSceneBtn);

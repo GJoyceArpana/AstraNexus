@@ -129,11 +129,27 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     create() {
+        // Reset active tracking arrays
+        this.modules = [];
+        this.objectiveListTexts = [];
+
         // Read configuration from registry
         this.playerRole = (this.registry.get("playerRole") as GameRole) || "cadet";
         this.landingSite = (this.registry.get("landingSite") as LandingSiteId) || "jezero";
         this.drainRate = this.playerRole === "cadet" ? 0.65 : 1.15;
         this.solLevel = (this.registry.get("solLevel") as number) || 1;
+
+        // Listen for Sol progression updates from challenge scenes
+        this.events.off("solLevelUpdated");
+        this.events.on("solLevelUpdated", (newSol: number) => {
+            this.solLevel = newSol;
+            this.warningSystem.show({
+                type: "INFO",
+                title: `SOL 0${this.solLevel} UNLOCKED · MISSION ADVANCED`,
+                message: `Congratulations! Mission engineering milestone Sol 0${this.solLevel - 1} validated by NASA flight controllers.`,
+                durationMs: 5000
+            });
+        });
 
         // Load persistent suit customization (from registry or localStorage)
         let custom = this.registry.get("astronautCustomization") as CustomizationData | undefined;

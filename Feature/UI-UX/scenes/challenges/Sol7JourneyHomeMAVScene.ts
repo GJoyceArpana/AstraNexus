@@ -73,6 +73,13 @@ export class Sol7JourneyHomeMAVScene extends SolChallengeBaseScene {
         this.rocketGraphic = this.add.graphics();
         this.drawRocketGraphic(viewX + viewW / 2, viewY + viewH - 30);
 
+        // Mask launchpad viewport
+        const launchMaskG = this.make.graphics();
+        launchMaskG.fillStyle(0xffffff);
+        launchMaskG.fillRoundedRect(viewX, viewY, viewW, viewH, 10);
+        const launchMask = launchMaskG.createGeometryMask();
+        this.rocketGraphic.setMask(launchMask);
+
         // Rocket Label
         this.add.text(viewX + viewW / 2, viewY + 30, "🚀 ARES-VII RETURN CAPSULE", {
             fontFamily: UITheme.fonts.heading,
@@ -162,8 +169,9 @@ export class Sol7JourneyHomeMAVScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 48,
             fontSize: "13px",
-            text: "⚖️ JETTISON 100 kg SURPLUS BASALT DIRT",
+            text: "JETTISON 100 kg SURPLUS BASALT DIRT",
             primaryColor: UITheme.colors.marsAmber,
+            icon: "⚖️",
             onClick: () => {
                 SoundFX.playClick();
                 this.jettisonMass(100);
@@ -178,8 +186,9 @@ export class Sol7JourneyHomeMAVScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 48,
             fontSize: "13px",
-            text: "⚖️ JETTISON 85 kg UNPROCESSED CORE SLABS",
+            text: "JETTISON 85 kg UNPROCESSED CORE SLABS",
             primaryColor: UITheme.colors.marsAmber,
+            icon: "⚖️",
             onClick: () => {
                 SoundFX.playClick();
                 this.jettisonMass(85);
@@ -194,7 +203,7 @@ export class Sol7JourneyHomeMAVScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 54,
             fontSize: "15px",
-            text: "🚀 IGNITE MARS ASCENT VEHICLE (LIFTOFF)",
+            text: "IGNITE MARS ASCENT VEHICLE (LIFTOFF)",
             primaryColor: UITheme.colors.bioGreen,
             textColor: "#FFFFFF",
             icon: "🚀",
@@ -203,6 +212,11 @@ export class Sol7JourneyHomeMAVScene extends SolChallengeBaseScene {
                 this.attemptLiftoff();
             }
         });
+    }
+
+    protected isTargetMet(): boolean {
+        const totalMass = this.dryMassKg + this.propMassKg + this.crewMassKg + this.sampleMassKg;
+        return totalMass <= this.maxTakeoffMassKg && this.isLaunched;
     }
 
     private drawRocketGraphic(centerX: number, baseY: number) {

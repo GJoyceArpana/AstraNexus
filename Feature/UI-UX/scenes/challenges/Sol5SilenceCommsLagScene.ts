@@ -94,6 +94,14 @@ export class Sol5SilenceCommsLagScene extends SolChallengeBaseScene {
             ease: "Linear"
         });
 
+        // Geometry Mask for orbital space
+        const viewMaskG = this.make.graphics();
+        viewMaskG.fillStyle(0xffffff);
+        viewMaskG.fillRoundedRect(viewX, viewY, viewW, viewH, 10);
+        const viewMask = viewMaskG.createGeometryMask();
+        wave.setMask(viewMask);
+        pulse.setMask(viewMask);
+
         // Delay Badge
         this.add.text(viewX + viewW / 2, viewY + viewH / 2 - 25, "📡 SPEED-OF-LIGHT LATENCY: 12m 00s (210,000,000 km)", {
             fontFamily: UITheme.fonts.heading,
@@ -180,7 +188,7 @@ export class Sol5SilenceCommsLagScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 44,
             fontSize: "13px",
-            text: "➕ QUEUE: DRIVE TO REGOLITH RADIATION BUNKER",
+            text: "QUEUE: DRIVE TO REGOLITH BUNKER",
             primaryColor: UITheme.colors.primaryCyan,
             onClick: () => {
                 SoundFX.playClick();
@@ -195,7 +203,7 @@ export class Sol5SilenceCommsLagScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 44,
             fontSize: "13px",
-            text: "➕ QUEUE: ENGAGE LOW-POWER SLEEP & MAST HEATER",
+            text: "QUEUE: ENGAGE LOW-POWER SLEEP & MAST HEATER",
             primaryColor: UITheme.colors.marsAmber,
             onClick: () => {
                 SoundFX.playClick();
@@ -210,7 +218,7 @@ export class Sol5SilenceCommsLagScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 44,
             fontSize: "13px",
-            text: "➕ QUEUE: SHELTER CREW IN SUB-SURFACE VAULT",
+            text: "QUEUE: SHELTER CREW IN SUB-SURFACE VAULT",
             primaryColor: UITheme.colors.bioGreen,
             onClick: () => {
                 SoundFX.playClick();
@@ -225,7 +233,7 @@ export class Sol5SilenceCommsLagScene extends SolChallengeBaseScene {
             width: colW - 48,
             height: 40,
             fontSize: "12px",
-            text: "🔄 CLEAR COMMAND BUFFER",
+            text: "CLEAR COMMAND BUFFER",
             primaryColor: UITheme.colors.cardHover,
             onClick: () => {
                 SoundFX.playClick();
@@ -240,6 +248,10 @@ export class Sol5SilenceCommsLagScene extends SolChallengeBaseScene {
             color: UITheme.colors.solarGoldStr,
             fontStyle: "bold"
         });
+    }
+
+    protected isTargetMet(): boolean {
+        return this.commandQueue.length >= 3;
     }
 
     private addCommand(cmd: string) {
