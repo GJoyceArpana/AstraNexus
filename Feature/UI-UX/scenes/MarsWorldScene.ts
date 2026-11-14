@@ -987,13 +987,23 @@ export class MarsWorldScene extends Phaser.Scene {
     // =========================================================
     // 9B. 7-SOL MISSION CHALLENGES OVERLAY
     // =========================================================
-    public toggleMissionChallenges() {
+    public toggleMissionChallenges(initialSol?: number) {
         if (this.missionChallengesModal) {
             this.missionChallengesModal.close();
             this.missionChallengesModal = undefined;
             return;
         }
 
+        this.openMissionChallenges(initialSol);
+    }
+
+    public openMissionChallenges(initialSol?: number) {
+        if (this.missionChallengesModal) {
+            this.missionChallengesModal.close();
+            this.missionChallengesModal = undefined;
+        }
+
+        const solToOpen = initialSol ?? this.solLevel;
         this.missionChallengesModal = new MissionChallengesModal(
             this,
             {
@@ -1019,7 +1029,7 @@ export class MarsWorldScene extends Phaser.Scene {
                     });
                 }
             },
-            this.solLevel
+            solToOpen
         );
     }
 

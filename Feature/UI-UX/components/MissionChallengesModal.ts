@@ -175,6 +175,15 @@ export class MissionChallengesModal {
     private init() {
         const { width, height } = this.scene.scale;
 
+        // Sync completed status for previously accomplished Sols from registry solLevel
+        const registrySol = (this.scene.registry?.get("solLevel") as number) || 1;
+        for (let s = 1; s < registrySol; s++) {
+            if (this.activeSolData[s]) {
+                this.activeSolData[s].completed = true;
+                this.activeSolData[s].currentVal = this.challenges[s].targetVal;
+            }
+        }
+
         // 1. Dimmed Modal Backdrop
         const backdrop = this.scene.add.rectangle(0, 0, width, height, 0x040914, 0.94).setOrigin(0);
         backdrop.setInteractive();

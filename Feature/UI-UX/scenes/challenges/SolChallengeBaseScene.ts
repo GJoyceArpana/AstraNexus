@@ -327,7 +327,7 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
             textColor: "#FFFFFF",
             onClick: () => {
                 SoundFX.playClick();
-                this.completeChallengeAndAdvance();
+                this.completeChallengeAndAdvance(true);
             }
         });
         this.advanceBtnContainer.setDepth(102);
@@ -505,7 +505,7 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
         });
     }
 
-    protected completeChallengeAndAdvance() {
+    protected completeChallengeAndAdvance(openListing = false) {
         if (!this.isTargetMet()) {
             SoundFX.playAlert();
             this.setActionFeedback("⚠ PRIMARY OBJECTIVE NOT MET YET! INTERACT WITH MARTIAN SURFACE OBJECTS.", false);
@@ -518,19 +518,28 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
 
         SoundFX.playToggle(true);
 
-        const marsScene = this.scene.get("MarsWorldScene");
+        const marsScene = this.scene.get("MarsWorldScene") as any;
         if (marsScene) {
             marsScene.events.emit("solLevelUpdated", nextSol);
         }
-        this.returnToMars();
+        this.returnToMars(openListing, nextSol);
     }
 
-    protected returnToMars() {
+    protected returnToMars(openListing = false, targetSol?: number) {
         this.scene.stop();
-        const marsScene = this.scene.get("MarsWorldScene");
+        const marsScene = this.scene.get("MarsWorldScene") as any;
         if (marsScene) {
             marsScene.scene.wake();
             marsScene.scene.bringToTop();
+            if (openListing) {
+                marsScene.time?.delayedCall(120, () => {
+                    if (typeof marsScene.openMissionChallenges === "function") {
+                        marsScene.openMissionChallenges(targetSol ?? marsScene.solLevel);
+                    } else if (typeof marsScene.toggleMissionChallenges === "function") {
+                        marsScene.toggleMissionChallenges(targetSol ?? marsScene.solLevel);
+                    }
+                });
+            }
         } else {
             this.scene.start("MarsWorldScene");
         }
