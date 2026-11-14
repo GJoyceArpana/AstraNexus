@@ -354,6 +354,8 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
             pct = target > 0 ? Math.max(0, Math.min(1.0, current / target)) : 0;
         }
 
+        if (!this.progressText || !this.statusBadge || !this.progressFill) return;
+
         const visorW = 1020;
         const gaugeW = 220;
         const gaugeH = 18;

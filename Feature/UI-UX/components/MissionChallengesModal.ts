@@ -32,7 +32,7 @@ export class MissionChallengesModal {
 
     private currentSolTab: number = 1;
     private activeSolData: Record<number, { currentVal: number; completed: boolean }> = {
-        1: { currentVal: 1.25, completed: false }, // 1.25m / 3.0m regolith
+        1: { currentVal: 0, completed: false },    // 0% water flow
         2: { currentVal: 0, completed: false },    // 0% perchlorate in cabin
         3: { currentVal: 0, completed: false },    // 0 = solar uncleaned / kilopower offline
         4: { currentVal: 1, completed: false },    // ISRU systems active
@@ -47,35 +47,35 @@ export class MissionChallengesModal {
     private readonly challenges: Record<number, SolChallengeDetail> = {
         1: {
             solNumber: 1,
-            title: "SOL 1: DIRT FORTRESS",
-            codename: "REGOLITH SHIELDING",
-            icon: "🏗️",
-            hazardBadge: "HIGH COSMIC RADIATION (>0.70 mSv/Sol)",
-            briefing: "Mars lacks a global magnetic field. Galactic cosmic rays penetrate the unshielded habitat hull. Use the rover to excavate loose basalt regolith and pile a 3.0-meter thick radiation barrier over the roof.",
-            nasaFact: "NASA research confirms that 3 meters of compacted Martian soil provides radiation shielding equivalent to Earth's atmosphere, blocking 95% of cosmic rays.",
-            primaryTarget: "Pile at least 3.0 meters of compacted regolith over habitat roof.",
-            progressMetric: "Shield Depth",
-            currentVal: 1.25,
-            targetVal: 3.0,
-            unit: "m",
-            actionButtonText: "🚜 EXCAVATE & PILE REGOLITH (+0.5m)",
-            secondaryActionText: "🛡️ TEST RADIATION ATTENUATION"
+            title: "SOL 1: SPACE-TOMATO GREENHOUSE",
+            codename: "WATER THE GARDEN",
+            icon: "🍅",
+            hazardBadge: "THIRSTY PLANTS ALERT",
+            briefing: "Help Cadet! Our space garden is thirsty! Melted ice is ready, but the pipes are disconnected. Connect the pipes to water the plants and sprout yummy space-tomatoes!",
+            nasaFact: "NASA astronauts grow yummy fresh salads and cherry tomatoes on the Space Station!",
+            primaryTarget: "Rotate pipes to water the garden and sprout tomatoes.",
+            progressMetric: "Water Flow",
+            currentVal: 0,
+            targetVal: 100,
+            unit: "%",
+            actionButtonText: "🍅 ENTER GREENHOUSE PUZZLE ➔",
+            secondaryActionText: "🌱 VIEW TOMATO GARDEN"
         },
         2: {
             solNumber: 2,
-            title: "SOL 2: THE PERCHLORATE BARRIER",
-            codename: "TOXIC SOIL & SUITPORT",
-            icon: "🚪",
-            hazardBadge: "CHEMICALLY REACTIVE SOIL (ClO4- TOXINS)",
-            briefing: "Martian soil contains 0.5%–1.0% toxic calcium and magnesium perchlorates. Never bring dirty spacesuits into the pressurized living quarters! Dock through the rear-entry Suitport to keep toxic dust outside.",
-            nasaFact: "NASA’s Phoenix lander discovered perchlorates in Martian soil in 2008. NASA designed rear-entry Suitports so the dusty suit remains mounted outside the habitat.",
-            primaryTarget: "Maintain interior cabin perchlorate dust level below 20%.",
-            progressMetric: "Cabin Contamination",
+            title: "SOL 2: DUST DEVIL CLEANUP AT ARCADIA PLANITIA",
+            codename: "DUST DEVIL CLEANUP",
+            icon: "🌪️",
+            hazardBadge: "ELECTROSTATIC DUST DEVIL VORTICES",
+            briefing: "Arcadia Planitia is a wide, flat plain ideal for solar panels—until a mischievous Martian dust devil spins through! Run around in a puffy astronaut suit with a specialized wind-blower tool, dodge playful dust devils bouncing around, clean the panels, and establish your Night Shift protocol before sunset.",
+            nasaFact: "NASA Spirit and Opportunity rovers frequently tracked Martian dust devils up to 8 km high. Dust devils generate powerful electrostatic charges causing dust to cling to solar glass until neutralized by high-velocity wind-blowers and ion dissipators.",
+            primaryTarget: "Dodge dust devils & blast dust off all 4 solar arrays with Wind-Blower.",
+            progressMetric: "Arrays Cleaned",
             currentVal: 0,
-            targetVal: 20,
-            unit: "%",
-            actionButtonText: "🚪 ENGAGE REAR-ENTRY SUITPORT",
-            secondaryActionText: "🔬 COLLECT CORE SAMPLE (SHERLOC)"
+            targetVal: 4,
+            unit: "Arrays",
+            actionButtonText: "💨 BLAST WIND-BLOWER (SPACE)",
+            secondaryActionText: "🛡️ DODGE DUST DEVILS"
         },
         3: {
             solNumber: 3,
@@ -533,7 +533,7 @@ export class MissionChallengesModal {
             scene: this.scene,
             x: rightX + colW / 2,
             y: buttonY + 24,
-            text: `🚀 DEPLOY TO SOL 0${sol} MARTIAN SURFACE ➔`,
+            text: sol === 2 ? "🚀 START MISSION ➔" : `🚀 DEPLOY TO SOL 0${sol} MARTIAN SURFACE ➔`,
             width: colW - 40,
             height: 46,
             primaryColor: UITheme.colors.solarGold,
@@ -542,31 +542,7 @@ export class MissionChallengesModal {
             fontSize: "14px",
             icon: "🚀",
             onClick: () => {
-                SoundFX.playClick();
-                const solKey = this.getSolSceneKey(sol);
-                this.close();
-
-                // Stop any existing Sol challenge scenes to ensure zero scene stacking or WebGL conflicts
-                const allSolKeys = [
-                    "Sol1DirtFortressScene",
-                    "Sol2PerchlorateBarrierScene",
-                    "Sol3RedGaleScene",
-                    "Sol4ISRUProductionScene",
-                    "Sol5SilenceCommsLagScene",
-                    "Sol6ColonyGridlockScene",
-                    "Sol7JourneyHomeMAVScene"
-                ];
-
-                for (const key of allSolKeys) {
-                    if (this.scene.scene.isActive(key) || this.scene.scene.isSleeping(key) || this.scene.scene.isPaused(key)) {
-                        this.scene.scene.stop(key);
-                    }
-                }
-
-                // Sleep MarsWorldScene cleanly and launch dedicated challenge scene on top
-                this.scene.scene.sleep("MarsWorldScene");
-                this.scene.scene.launch(solKey);
-                this.scene.scene.bringToTop(solKey);
+                this.launchSolScene(sol);
             }
         });
         this.contentContainer.add(launchSceneBtn);
@@ -648,13 +624,13 @@ export class MissionChallengesModal {
 
         switch (sol) {
             case 1:
-                // Regolith Piling (+0.5m)
-                stateRecord.currentVal = Math.min(3.0, Number((stateRecord.currentVal + 0.5).toFixed(2)));
+                // Water flow (+25%)
+                stateRecord.currentVal = Math.min(100, stateRecord.currentVal + 25);
                 break;
             case 2:
-                // Suitport Decontamination
-                stateRecord.currentVal = 0; // Clean!
-                stateRecord.completed = true;
+                // Disperse dust devil (+1 vortex cleared, target = 3)
+                stateRecord.currentVal = Math.min(3, stateRecord.currentVal + 1);
+                stateRecord.completed = stateRecord.currentVal >= 3;
                 break;
             case 3:
                 // Kilopower Deployment
@@ -693,6 +669,13 @@ export class MissionChallengesModal {
             case 1:
                 SoundFX.playAlert();
                 break;
+            case 2:
+                // Scrape/clean dust off solar arrays
+                SoundFX.playClick();
+                stateRecord.currentVal = Math.min(3, stateRecord.currentVal + 1);
+                stateRecord.completed = stateRecord.currentVal >= 3;
+                this.renderSolChallenge(sol);
+                break;
             case 3:
                 // Scraped dust off solar glass
                 SoundFX.playClick();
@@ -724,6 +707,38 @@ export class MissionChallengesModal {
         } else {
             this.close();
         }
+    }
+
+    /**
+     * Dedicated mission launch prompt shown as soon as Sol 2 is clicked:
+     * Displays "YOUR MISSION", "Dust Devil Cleanup", and a "START MISSION" button.
+     */
+    private launchSolScene(sol: number) {
+        SoundFX.playClick();
+        const solKey = this.getSolSceneKey(sol);
+        this.close();
+
+        // Stop any existing Sol challenge scenes to ensure zero scene stacking or WebGL conflicts
+        const allSolKeys = [
+            "Sol1DirtFortressScene",
+            "Sol2PerchlorateBarrierScene",
+            "Sol3RedGaleScene",
+            "Sol4ISRUProductionScene",
+            "Sol5SilenceCommsLagScene",
+            "Sol6ColonyGridlockScene",
+            "Sol7JourneyHomeMAVScene"
+        ];
+
+        for (const key of allSolKeys) {
+            if (this.scene.scene.isActive(key) || this.scene.scene.isSleeping(key) || this.scene.scene.isPaused(key)) {
+                this.scene.scene.stop(key);
+            }
+        }
+
+        // Sleep MarsWorldScene cleanly and launch dedicated challenge scene on top
+        this.scene.scene.sleep("MarsWorldScene");
+        this.scene.scene.launch(solKey);
+        this.scene.scene.bringToTop(solKey);
     }
 
     public close() {
