@@ -63,17 +63,17 @@ export class MissionChallengesModal {
         },
         2: {
             solNumber: 2,
-            title: "SOL 2: DUST DEVIL CLEANUP AT ARCADIA PLANITIA",
+            title: "DUST DEVIL CLEANUP",
             codename: "DUST DEVIL CLEANUP",
             icon: "🌪️",
-            hazardBadge: "ELECTROSTATIC DUST DEVIL VORTICES",
-            briefing: "Arcadia Planitia is a wide, flat plain ideal for solar panels—until a mischievous Martian dust devil spins through! Run around in a puffy astronaut suit with a specialized wind-blower tool, dodge playful dust devils bouncing around, clean the panels, and establish your Night Shift protocol before sunset.",
-            nasaFact: "NASA Spirit and Opportunity rovers frequently tracked Martian dust devils up to 8 km high. Dust devils generate powerful electrostatic charges causing dust to cling to solar glass until neutralized by high-velocity wind-blowers and ion dissipators.",
-            primaryTarget: "Dodge dust devils & blast dust off all 4 solar arrays with Wind-Blower.",
-            progressMetric: "Arrays Cleaned",
+            hazardBadge: "BOUNCY DUST DEVILS",
+            briefing: "A playful Martian dust devil covered the solar panels in thick red dust! Use your wind-blower to clean all 4 panels and restore base power before sunset.",
+            nasaFact: "Mars dust devils can grow taller than Mount Everest! Blowing air easily lifts the dry dust off solar panels.",
+            primaryTarget: "Clean all 4 solar panels with your wind-blower.",
+            progressMetric: "Panels Cleaned",
             currentVal: 0,
             targetVal: 4,
-            unit: "Arrays",
+            unit: "Panels",
             actionButtonText: "💨 BLAST WIND-BLOWER (SPACE)",
             secondaryActionText: "🛡️ DODGE DUST DEVILS"
         },
@@ -368,10 +368,11 @@ export class MissionChallengesModal {
         // Title & Codename
         const titleText = this.scene.add.text(leftX + 20, topY + 18, data.title, {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "22px",
+            fontSize: "20px",
             color: UITheme.colors.solarGoldStr,
             fontStyle: "bold",
-            letterSpacing: 2
+            letterSpacing: 1.5,
+            wordWrap: { width: colW - 40 }
         });
         this.contentContainer.add(titleText);
 
@@ -380,7 +381,8 @@ export class MissionChallengesModal {
             fontSize: "12px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold",
-            letterSpacing: 1
+            letterSpacing: 1,
+            wordWrap: { width: colW - 40 }
         });
         this.contentContainer.add(codename);
 
@@ -461,12 +463,13 @@ export class MissionChallengesModal {
         this.contentContainer.add(rightBg);
 
         // Challenge Objectives Header
-        const rightTitle = this.scene.add.text(rightX + 20, topY + 18, "MISSION CHALLENGE & ENGINEERING CONTROLS", {
+        const rightTitle = this.scene.add.text(rightX + 20, topY + 18, "MISSION CHALLENGE & CONTROLS", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "14px",
+            fontSize: "13.5px",
             color: "#FFFFFF",
             fontStyle: "bold",
-            letterSpacing: 1.5
+            letterSpacing: 1.2,
+            wordWrap: { width: colW - 40 }
         });
         this.contentContainer.add(rightTitle);
 

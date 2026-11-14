@@ -179,12 +179,12 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     constructor() {
         super("Sol2PerchlorateBarrierScene", {
             solNumber: 2,
-            title: "SOL 2: DUST DEVIL CLEANUP AT ARCADIA PLANITIA",
-            codename: "ARCADIA SOLAR RESTORATION",
-            hazardBadge: "PLAYFUL DUST DEVIL WHIRLWINDS",
-            briefing: "A cheeky Martian whirlwind covered our solar panels in sticky red sand! Walk across Arcadia Planitia below the panels, dodge the bouncy dust devils, solve the science puzzle at each array, and restore 100% base power!",
-            nasaFact: "Did you know? Dust devils on Mars can grow taller than Mount Everest! The dry red sand sticks like static cling until neutral gas blows it clean.",
-            primaryTarget: "Solve puzzles & blast dust off all 4 solar panels before dark!",
+            title: "DUST DEVIL CLEANUP",
+            codename: "DUST DEVIL CLEANUP",
+            hazardBadge: "BOUNCY DUST DEVILS",
+            briefing: "A bouncy Martian dust devil covered our solar panels in red dust! Use your wind-blower to clean all 4 panels and bring power back to the base.",
+            nasaFact: "Mars dust devils can grow taller than Mount Everest! High-speed air blowers easily sweep the static red dust away.",
+            primaryTarget: "Clean all 4 solar panels with your wind-blower.",
             unit: "Panels Cleaned",
             targetVal: 4,
             initialVal: 0
@@ -367,10 +367,10 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     // TOP EQUIPMENT PANEL (Tools & Instruments)
     // =========================================================================
     private createTopEquipmentPanel() {
-        this.equipmentPanelContainer = this.add.container(640, 85).setDepth(40);
+        this.equipmentPanelContainer = this.add.container(640, 96).setDepth(40);
 
         const panelW = 960;
-        const panelH = 34;
+        const panelH = 32;
 
         const bg = this.add.graphics();
         bg.fillStyle(0x0A1322, 0.95);
@@ -1181,7 +1181,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             letterSpacing: 2
         }).setOrigin(0.5);
 
-        const subtitle = this.add.text(0, -modalH / 2 + 70, "ARCADIA PLANITIA SOLAR FIELD RESTORED!", {
+        const subtitle = this.add.text(0, -modalH / 2 + 70, "ALL 4 SOLAR PANELS CLEANED & RESTORED!", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "12px",
             color: UITheme.colors.solarGoldStr,
@@ -1270,11 +1270,11 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             this.nasaTelemetryPill.destroy();
         }
 
-        const pill = this.add.container(640, 118).setDepth(38);
+        const pill = this.add.container(640, 134).setDepth(38);
         this.nasaTelemetryPill = pill;
 
         const pW = 680;
-        const pH = 24;
+        const pH = 22;
 
         const bg = this.add.graphics();
         bg.fillStyle(0x061122, 0.9);
