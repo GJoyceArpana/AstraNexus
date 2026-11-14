@@ -58,11 +58,11 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         super("Sol1DirtFortressScene", {
             solNumber: 1,
             title: "SOL 1: SPACE-TOMATO GREENHOUSE",
-            codename: "CRYO-WATER IRRIGATION PUZZLE",
-            hazardBadge: "HYDROPONIC CROP STARVATION RISK",
-            briefing: "Astronauts need fresh food! Underground glacial ice has been melted, but the greenhouse irrigation pipes are disconnected. Resolve the NASA fluid protocol to unlock your tools, then rotate the pipe grid to route water into the plant pods and sprout giant Martian space-tomatoes.",
-            nasaFact: "At Mars' surface pressure of 610 Pa (0.6% of Earth), liquid water boils at 0.01°C. NASA habitats use closed pressurized conduits to deliver water without explosive boiling.",
-            primaryTarget: "Unlock plumbing equipment and deliver melted water to space-tomato pods.",
+            codename: "CRYO-WATER IRRIGATION",
+            hazardBadge: "THIRSTY PLANTS ALERT",
+            briefing: "Help Cadet! The greenhouse plants are thirsty. Melted ice is ready, but the pipes are disconnected! Answer the science question to get your tools, then rotate the pipes to water the garden and grow giant space-tomatoes!",
+            nasaFact: "NASA astronauts grow yummy fresh salads and dwarf tomatoes on the Space Station using special watering tubes!",
+            primaryTarget: "Unlock tools and connect water pipes to sprout space-tomatoes.",
             unit: "%",
             targetVal: 100,
             initialVal: 0
@@ -96,7 +96,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             domeG.lineBetween(x, 260, x, 520);
         }
 
-        // 1. Top Equipment Panel (Spans across the top below Visor HUD)
+        // 1. Top Equipment Panel (Simple & vibrant kid-friendly tool bar)
         this.createTopEquipmentPanel();
 
         // 2. Build Among Us Industrial Task Console (Centered at 640, 385)
@@ -107,7 +107,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
     }
 
     // =========================================================================
-    // STAGE 1: INTRO DROUGHT ANIMATION (Problem Visuals & Steam Venting)
+    // STAGE 1: INTRO DROUGHT ANIMATION (Simple, Big, Vibrant Warning)
     // =========================================================================
     private startDroughtIntroAnimation() {
         this.gameState = "INTRO_DROUGHT";
@@ -138,30 +138,30 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             loop: true
         });
 
-        // Dramatic Pulsing Drought Warning Banner across the center
+        // Big, Colorful, Friendly Alert Banner
         this.introAlertBanner = this.add.container(640, 220).setDepth(50);
 
-        const bannerW = 620;
-        const bannerH = 74;
+        const bannerW = 680;
+        const bannerH = 86;
         const bG = this.add.graphics();
-        bG.fillStyle(0x1F0A0E, 0.95);
-        bG.fillRoundedRect(-bannerW / 2, -bannerH / 2, bannerW, bannerH, 12);
-        bG.lineStyle(2.5, UITheme.colors.emergencyRed, 1);
-        bG.strokeRoundedRect(-bannerW / 2, -bannerH / 2, bannerW, bannerH, 12);
+        bG.fillStyle(0x1F0A0E, 0.96);
+        bG.fillRoundedRect(-bannerW / 2, -bannerH / 2, bannerW, bannerH, 16);
+        bG.lineStyle(3.5, UITheme.colors.emergencyRed, 1);
+        bG.strokeRoundedRect(-bannerW / 2, -bannerH / 2, bannerW, bannerH, 16);
         this.introAlertBanner.add(bG);
 
-        const alertTitle = this.add.text(0, -14, "⚠ CRITICAL ALERT: GREENHOUSE CROPS WILTING!", {
+        const alertTitle = this.add.text(0, -16, "🚨 HELP! THE SPACE-TOMATOES ARE THIRSTY! 🚨", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "14px",
-            color: UITheme.colors.emergencyRedStr,
+            fontSize: "18px",
+            color: "#FF5252",
             fontStyle: "bold",
-            letterSpacing: 1.5
+            letterSpacing: 1
         }).setOrigin(0.5);
 
-        const alertSub = this.add.text(0, 14, "Melted underground ice cannot reach dry plant pods due to pipe disconnects.", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10.5px",
-            color: "#FFFFFF",
+        const alertSub = this.add.text(0, 16, "The water pipes broke! Tap anywhere to help fix them!", {
+            fontFamily: "Nunito",
+            fontSize: "14px",
+            color: "#FFF59D",
             fontStyle: "bold"
         }).setOrigin(0.5);
 
@@ -177,8 +177,17 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             repeat: -1
         });
 
-        // After 2.5 seconds of dramatic problem demonstration, trigger Astronaut Entrance
-        this.time.delayedCall(2500, () => {
+        // Fast, snappy intro: after 900ms trigger Astronaut Entrance (or click to skip)
+        const entryTimer = this.time.delayedCall(900, () => {
+            if (this.gameState === "INTRO_DROUGHT") {
+                this.triggerAstronautEntry();
+            }
+        });
+
+        this.introAlertBanner.setSize(bannerW, bannerH);
+        this.introAlertBanner.setInteractive({ useHandCursor: true });
+        this.introAlertBanner.on("pointerdown", () => {
+            entryTimer.remove();
             if (this.gameState === "INTRO_DROUGHT") {
                 this.triggerAstronautEntry();
             }
@@ -186,17 +195,16 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
     }
 
     // =========================================================================
-    // STAGE 2: PLAYER ASTRONAUT ENTRANCE & PROBLEM CALLOUT
+    // STAGE 2: PLAYER ASTRONAUT ENTRANCE & FRIENDLY CALLOUT
     // =========================================================================
     private triggerAstronautEntry() {
         this.gameState = "ASTRONAUT_ENTRY";
 
-        // Smoothly fade out the initial drought alert banner
         if (this.introAlertBanner) {
             this.tweens.add({
                 targets: this.introAlertBanner,
                 alpha: 0,
-                duration: 400,
+                duration: 300,
                 onComplete: () => this.introAlertBanner.destroy()
             });
         }
@@ -210,23 +218,21 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         suitImg.setScale(0.52);
         this.astronautContainer.add(suitImg);
 
-        // Walking entry tween from off-screen left into the greenhouse
+        // Brisk walking entry tween from off-screen left into the greenhouse
         this.tweens.add({
             targets: this.astronautContainer,
             x: 150,
-            duration: 1200,
+            duration: 550,
             ease: "Quad.easeOut",
             onComplete: () => {
-                // Astronaut bobbing idle breathing
                 this.tweens.add({
                     targets: this.astronautContainer,
                     y: 524,
-                    duration: 800,
+                    duration: 600,
                     yoyo: true,
                     repeat: -1
                 });
 
-                // Dialogue Speech Bubble
                 this.showAstronautSpeech();
             }
         });
@@ -235,51 +241,74 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
     private showAstronautSpeech() {
         const speechC = this.add.container(260, 440).setDepth(55);
 
-        const bubbleW = 320;
-        const bubbleH = 80;
+        const bubbleW = 380;
+        const bubbleH = 92;
 
         const bg = this.add.graphics();
-        bg.fillStyle(0x061122, 0.95);
-        bg.fillRoundedRect(0, -bubbleH / 2, bubbleW, bubbleH, 10);
-        bg.lineStyle(2, UITheme.colors.primaryCyan, 0.9);
-        bg.strokeRoundedRect(0, -bubbleH / 2, bubbleW, bubbleH, 10);
+        bg.fillStyle(0x0A1424, 0.98);
+        bg.fillRoundedRect(0, -bubbleH / 2, bubbleW, bubbleH, 12);
+        bg.lineStyle(2.5, UITheme.colors.primaryCyan, 1);
+        bg.strokeRoundedRect(0, -bubbleH / 2, bubbleW, bubbleH, 12);
 
         // Speech pointer arrow
         bg.fillTriangle(0, 0, -12, 10, 0, 16);
         speechC.add(bg);
 
-        const dialogue = this.add.text(16, -22, "CADET! Our Space-Tomatoes are drying out!\nWe must configure the correct scientific protocol\nto unlock our plumbing equipment and restore water.", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
-            color: "#FFFFFF",
-            lineSpacing: 4
-        });
+        // Friendly text for 8-year-old
+        const dialogue = this.add.text(
+            18,
+            -26,
+            "Hey Cadet! Our space garden needs water fast!\nPick the right science gear to fix the pipes!",
+            {
+                fontFamily: "Nunito",
+                fontSize: "13.5px",
+                color: "#FFFFFF",
+                fontStyle: "bold",
+                lineSpacing: 5
+            }
+        );
         speechC.add(dialogue);
 
-        // "SELECT REPAIR PROTOCOL" button
+        // Big, Bright "GET YOUR TOOLS!" Button
         const btnBg = this.add.graphics();
-        btnBg.fillStyle(UITheme.colors.solarGold, 1);
-        btnBg.fillRoundedRect(16, 12, 180, 24, 4);
+        btnBg.fillStyle(0xFFD600, 1);
+        btnBg.fillRoundedRect(18, 14, 210, 28, 6);
         speechC.add(btnBg);
 
-        const btnText = this.add.text(106, 24, "▶ CHOOSE PROTOCOL", {
+        const btnText = this.add.text(123, 28, "🚀 GET YOUR TOOLS! ➔", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
+            fontSize: "12px",
             color: "#050C1A",
             fontStyle: "bold"
         }).setOrigin(0.5);
         speechC.add(btnText);
 
-        const hit = this.add.rectangle(106, 24, 180, 24, 0x000000, 0.001);
+        const hit = this.add.rectangle(123, 28, 210, 28, 0x000000, 0.001);
         hit.setInteractive({ useHandCursor: true });
         speechC.add(hit);
 
         hit.on("pointerdown", () => {
             SoundFX.playClick();
+
+            // Smoothly exit the astronaut immediately
+            if (this.astronautContainer) {
+                this.tweens.killTweensOf(this.astronautContainer);
+                this.tweens.add({
+                    targets: this.astronautContainer,
+                    x: -120,
+                    alpha: 0,
+                    duration: 400,
+                    ease: "Quad.easeIn",
+                    onComplete: () => {
+                        this.astronautContainer.destroy();
+                    }
+                });
+            }
+
             this.tweens.add({
                 targets: speechC,
                 alpha: 0,
-                duration: 250,
+                duration: 200,
                 onComplete: () => {
                     speechC.destroy();
                     this.showScientificProtocolModal();
@@ -289,70 +318,70 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
     }
 
     // =========================================================================
-    // STAGE 3: SCIENTIFIC DECISION PROTOCOL (Two Options + Warning Panel)
+    // STAGE 3: SIMPLE, VIBRANT SCIENCE QUESTION (Two Big Options + Kid Warning)
     // =========================================================================
     private showScientificProtocolModal() {
         this.gameState = "PROTOCOL_QUESTION";
         this.protocolModalContainer = this.add.container(640, 365).setDepth(60);
 
-        const modalW = 760;
-        const modalH = 420;
+        const modalW = 780;
+        const modalH = 430;
 
         const bg = this.add.graphics();
-        // Dark backdrop tint
         const shade = this.add.rectangle(0, 0, this.W * 2, this.H * 2, 0x000000, 0.75);
         this.protocolModalContainer.add(shade);
 
         // Main Dialog Plate
-        bg.fillStyle(0x131826, 0.98);
-        bg.fillRoundedRect(-modalW / 2, -modalH / 2, modalW, modalH, 14);
-        bg.lineStyle(2.5, UITheme.colors.primaryCyan, 1);
-        bg.strokeRoundedRect(-modalW / 2, -modalH / 2, modalW, modalH, 14);
+        bg.fillStyle(0x131A28, 0.98);
+        bg.fillRoundedRect(-modalW / 2, -modalH / 2, modalW, modalH, 16);
+        bg.lineStyle(3, UITheme.colors.primaryCyan, 1);
+        bg.strokeRoundedRect(-modalW / 2, -modalH / 2, modalW, modalH, 16);
         this.protocolModalContainer.add(bg);
 
-        // Title Header
-        const title = this.add.text(0, -modalH / 2 + 28, "🔬 NASA FLUID ENGINEERING PROTOCOL", {
+        // Title Header (Big & Clear)
+        const title = this.add.text(0, -modalH / 2 + 32, "🤔 ASTRONAUT SCIENCE QUIZ!", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "15px",
-            color: UITheme.colors.primaryCyanStr,
+            fontSize: "20px",
+            color: "#00E5FF",
             fontStyle: "bold",
             letterSpacing: 1.5
         }).setOrigin(0.5);
 
+        // Simple, intuitive question for an 8-year-old
         const question = this.add.text(
             0,
-            -modalH / 2 + 65,
-            "Martian surface pressure is only 610 Pascals (0.6% of Earth's atmosphere).\nHow must melted cryogenic ice be routed to the greenhouse to prevent catastrophic loss?",
+            -modalH / 2 + 75,
+            "Mars has almost NO AIR! How should we send water to our hungry garden?",
             {
-                fontFamily: UITheme.fonts.heading,
-                fontSize: "11.5px",
+                fontFamily: "Nunito",
+                fontSize: "15px",
                 color: "#FFFFFF",
                 align: "center",
-                lineSpacing: 5
+                fontStyle: "bold"
             }
         ).setOrigin(0.5);
 
         this.protocolModalContainer.add([title, question]);
 
-        // OPTION 1: APT / SCIENTIFICALLY CORRECT SOLUTION
+        // OPTION 1: THE GOOD CHOICE (Sealed Pipes)
         this.createOptionCard(
             -modalW / 4 - 10,
-            30,
-            modalW / 2 - 30,
-            190,
-            "OPTION A: CLOSED PRESSURIZED PIPING",
-            "Transport melted ice through sealed, insulated titanium conduits pressurized to 1.2 atm with heating elements to maintain liquid phase flow.",
+            38,
+            modalW / 2 - 32,
+            195,
+            "🔒 IN SEALED PIPES!",
+            "Keep water locked inside strong, cozy pipes so it stays warm and liquid!",
             true
         );
 
-        // OPTION 2: SCIENTIFIC ERROR / TRAP OPTION
+        // OPTION 2: THE SILLY TRAP CHOICE (Open Ditches)
         this.createOptionCard(
             modalW / 4 + 10,
-            30,
-            modalW / 2 - 30,
-            190,
-            "OPTION B: OPEN SURFACE GRAVITY DITCHES",
-            "Dig unsealed surface trenches to allow natural capillary flow, cooling the water via direct exposure to the cold ambient Martian atmosphere.",
+            38,
+            modalW / 2 - 32,
+            195,
+            "🕳️ IN OPEN MUD DITCHES!",
+            "Just pour water on the open ground like an outdoor garden puddle!",
             false
         );
     }
@@ -370,41 +399,39 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         this.protocolModalContainer.add(c);
 
         const cardBg = this.add.graphics();
-        cardBg.fillStyle(0x1B2335, 1);
-        cardBg.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
-        cardBg.lineStyle(1.5, UITheme.colors.panelBorder, 1);
-        cardBg.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
+        const borderColor = isCorrect ? 0x00E676 : 0xFFB300;
+        cardBg.fillStyle(0x1B2436, 1);
+        cardBg.fillRoundedRect(-w / 2, -h / 2, w, h, 12);
+        cardBg.lineStyle(2, borderColor, 0.9);
+        cardBg.strokeRoundedRect(-w / 2, -h / 2, w, h, 12);
         c.add(cardBg);
 
-        const optTitle = this.add.text(0, -h / 2 + 24, title, {
+        const optTitle = this.add.text(0, -h / 2 + 28, title, {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.solarGoldStr,
+            fontSize: "15px",
+            color: isCorrect ? "#00E676" : "#FFD54F",
             fontStyle: "bold",
-            align: "center",
-            wordWrap: { width: w - 24 }
+            align: "center"
         }).setOrigin(0.5);
 
         const optDesc = this.add.text(0, 10, desc, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10.5px",
-            color: "#CFD8DC",
+            fontFamily: "Nunito",
+            fontSize: "13px",
+            color: "#E0F2F1",
             align: "center",
-            wordWrap: { width: w - 28 },
+            wordWrap: { width: w - 30 },
             lineSpacing: 4
         }).setOrigin(0.5);
 
-        // Select CTA Pill Button
+        // Big, Clear CTA Button
         const btn = this.add.graphics();
-        btn.fillStyle(UITheme.colors.cardHover, 1);
-        btn.fillRoundedRect(-70, h / 2 - 36, 140, 26, 6);
-        btn.lineStyle(1, UITheme.colors.primaryCyan, 0.9);
-        btn.strokeRoundedRect(-70, h / 2 - 36, 140, 26, 6);
+        btn.fillStyle(isCorrect ? 0x00E676 : 0xFFB300, 1);
+        btn.fillRoundedRect(-85, h / 2 - 40, 170, 30, 8);
 
-        const btnLabel = this.add.text(0, h / 2 - 23, "SELECT PROTOCOL", {
+        const btnLabel = this.add.text(0, h / 2 - 25, isCorrect ? "CHOOSE THIS! 👍" : "CHOOSE THIS! 🤔", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "9.5px",
-            color: "#FFFFFF",
+            fontSize: "12px",
+            color: "#051A10",
             fontStyle: "bold"
         }).setOrigin(0.5);
 
@@ -415,21 +442,11 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         c.add(hit);
 
         hit.on("pointerover", () => {
-            this.tweens.add({ targets: c, scale: 1.02, duration: 120 });
-            cardBg.clear();
-            cardBg.fillStyle(0x222E45, 1);
-            cardBg.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
-            cardBg.lineStyle(2, UITheme.colors.primaryCyan, 1);
-            cardBg.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
+            this.tweens.add({ targets: c, scale: 1.03, duration: 120 });
         });
 
         hit.on("pointerout", () => {
             this.tweens.add({ targets: c, scale: 1.0, duration: 120 });
-            cardBg.clear();
-            cardBg.fillStyle(0x1B2335, 1);
-            cardBg.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
-            cardBg.lineStyle(1.5, UITheme.colors.panelBorder, 1);
-            cardBg.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
         });
 
         hit.on("pointerdown", () => {
@@ -443,7 +460,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
     }
 
     /**
-     * WRONG OPTION SELECTED: Shows Warning Panel with NASA Scientific Reason
+     * WRONG OPTION: Simple, Fun, 8-Year-Old Friendly Warning Panel
      */
     private showScientificFailureWarning() {
         SoundFX.playAlert();
@@ -451,56 +468,55 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         const warnC = this.add.container(0, 0).setDepth(80);
         this.protocolModalContainer.add(warnC);
 
-        const w = 640;
-        const h = 300;
+        const w = 660;
+        const h = 310;
 
         const bg = this.add.graphics();
-        bg.fillStyle(0x1A0A0E, 0.98);
-        bg.fillRoundedRect(-w / 2, -h / 2, w, h, 14);
-        bg.lineStyle(3, UITheme.colors.emergencyRed, 1);
-        bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 14);
+        bg.fillStyle(0x1F0A10, 0.98);
+        bg.fillRoundedRect(-w / 2, -h / 2, w, h, 16);
+        bg.lineStyle(3.5, UITheme.colors.emergencyRed, 1);
+        bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 16);
         warnC.add(bg);
 
-        const header = this.add.text(0, -h / 2 + 30, "⚠ SCIENTIFIC PROTOCOL ERROR: FLASH SUBLIMATION", {
+        const header = this.add.text(0, -h / 2 + 35, "💨 WHOOSH! THE WATER VANISHED!", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "13.5px",
-            color: UITheme.colors.emergencyRedStr,
+            fontSize: "18px",
+            color: "#FF5252",
             fontStyle: "bold",
             letterSpacing: 1
         }).setOrigin(0.5);
 
         const explanation = this.add.text(
             0,
-            -10,
-            "NASA Phase Diagram Physics Violation:\n\n" +
-            "At Martian atmospheric pressure of 610 Pa (6.1 mbar), water hits its thermodynamic triple point!\n" +
-            "In an open trench, liquid water boils at only 0.01°C. Direct exposure to the near-vacuum\n" +
-            "causes instantaneous FLASH EVAPORATION (sublimation): 100% of the water boils into vapor\n" +
-            "and escapes into space, leaving the greenhouse completely dry and destroying the crop seeds!",
+            -6,
+            "Because Mars air is so super thin, open water boils away into steam\n" +
+            "and floats into space in two seconds! Poof! 💨\n\n" +
+            "Always keep your water sealed tight inside cozy pipes on Mars!",
             {
-                fontFamily: UITheme.fonts.heading,
-                fontSize: "10.5px",
+                fontFamily: "Nunito",
+                fontSize: "14px",
                 color: "#FFFFFF",
                 align: "center",
-                lineSpacing: 4
+                fontStyle: "bold",
+                lineSpacing: 6
             }
         ).setOrigin(0.5);
 
-        // Try Again Button
+        // Big, Friendly "TRY AGAIN" Button
         const retryBtn = this.add.graphics();
-        retryBtn.fillStyle(UITheme.colors.emergencyRed, 1);
-        retryBtn.fillRoundedRect(-90, h / 2 - 46, 180, 32, 6);
+        retryBtn.fillStyle(0xFF5252, 1);
+        retryBtn.fillRoundedRect(-95, h / 2 - 50, 190, 36, 8);
 
-        const retryLabel = this.add.text(0, h / 2 - 30, "RE-EVALUATE PROTOCOL", {
+        const retryLabel = this.add.text(0, h / 2 - 32, "🔁 LET'S TRY AGAIN!", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
+            fontSize: "13px",
             color: "#FFFFFF",
             fontStyle: "bold"
         }).setOrigin(0.5);
 
         warnC.add([header, explanation, retryBtn, retryLabel]);
 
-        const retryHit = this.add.rectangle(0, h / 2 - 30, 180, 32, 0x000000, 0.001);
+        const retryHit = this.add.rectangle(0, h / 2 - 32, 190, 36, 0x000000, 0.001);
         retryHit.setInteractive({ useHandCursor: true });
         warnC.add(retryHit);
 
@@ -511,11 +527,16 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
     }
 
     /**
-     * CORRECT OPTION SELECTED: Unlocks Equipment Panel & Enters Puzzle Stage
+     * CORRECT OPTION: Unlocks Equipment Panel & Enters Puzzle Stage
      */
     private handleCorrectProtocolSelected() {
         SoundFX.playToggle(true);
         this.hasEquipments = true;
+
+        if (this.astronautContainer) {
+            this.tweens.killTweensOf(this.astronautContainer);
+            this.astronautContainer.destroy();
+        }
 
         // Dismiss Modal with Success animation
         this.tweens.add({
@@ -525,81 +546,75 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             duration: 300,
             onComplete: () => {
                 this.protocolModalContainer.destroy();
-
-                // Unlock the Top Equipment Panel with glowing animation
                 this.unlockTopEquipments();
-
-                // Shift to Pipe Puzzle stage
                 this.gameState = "PUZZLE_ACTIVE";
-                this.setActionFeedback("✔ EQUIPMENT UNLOCKED! ROTATE TILES TO CONNECT WATER PIPELINE.", true);
+                this.setActionFeedback("🎉 TOOLS READY! CLICK THE PIPES TO CONNECT THE WATER!", true);
             }
         });
     }
 
     // =========================================================================
-    // TOP EQUIPMENT PANEL (Displaying Required Tools)
+    // TOP EQUIPMENT PANEL (Large, Clear, Vibrant Badges)
     // =========================================================================
     private createTopEquipmentPanel() {
-        this.equipmentPanelContainer = this.add.container(640, 85).setDepth(25);
+        this.equipmentPanelContainer = this.add.container(640, 88).setDepth(25);
 
         const panelW = 920;
-        const panelH = 34;
+        const panelH = 40;
 
         const bg = this.add.graphics();
-        bg.fillStyle(0x0C121D, 0.95);
-        bg.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 6);
-        bg.lineStyle(1.5, 0x223048, 1);
-        bg.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 6);
+        bg.fillStyle(0x0C1422, 0.96);
+        bg.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 8);
+        bg.lineStyle(2, 0x24354F, 1);
+        bg.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 8);
         this.equipmentPanelContainer.add(bg);
 
-        // Label
-        const title = this.add.text(-panelW / 2 + 16, 0, "TOOLKIT:", {
+        const title = this.add.text(-panelW / 2 + 16, 0, "🎒 YOUR TOOLS:", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
-            color: UITheme.colors.solarGoldStr,
+            fontSize: "12px",
+            color: "#FFD600",
             fontStyle: "bold"
         }).setOrigin(0, 0.5);
         this.equipmentPanelContainer.add(title);
 
-        // 3 Equipment Slots
         this.drawEquipmentSlots(false);
     }
 
     private drawEquipmentSlots(isUnlocked: boolean) {
         const slotData = [
-            { icon: "🔧", name: "TITANIUM PIPE WRENCH" },
-            { icon: "🧲", name: "CRYO-PRESSURE SEALS" },
-            { icon: "📡", name: "FLUID LOGIC KEY" }
+            { icon: "🔧", name: "Super Wrench" },
+            { icon: "🧲", name: "Pipe Tape" },
+            { icon: "💧", name: "Water Valve" }
         ];
 
         const panelW = 920;
-        const startX = -panelW / 2 + 110;
-        const spacing = 260;
+        const startX = -panelW / 2 + 150;
+        const spacing = 250;
 
         for (let i = 0; i < 3; i++) {
             const sx = startX + i * spacing;
             const item = slotData[i];
 
             const slotG = this.add.graphics();
-            slotG.fillStyle(isUnlocked ? 0x142B36 : 0x121622, 1);
-            slotG.fillRoundedRect(sx, -13, 240, 26, 4);
-            slotG.lineStyle(1, isUnlocked ? UITheme.colors.primaryCyan : 0x2B3548, 1);
-            slotG.strokeRoundedRect(sx, -13, 240, 26, 4);
+            slotG.fillStyle(isUnlocked ? 0x113328 : 0x141A28, 1);
+            slotG.fillRoundedRect(sx, -15, 230, 30, 6);
+            slotG.lineStyle(1.5, isUnlocked ? 0x00E676 : 0x2B384F, 1);
+            slotG.strokeRoundedRect(sx, -15, 230, 30, 6);
             this.equipmentPanelContainer.add(slotG);
 
-            const status = isUnlocked ? "✔ EQUIPPED" : "🔒 LOCKED";
-            const statusColor = isUnlocked ? UITheme.colors.bioGreenStr : UITheme.colors.textSecondary;
+            const status = isUnlocked ? "⭐ READY!" : "🔒 LOCKED";
+            const statusColor = isUnlocked ? "#00E676" : "#78909C";
 
             const text = this.add.text(sx + 10, 0, `${item.icon} ${item.name}`, {
-                fontFamily: UITheme.fonts.heading,
-                fontSize: "9px",
-                color: isUnlocked ? "#FFFFFF" : UITheme.colors.textSecondary,
+                fontFamily: "Nunito",
+                fontSize: "12px",
+                color: isUnlocked ? "#FFFFFF" : "#90A4AE",
                 fontStyle: "bold"
             }).setOrigin(0, 0.5);
 
-            const tag = this.add.text(sx + 230, 0, status, {
+            const tag = this.add.text(sx + 220, 0, status, {
                 fontFamily: UITheme.fonts.heading,
-                fontSize: "8.5px",
+                fontSize: "10px",
                 color: statusColor,
                 fontStyle: "bold"
             }).setOrigin(1, 0.5);
@@ -612,26 +627,25 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         this.equipmentPanelContainer.removeAll(true);
 
         const panelW = 920;
-        const panelH = 34;
+        const panelH = 40;
 
         const bg = this.add.graphics();
-        bg.fillStyle(0x0C1C29, 0.98);
-        bg.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 6);
-        bg.lineStyle(2, UITheme.colors.primaryCyan, 1);
-        bg.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 6);
+        bg.fillStyle(0x0C251C, 0.98);
+        bg.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 8);
+        bg.lineStyle(2.5, 0x00E676, 1);
+        bg.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 8);
         this.equipmentPanelContainer.add(bg);
 
-        const title = this.add.text(-panelW / 2 + 16, 0, "TOOLKIT:", {
+        const title = this.add.text(-panelW / 2 + 16, 0, "🎒 YOUR TOOLS:", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
-            color: UITheme.colors.bioGreenStr,
+            fontSize: "12px",
+            color: "#00E676",
             fontStyle: "bold"
         }).setOrigin(0, 0.5);
         this.equipmentPanelContainer.add(title);
 
         this.drawEquipmentSlots(true);
 
-        // Flash tween
         this.tweens.add({
             targets: this.equipmentPanelContainer,
             scaleY: 1.15,
@@ -707,36 +721,36 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         hG.lineStyle(1.5, 0x2A3345, 1);
         hG.strokeRoundedRect(cx - w / 2, cy - 22, w, 44, 8);
 
-        // Left Tag
-        this.add.text(cx - w / 2 + 18, cy, "HYDRO-BAY // SECTOR 01", {
+        // Left Tag: Simple & Friendly
+        this.add.text(cx - w / 2 + 18, cy, "🌱 TOMATO GREENHOUSE", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.solarGoldStr,
+            fontSize: "12.5px",
+            color: "#FFD600",
             fontStyle: "bold",
             letterSpacing: 1
         }).setOrigin(0, 0.5).setDepth(15);
 
         // Center Task Progress Bar (Among Us Green/Grey Task Meter)
         const barW = 340;
-        const barH = 18;
+        const barH = 22;
         const barX = cx - barW / 2 + 20;
 
         hG.fillStyle(0x090D14, 1);
-        hG.fillRoundedRect(barX, cy - barH / 2, barW, barH, 4);
+        hG.fillRoundedRect(barX, cy - barH / 2, barW, barH, 5);
         hG.lineStyle(1.5, 0x3E4B66, 1);
-        hG.strokeRoundedRect(barX, cy - barH / 2, barW, barH, 4);
+        hG.strokeRoundedRect(barX, cy - barH / 2, barW, barH, 5);
 
         this.taskProgressBarFill = this.add.graphics().setDepth(15);
 
-        this.taskProgressLabel = this.add.text(cx + 20, cy, "TASK: IRRIGATE GREENHOUSE PODS (0%)", {
+        this.taskProgressLabel = this.add.text(cx + 20, cy, "TASK: WATER THE TOMATOES (0%)", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "9.5px",
+            fontSize: "10.5px",
             color: "#FFFFFF",
             fontStyle: "bold"
         }).setOrigin(0.5).setDepth(16);
 
         // Right Status Indicator LED
-        this.taskStatusLed = this.add.circle(cx + w / 2 - 30, cy, 6, UITheme.colors.emergencyRed).setDepth(15);
+        this.taskStatusLed = this.add.circle(cx + w / 2 - 26, cy, 7, UITheme.colors.emergencyRed).setDepth(15);
         this.tweens.add({
             targets: this.taskStatusLed,
             alpha: 0.3,
@@ -745,10 +759,10 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             repeat: -1
         });
 
-        this.add.text(cx + w / 2 - 45, cy, "FLOW:", {
+        this.add.text(cx + w / 2 - 42, cy, "WATER:", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
-            color: UITheme.colors.textSecondary,
+            fontSize: "11px",
+            color: "#FFFFFF",
             fontStyle: "bold"
         }).setOrigin(1, 0.5).setDepth(15);
 
@@ -810,17 +824,17 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
 
         c.add(g);
 
-        const lbl1 = this.add.text(0, -tankH / 2 + 105, "MELTED ICE", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
+        const lbl1 = this.add.text(0, -tankH / 2 + 105, "🧊 MELTED ICE", {
+            fontFamily: "Nunito",
+            fontSize: "12px",
             color: "#FFFFFF",
             fontStyle: "bold"
         }).setOrigin(0.5);
 
-        const lbl2 = this.add.text(0, -tankH / 2 + 120, "CRYO-H2O (100%)", {
+        const lbl2 = this.add.text(0, -tankH / 2 + 124, "💧 FRESH WATER", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "9px",
-            color: UITheme.colors.primaryCyanStr,
+            fontSize: "10.5px",
+            color: "#00E5FF",
             fontStyle: "bold"
         }).setOrigin(0.5);
 
@@ -831,16 +845,16 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         nozzle.strokeRoundedRect(tankW / 2 - 2, -12, 24, 24, 4);
         c.add([lbl1, lbl2, nozzle]);
 
-        const arrow = this.add.text(tankW / 2 + 8, 0, "▶", {
+        const arrow = this.add.text(tankW / 2 + 10, 0, "▶▶", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.primaryCyanStr,
+            fontSize: "13px",
+            color: "#00E5FF",
             fontStyle: "bold"
         }).setOrigin(0.5);
         c.add(arrow);
         this.tweens.add({
             targets: arrow,
-            x: tankW / 2 + 14,
+            x: tankW / 2 + 16,
             duration: 400,
             yoyo: true,
             repeat: -1
@@ -938,7 +952,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
                 hitZone.on("pointerdown", () => {
                     if (!this.hasEquipments) {
                         SoundFX.playAlert();
-                        this.setActionFeedback("⚠ UNLOCK PLUMBING EQUIPMENT FIRST IN PROTOCOL SELECTION!", false);
+                        this.setActionFeedback("⚠ GET YOUR TOOLS FIRST BY ANSWERING THE QUESTION!", false);
                         return;
                     }
                     this.rotateTile(tileData);
@@ -953,8 +967,8 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         const pG = tile.pipeGraphics;
         const wG = tile.waterGraphics;
         const half = this.TILE_SIZE / 2;
-        const outerW = 22;
-        const innerW = 12;
+        const outerW = 24;
+        const innerW = 14;
 
         pG.clear();
         wG.clear();
@@ -962,7 +976,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         const casingColor = 0x2A374C;
         const casingStroke = 0x0D121B;
         const waterColor = tile.isPowered ? 0x00E5FF : 0x161C26;
-        const waterCore = tile.isPowered ? 0xE0F7FA : 0x0D121B;
+        const waterCore = tile.isPowered ? 0xFFFFFF : 0x0D121B;
 
         if (tile.type === "STRAIGHT") {
             pG.fillStyle(casingColor, 1);
@@ -1159,23 +1173,23 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
 
     private updateTaskProgressBar(pct: number) {
         const barW = 340;
-        const barH = 18;
+        const barH = 22;
         const barX = 640 - barW / 2 + 20;
         const barY = 385 - 240 + 35 - barH / 2;
 
         if (this.taskProgressBarFill) {
             this.taskProgressBarFill.clear();
             this.taskProgressBarFill.fillStyle(pct >= 1.0 ? 0x00E676 : 0x00E5FF, 1);
-            this.taskProgressBarFill.fillRoundedRect(barX + 2, barY + 2, Math.max(6, (barW - 4) * pct), barH - 4, 3);
+            this.taskProgressBarFill.fillRoundedRect(barX + 2, barY + 2, Math.max(6, (barW - 4) * pct), barH - 4, 4);
         }
 
         const pctInt = Math.round(pct * 100);
         if (this.taskProgressLabel) {
             if (pct >= 1.0) {
-                this.taskProgressLabel.setText("✔ TASK COMPLETED: WATER FLOW 100%");
+                this.taskProgressLabel.setText("🎉 TASK COMPLETE: WATER IS FLOWING! (100%)");
                 this.taskProgressLabel.setColor("#00E676");
             } else {
-                this.taskProgressLabel.setText(`TASK: IRRIGATE GREENHOUSE PODS (${pctInt}%)`);
+                this.taskProgressLabel.setText(`TASK: WATER THE TOMATOES (${pctInt}%)`);
                 this.taskProgressLabel.setColor("#FFFFFF");
             }
         }
@@ -1197,6 +1211,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             podG.lineStyle(2.5, 0x2A3E56, 1);
             podG.strokeRoundedRect(-55, -42, 110, 84, 10);
 
+            // Rich Mars Hydroponic Soil Base
             podG.fillStyle(0x3E1C12, 1);
             podG.fillRoundedRect(-48, 16, 96, 20, 6);
 
@@ -1212,10 +1227,10 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             this.tomatoSprites.push(tomatoC);
         }
 
-        this.add.text(x, y - 160, "🌱 MARTIAN HYDROPONIC BEDS", {
+        this.add.text(x, y - 160, "🍅 SPACE-TOMATO PODS", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "10.5px",
-            color: UITheme.colors.bioGreenStr,
+            fontSize: "13px",
+            color: "#00E676",
             fontStyle: "bold"
         }).setOrigin(0.5).setDepth(14);
     }
@@ -1225,54 +1240,65 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         const g = this.add.graphics();
 
         if (!isSprouted) {
+            // Dormant seed with little sprout
             g.fillStyle(0x3B6846, 1);
-            g.fillCircle(0, 0, 5);
-            g.lineStyle(1.5, 0x00E676, 0.8);
-            g.lineBetween(0, 0, 0, -8);
+            g.fillCircle(0, 0, 6);
+            g.lineStyle(2, 0x00E676, 0.9);
+            g.lineBetween(0, 0, 0, -10);
             c.add(g);
             return;
         }
 
+        // GIANT CUTE CARTOON ALIEN SPACE-TOMATO
         g.fillStyle(0x00C853, 1);
-        g.fillEllipse(-18, -2, 18, 8);
-        g.fillEllipse(18, -2, 18, 8);
+        g.fillEllipse(-20, -2, 20, 9);
+        g.fillEllipse(20, -2, 20, 9);
 
-        g.fillStyle(0xE52538, 1);
-        g.fillEllipse(0, -18, 52, 46);
+        // Body
+        g.fillStyle(0xF42B42, 1);
+        g.fillEllipse(0, -20, 56, 50);
 
-        g.fillStyle(0xFFFFFF, 0.75);
-        g.fillEllipse(-12, -26, 14, 8);
-        g.fillCircle(-16, -20, 3);
+        // Specular Shine
+        g.fillStyle(0xFFFFFF, 0.8);
+        g.fillEllipse(-14, -28, 16, 9);
+        g.fillCircle(-18, -22, 3.5);
 
-        g.fillStyle(0x00E5FF, 0.9);
-        g.fillCircle(12, -14, 3.5);
-        g.fillCircle(16, -24, 2.5);
-        g.fillCircle(-8, -8, 2.5);
+        // Glowing Bioluminescent Spots
+        g.fillStyle(0x00E5FF, 0.95);
+        g.fillCircle(14, -16, 4);
+        g.fillCircle(18, -26, 3);
+        g.fillCircle(-10, -10, 3);
 
+        // Big Cartoon Expressive Eyes
         g.fillStyle(0x111622, 1);
-        g.fillEllipse(-8, -18, 8, 11);
-        g.fillEllipse(8, -18, 8, 11);
+        g.fillEllipse(-9, -20, 9, 12);
+        g.fillEllipse(9, -20, 9, 12);
 
+        // Eye Sparkles
         g.fillStyle(0xFFFFFF, 1);
-        g.fillCircle(-9, -20, 2.5);
-        g.fillCircle(7, -20, 2.5);
+        g.fillCircle(-10, -22, 3);
+        g.fillCircle(8, -22, 3);
 
-        g.fillStyle(0xFF6B8B, 0.7);
-        g.fillCircle(-14, -11, 4);
-        g.fillCircle(14, -11, 4);
+        // Blushing Cheeks
+        g.fillStyle(0xFF6B8B, 0.8);
+        g.fillCircle(-16, -12, 4.5);
+        g.fillCircle(16, -12, 4.5);
 
-        g.lineStyle(2, 0x111622, 1);
+        // Smiling Mouth
+        g.lineStyle(2.5, 0x111622, 1);
         g.beginPath();
-        g.arc(0, -13, 5, 0.2, Math.PI - 0.2, false);
+        g.arc(0, -14, 6, 0.2, Math.PI - 0.2, false);
         g.strokePath();
 
+        // Curly Green Antenna Crown
         g.fillStyle(0x00E676, 1);
-        g.fillTriangle(0, -42, -14, -36, 14, -36);
-        g.fillTriangle(-12, -38, -22, -30, -6, -34);
-        g.fillTriangle(12, -38, 22, -30, 6, -34);
+        g.fillTriangle(0, -46, -16, -39, 16, -39);
+        g.fillTriangle(-14, -42, -24, -32, -8, -37);
+        g.fillTriangle(14, -42, 24, -32, 8, -37);
 
+        // Golden Star Flower
         g.fillStyle(0xFFD600, 1);
-        g.fillCircle(0, -45, 5);
+        g.fillCircle(0, -49, 6);
 
         c.add(g);
     }
@@ -1286,7 +1312,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         const midY = 405;
 
         const color = isFlowing ? 0x00E5FF : 0x2A374C;
-        const core = isFlowing ? 0xE0F7FA : 0x141A24;
+        const core = isFlowing ? 0xFFFFFF : 0x141A24;
 
         this.gardenTubesGraphic.lineStyle(16, 0x18202D, 1);
         this.gardenTubesGraphic.lineBetween(exitEdgeX, midY, 775, midY);
@@ -1372,15 +1398,15 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
                         880 + Phaser.Math.Between(-30, 30),
                         tomatoC.y + Phaser.Math.Between(-30, 10),
                         "✨",
-                        { fontSize: "14px" }
+                        { fontSize: "16px" }
                     ).setOrigin(0.5).setDepth(30);
 
                     this.tweens.add({
                         targets: spark,
-                        y: spark.y - 40,
+                        y: spark.y - 45,
                         alpha: 0,
-                        scaleX: 1.5,
-                        scaleY: 1.5,
+                        scaleX: 1.6,
+                        scaleY: 1.6,
                         duration: 700,
                         onComplete: () => spark.destroy()
                     });
@@ -1389,7 +1415,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         });
 
         this.updateVisorProgress(100, 100, "%");
-        this.showSurfaceFloatingText(880, 240, "🍅 SPACE-TOMATOES SPROUTED! +100% FRESH FOOD AUTONOMY!", UITheme.colors.bioGreenStr);
+        this.showSurfaceFloatingText(880, 240, "🍅 YUM! SPACE-TOMATOES SPROUTED! YOU DID IT!", UITheme.colors.bioGreenStr);
 
         this.time.delayedCall(450, () => {
             this.createTaskCompletedStamp();
@@ -1401,21 +1427,21 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         this.taskCompleteStamp.setScale(2.5);
         this.taskCompleteStamp.setAlpha(0);
 
-        const stampW = 420;
-        const stampH = 90;
+        const stampW = 440;
+        const stampH = 92;
 
         const stampG = this.add.graphics();
-        stampG.fillStyle(0x00E676, 0.95);
-        stampG.fillRoundedRect(-stampW / 2, -stampH / 2, stampW, stampH, 12);
+        stampG.fillStyle(0x00E676, 0.96);
+        stampG.fillRoundedRect(-stampW / 2, -stampH / 2, stampW, stampH, 14);
         stampG.lineStyle(4, 0xFFFFFF, 1);
-        stampG.strokeRoundedRect(-stampW / 2, -stampH / 2, stampW, stampH, 12);
+        stampG.strokeRoundedRect(-stampW / 2, -stampH / 2, stampW, stampH, 14);
 
         stampG.fillStyle(0x00B248, 1);
         stampG.fillRect(-stampW / 2 + 10, -stampH / 2 + 6, 20, stampH - 12);
         stampG.fillRect(stampW / 2 - 30, -stampH / 2 + 6, 20, stampH - 12);
         this.taskCompleteStamp.add(stampG);
 
-        const stampTitle = this.add.text(0, -12, "✔ TASK COMPLETED!", {
+        const stampTitle = this.add.text(0, -14, "⭐ TASK COMPLETED! ⭐", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "24px",
             color: "#051A10",
@@ -1423,9 +1449,9 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             letterSpacing: 2
         }).setOrigin(0.5);
 
-        const stampSub = this.add.text(0, 18, "SPACE-TOMATO GREENHOUSE IRRIGATED · FOOD SECURE", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
+        const stampSub = this.add.text(0, 18, "🍅 YUMMY SPACE-TOMATOES HARVESTED! 🍅", {
+            fontFamily: "Nunito",
+            fontSize: "14px",
             color: "#051A10",
             fontStyle: "bold"
         }).setOrigin(0.5);

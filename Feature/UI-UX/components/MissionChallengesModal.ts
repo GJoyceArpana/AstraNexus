@@ -49,18 +49,18 @@ export class MissionChallengesModal {
         1: {
             solNumber: 1,
             title: "SOL 1: SPACE-TOMATO GREENHOUSE",
-            codename: "CRYO-WATER IRRIGATION",
+            codename: "WATER THE GARDEN",
             icon: "🍅",
-            hazardBadge: "HYDROPONIC CROP STARVATION RISK",
-            briefing: "Astronauts need fresh food! Melted underground glacial ice is ready, but the greenhouse irrigation pipes are disconnected. Connect them so the water flows directly into the empty plant pods to sprout giant Martian space-tomatoes.",
-            nasaFact: "NASA’s Veggie and Advanced Plant Habitat (APH) aboard the ISS have grown fresh salads and dwarf tomatoes in microgravity using capillary water delivery.",
-            primaryTarget: "Rotate and connect pipe grid to deliver water to plant pods.",
+            hazardBadge: "THIRSTY PLANTS ALERT",
+            briefing: "Help Cadet! Our space garden is thirsty! Melted ice is ready, but the pipes are disconnected. Connect the pipes to water the plants and sprout yummy space-tomatoes!",
+            nasaFact: "NASA astronauts grow yummy fresh salads and cherry tomatoes on the Space Station!",
+            primaryTarget: "Rotate pipes to water the garden and sprout tomatoes.",
             progressMetric: "Water Flow",
             currentVal: 0,
             targetVal: 100,
             unit: "%",
             actionButtonText: "🍅 ENTER GREENHOUSE PUZZLE ➔",
-            secondaryActionText: "🌱 INSPECT HYDROPONIC BEDS"
+            secondaryActionText: "🌱 VIEW TOMATO GARDEN"
         },
         2: {
             solNumber: 2,
