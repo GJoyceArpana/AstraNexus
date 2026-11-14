@@ -928,14 +928,28 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
     }
 
     private returnToMarsBase() {
-        this.scene.stop();
         const marsScene = this.scene.get("MarsWorldScene");
-        if (marsScene) {
+
+        this.scene.stop();
+
+        if (marsScene?.scene.isSleeping()) {
             marsScene.scene.wake();
             marsScene.scene.bringToTop();
-        } else {
-            this.scene.start("MarsWorldScene");
+            return;
         }
+
+        if (marsScene?.scene.isActive()) {
+            marsScene.scene.bringToTop();
+            return;
+        }
+
+        if (marsScene?.scene.isPaused()) {
+            marsScene.scene.resume();
+            marsScene.scene.bringToTop();
+            return;
+        }
+
+        this.scene.start("MarsWorldScene");
     }
 }
 
