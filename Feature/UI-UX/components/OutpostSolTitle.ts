@@ -15,12 +15,6 @@ export class OutpostSolTitle {
     private scene: Phaser.Scene;
     private container: Phaser.GameObjects.Container;
     private callbacks: OutpostSolTitleCallbacks;
-    private particles: Phaser.GameObjects.Arc[] = [];
-    private menuButtons: Phaser.GameObjects.Container[] = [];
-    private menuActions: Array<() => void> = [];
-    private keyboardFocusRing?: Phaser.GameObjects.Graphics;
-    private keyboardMenuActive = false;
-    private menuFocusIndex = 0;
 
     constructor(scene: Phaser.Scene, callbacks: OutpostSolTitleCallbacks) {
         this.scene = scene;
@@ -553,7 +547,6 @@ export class OutpostSolTitle {
     }
 
     public destroy() {
-        this.scene.input.keyboard?.off("keydown", this.handleMenuKeyboard, this);
         this.container.destroy();
     }
 }

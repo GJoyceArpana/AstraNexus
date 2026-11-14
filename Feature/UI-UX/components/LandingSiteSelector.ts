@@ -154,7 +154,7 @@ export class LandingSiteSelector {
             const nextSite: LandingSiteId = this.selectedSite === "jezero" ? "arcadia" : "jezero";
             if (nextSite !== this.selectedSite) {
                 this.selectedSite = nextSite;
-                SiteSoundFX.playSelect();
+                SoundFX.playSelect();
                 this.updateSelectionVisuals();
                 this.renderTelemetryDetails();
             }
