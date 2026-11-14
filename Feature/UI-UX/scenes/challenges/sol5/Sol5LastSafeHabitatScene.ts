@@ -475,7 +475,11 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
     private setupInputControls() {
         if (!this.input.keyboard) return;
 
+        this.input.enabled = true;
         this.input.keyboard.enabled = true;
+        this.input.keyboard.manager.enabled = true;
+        this.input.keyboard.resetKeys();
+        this.game.canvas?.focus();
         this.cursors = this.input.keyboard.createCursorKeys();
         this.keys = {
             W: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W),
