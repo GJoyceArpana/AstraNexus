@@ -1,17 +1,15 @@
+import Phaser from "phaser";
 import UITheme from "../../styles/UITheme.ts";
-import ButtonFactory, { SoundFX } from "../../components/ButtonFactory.ts";
+import { SoundFX } from "../../components/ButtonFactory.ts";
 import SolChallengeBaseScene from "./SolChallengeBaseScene.ts";
 
 export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
-    private contaminationText!: Phaser.GameObjects.Text;
-    private cabinContaminationPct = 65; // Starts contaminated until suitport engaged
-    public suitportLockStatus = false;
-    public hepaAirCurtainActive = false;
-
-    private gaugeX = 0;
-    private gaugeY = 0;
-    private gaugeW = 0;
-    private gaugeH = 0;
+    private isSuitDocked = false;
+    private isAirCurtainActive = false;
+    private suitSprite!: Phaser.GameObjects.Container;
+    private deconNozzles!: Phaser.GameObjects.Graphics;
+    private toxicTelemetryText!: Phaser.GameObjects.Text;
+    private suitportLockIndicator!: Phaser.GameObjects.Text;
 
     constructor() {
         super("Sol2PerchlorateBarrierScene", {
@@ -29,273 +27,219 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     }
 
     protected createChallengeContent() {
-        const frameX = (this.W - 1220) / 2;
-        const frameY = (this.H - 660) / 2;
-        const topY = frameY + 70;
-        const colW = 575;
-        const colH = 505;
+        // Toxic soil atmosphere with white perchlorate salt crusts
+        this.createMartianSurfaceBase(0x191008, 0xC47B34, 0x8A4B24);
 
-        // -------------------------------------------------------------
-        // LEFT COLUMN: SUITPORT AIRLOCK DUAL-CHAMBER VISUALIZER
-        // -------------------------------------------------------------
-        const leftX = frameX + 24;
-        const leftBg = this.add.graphics();
-        leftBg.fillStyle(UITheme.colors.cardBg, 0.9);
-        leftBg.fillRoundedRect(leftX, topY, colW, colH, 12);
-        leftBg.lineStyle(1.5, UITheme.colors.panelBorder, 0.9);
-        leftBg.strokeRoundedRect(leftX, topY, colW, colH, 12);
+        // White Perchlorate Salt Patches on the ground
+        const saltPatches = this.add.graphics().setDepth(-18);
+        saltPatches.fillStyle(0xE5EEF8, 0.45);
+        saltPatches.fillEllipse(280, 560, 160, 34);
+        saltPatches.fillEllipse(540, 620, 220, 40);
+        saltPatches.fillEllipse(960, 580, 180, 36);
 
-        this.add.text(leftX + 24, topY + 18, "REAR-ENTRY SUITPORT AIRLOCK DIAGRAM", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "14px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
-        });
+        // 1. Habitat Airlock Bulkhead Wall (Center-Right: x=780, y=450)
+        const airlockHull = this.add.graphics().setDepth(10);
+        airlockHull.fillStyle(0x0A1B2D, 0.98);
+        airlockHull.fillRoundedRect(640, 280, 360, 320, 16);
+        airlockHull.lineStyle(3, UITheme.colors.primaryCyan, 0.9);
+        airlockHull.strokeRoundedRect(640, 280, 360, 320, 16);
 
-        // Airlock Chamber Visual
-        const chamberW = colW - 48;
-        const chamberH = 240;
-        const chamberX = leftX + 24;
-        const chamberY = topY + 50;
+        // Clean interior habitat chamber visual behind glass
+        const cabinInterior = this.add.graphics().setDepth(11);
+        cabinInterior.fillStyle(0x062846, 0.9);
+        cabinInterior.fillRoundedRect(770, 320, 210, 240, 10);
+        cabinInterior.lineStyle(2, UITheme.colors.bioGreen, 0.8);
+        cabinInterior.strokeRoundedRect(770, 320, 210, 240, 10);
 
-        const chamberBg = this.add.graphics();
-        // Left half: Mars exterior dusty zone
-        chamberBg.fillStyle(0x2A1408, 0.9);
-        chamberBg.fillRoundedRect(chamberX, chamberY, chamberW / 2, chamberH, { tl: 10, tr: 0, bl: 10, br: 0 });
-        // Right half: Clean Pressurized Habitat Cabin
-        chamberBg.fillStyle(0x061D38, 0.9);
-        chamberBg.fillRoundedRect(chamberX + chamberW / 2, chamberY, chamberW / 2, chamberH, { tl: 0, tr: 10, bl: 0, br: 10 });
-        // Dividing Hull Wall
-        chamberBg.lineStyle(4, UITheme.colors.primaryCyan, 1);
-        chamberBg.lineBetween(chamberX + chamberW / 2, chamberY, chamberX + chamberW / 2, chamberY + chamberH);
-        chamberBg.strokeRoundedRect(chamberX, chamberY, chamberW, chamberH, 10);
-
-        // Zone Labels
-        this.add.text(chamberX + chamberW * 0.25, chamberY + 20, "MARS SURFACE\n(TOXIC SOIL)", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.emergencyRedStr,
-            align: "center",
-            fontStyle: "bold"
-        }).setOrigin(0.5);
-
-        this.add.text(chamberX + chamberW * 0.75, chamberY + 20, "HABITAT INTERIOR\n(CLEAN AIRLOCK)", {
+        this.add.text(875, 340, "PRESSURIZED\nHABITAT CABIN", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
             color: UITheme.colors.bioGreenStr,
             align: "center",
             fontStyle: "bold"
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setDepth(12);
 
-        // Suitport Hatch Graphic in Center
-        const hatch = this.add.graphics();
-        hatch.fillStyle(0x0F2E52, 1);
-        hatch.fillRoundedRect(chamberX + chamberW / 2 - 25, chamberY + 80, 50, 100, 8);
-        hatch.lineStyle(2, UITheme.colors.solarGold, 1);
-        hatch.strokeRoundedRect(chamberX + chamberW / 2 - 25, chamberY + 80, 50, 100, 8);
+        // Rear-Entry Suitport Docking Collar
+        const collar = this.add.graphics().setDepth(12);
+        collar.fillStyle(0x1A3858, 1);
+        collar.fillRoundedRect(680, 390, 80, 140, 10);
+        collar.lineStyle(2, UITheme.colors.solarGold, 1);
+        collar.strokeRoundedRect(680, 390, 80, 140, 10);
 
-        this.add.text(chamberX + chamberW / 2, chamberY + 130, "🚪", { fontSize: "28px" }).setOrigin(0.5);
-
-        // Contamination Telemetry Card
-        const toxicBoxY = topY + 310;
-        const toxicBox = this.add.graphics();
-        toxicBox.fillStyle(0x081528, 0.95);
-        toxicBox.fillRoundedRect(leftX + 24, toxicBoxY, colW - 48, 170, 10);
-        toxicBox.lineStyle(1.5, UITheme.colors.emergencyRed, 0.8);
-        toxicBox.strokeRoundedRect(leftX + 24, toxicBoxY, colW - 48, 170, 10);
-
-        this.add.text(leftX + 44, toxicBoxY + 16, "🧪 PERCHLORATE TOXICITY SPECTROMETRY", {
+        this.suitportLockIndicator = this.add.text(720, 550, "[ UNLATCHED ]", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "12px",
+            fontSize: "10px",
             color: UITheme.colors.emergencyRedStr,
             fontStyle: "bold"
-        });
+        }).setOrigin(0.5).setDepth(13);
 
-        this.contaminationText = this.add.text(leftX + 44, toxicBoxY + 42, "", {
+        // Overhead Decontamination HEPA Air Nozzles
+        this.deconNozzles = this.add.graphics().setDepth(14);
+        this.deconNozzles.fillStyle(0x4C6885, 1);
+        this.deconNozzles.fillRoundedRect(690, 340, 60, 20, 4);
+        this.deconNozzles.lineStyle(1.5, UITheme.colors.primaryCyan, 1);
+        this.deconNozzles.strokeRoundedRect(690, 340, 60, 20, 4);
+
+        // 2. Spacesuit Container on exterior gantry
+        this.suitSprite = this.add.container(360, 460).setDepth(15);
+        const suitBody = this.add.ellipse(0, 0, 52, 95, 0xE8EDF5);
+        suitBody.setStrokeStyle(2, 0xD4663A, 0.9);
+        const suitHelmet = this.add.circle(0, -38, 22, 0xD4663A);
+        const visor = this.add.ellipse(0, -38, 26, 16, 0x00E5FF);
+        const backpack = this.add.rectangle(24, 0, 20, 60, 0x7E94B5);
+        this.suitSprite.add([backpack, suitBody, suitHelmet, visor]);
+
+        // Docking Guide Rail on the surface ground
+        const rail = this.add.graphics().setDepth(8);
+        rail.lineStyle(4, 0x5C6D82, 0.8);
+        rail.lineBetween(360, 520, 720, 520);
+        rail.lineStyle(2, UITheme.colors.solarGold, 0.6);
+        rail.lineBetween(360, 520, 720, 520);
+
+        // 3. Chemical Contamination Sensor Panel on ground
+        const sensorBox = this.add.graphics().setDepth(20);
+        sensorBox.fillStyle(0x050F1E, 0.88);
+        sensorBox.fillRoundedRect(220, 570, 300, 60, 8);
+        sensorBox.lineStyle(1.5, UITheme.colors.primaryCyan, 0.8);
+        sensorBox.strokeRoundedRect(220, 570, 300, 60, 8);
+
+        this.add.text(236, 582, "🧪 CABIN PERCHLORATE CONTAMINATION", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "20px",
-            fontStyle: "bold"
-        });
-        this.updateToxicityDisplay();
-
-        this.add.text(leftX + 44, toxicBoxY + 82, this.challengeConfig.nasaFact, {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "12.5px",
-            color: UITheme.colors.textSecondary,
-            lineSpacing: 4,
-            wordWrap: { width: colW - 88 }
-        });
-
-        // -------------------------------------------------------------
-        // RIGHT COLUMN: SUITPORT & AIR CURTAIN DECONTAMINATION CONTROLS
-        // -------------------------------------------------------------
-        const rightX = leftX + colW + 22;
-        const rightBg = this.add.graphics();
-        rightBg.fillStyle(UITheme.colors.cardBg, 0.9);
-        rightBg.fillRoundedRect(rightX, topY, colW, colH, 12);
-        rightBg.lineStyle(1.5, UITheme.colors.panelBorder, 0.9);
-        rightBg.strokeRoundedRect(rightX, topY, colW, colH, 12);
-
-        this.add.text(rightX + 24, topY + 18, "SUITPORT PURIFICATION CONTROLS", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "14px",
-            color: "#FFFFFF",
-            fontStyle: "bold"
-        });
-
-        // Gauge
-        const gaugeY = topY + 54;
-        const barW = colW - 48;
-        const barH = 26;
-
-        this.progressText = this.add.text(rightX + 24, gaugeY, "", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "13px",
+            fontSize: "10.5px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
-        });
+        }).setDepth(21);
 
-        this.statusBadge = this.add.text(rightX + colW - 24, gaugeY, "", {
+        this.toxicTelemetryText = this.add.text(236, 603, "", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            fontStyle: "bold"
-        }).setOrigin(1, 0);
-
-        this.gaugeX = rightX + 24;
-        this.gaugeY = gaugeY + 28;
-        this.gaugeW = barW;
-        this.gaugeH = barH;
-
-        const trackBg = this.add.graphics();
-        trackBg.fillStyle(0x061122, 1);
-        trackBg.fillRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
-        trackBg.lineStyle(1, UITheme.colors.panelBorder, 0.8);
-        trackBg.strokeRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
-
-        this.progressFill = this.add.graphics();
-        this.updateGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
-
-        // Action Buttons
-        const btnY = topY + 130;
-
-        // Button 1: Lock Suitport
-        ButtonFactory.createButton({
-            scene: this,
-            x: rightX + colW / 2,
-            y: btnY + 26,
-            width: colW - 48,
-            height: 52,
-            fontSize: "14px",
-            text: "ENGAGE REAR-ENTRY SUITPORT HATCH",
-            primaryColor: UITheme.colors.primaryCyan,
-            icon: "🚪",
-            onClick: () => {
-                SoundFX.playClick();
-                this.engageSuitport();
-            }
-        });
-
-        // Button 2: HEPA Air Curtain
-        ButtonFactory.createButton({
-            scene: this,
-            x: rightX + colW / 2,
-            y: btnY + 92,
-            width: colW - 48,
-            height: 50,
-            fontSize: "14px",
-            text: "ACTIVATE HEPA AIR CURTAIN",
-            primaryColor: UITheme.colors.solarGold,
-            icon: "💨",
-            onClick: () => {
-                SoundFX.playClick();
-                this.activateHEPACurtain();
-            }
-        });
-
-        // Button 3: Collect Core Sample with SHERLOC
-        ButtonFactory.createButton({
-            scene: this,
-            x: rightX + colW / 2,
-            y: btnY + 158,
-            width: colW - 48,
-            height: 50,
-            fontSize: "14px",
-            text: "SHERLOC RAMAN SPECTROMETER SAMPLE",
-            primaryColor: UITheme.colors.bioGreen,
-            icon: "🔬",
-            onClick: () => {
-                SoundFX.playClick();
-                this.runSherlocScan();
-            }
-        });
-
-        // Chemical Analysis Specs
-        const specBoxY = topY + 360;
-        const specBox = this.add.graphics();
-        specBox.fillStyle(0x08152B, 0.95);
-        specBox.fillRoundedRect(rightX + 24, specBoxY, colW - 48, 120, 8);
-        specBox.lineStyle(1.5, UITheme.colors.panelBorder, 0.8);
-        specBox.strokeRoundedRect(rightX + 24, specBoxY, colW - 48, 120, 8);
-
-        this.add.text(rightX + 40, specBoxY + 16, "MARS REGOLITH TOXICITY SPECIFICATION:", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
-        });
-        this.add.text(rightX + 40, specBoxY + 38, "• Primary Oxidizer: Mg(ClO4)2 · Ca(ClO4)2 salts (0.6 wt%)\n• Safe Human Threshold: < 15 ppm interior cabin atmosphere\n• Mitigation: Electrostatic suit repulsion + positive-pressure airlock", {
-            fontFamily: UITheme.fonts.body,
             fontSize: "12px",
-            color: "#E0ECFC",
-            lineSpacing: 5
+            fontStyle: "bold"
+        }).setDepth(21);
+        this.updateToxicDisplay();
+
+        // 4. Interactive Surface Hotspots
+        // Hotspot 1: Spacesuit (Click to Dock)
+        this.createSurfaceHotspot({
+            x: 360,
+            y: 410,
+            width: 120,
+            height: 120,
+            icon: "🚪",
+            label: "EVA SUIT",
+            actionHint: "CLICK TO DOCK IN SUITPORT",
+            color: UITheme.colors.solarGold,
+            onClick: () => this.dockSuit()
+        });
+
+        // Hotspot 2: Decontamination Nozzles (Click to Spray)
+        this.createSurfaceHotspot({
+            x: 720,
+            y: 330,
+            width: 140,
+            height: 60,
+            icon: "💨",
+            label: "DECON AIR-CURTAIN",
+            actionHint: "CLICK TO SPRAY HEPA JETS",
+            color: UITheme.colors.primaryCyan,
+            onClick: () => this.sprayDeconJets()
+        });
+
+        // Hotspot 3: Chemical Purge Console
+        this.createSurfaceHotspot({
+            x: 370,
+            y: 600,
+            width: 300,
+            height: 60,
+            icon: "🧪",
+            label: "CHEMICAL PURGE",
+            actionHint: "CLICK TO FLUSH VESTIBULE",
+            color: UITheme.colors.bioGreen,
+            onClick: () => this.purgeCabin()
         });
     }
 
-    private updateToxicityDisplay() {
-        this.contaminationText.setText(`CABIN PERCHLORATES: ${this.cabinContaminationPct}% (LIMIT: 15%)`);
-        this.contaminationText.setColor(this.cabinContaminationPct <= 15 ? UITheme.colors.bioGreenStr : UITheme.colors.emergencyRedStr);
+    private dockSuit() {
+        if (this.isSuitDocked) {
+            this.showSurfaceFloatingText(720, 420, "✔ SUIT ALREADY LATCHED IN SUITPORT COLLAR", UITheme.colors.bioGreenStr);
+            return;
+        }
+
+        // Slide suit along guide rail into the suitport hatch
+        this.tweens.add({
+            targets: this.suitSprite,
+            x: 715,
+            duration: 800,
+            ease: "Cubic.easeInOut",
+            onComplete: () => {
+                this.isSuitDocked = true;
+                this.suitportLockIndicator.setText("[ LATCHED & LOCKED ]");
+                this.suitportLockIndicator.setColor(UITheme.colors.bioGreenStr);
+                SoundFX.playToggle(true);
+
+                this.currentVal = Math.max(25, this.currentVal - 25);
+                this.updateToxicDisplay();
+                this.updateVisorProgress(this.currentVal, this.challengeConfig.targetVal, "%");
+                this.showSurfaceFloatingText(720, 390, "✔ Rear Hatch Locked Into Outer Hull! Toxins Isolated Outside.", UITheme.colors.bioGreenStr);
+            }
+        });
     }
 
-    private updateGauge(x: number, y: number, w: number, h: number) {
-        const purityPct = Math.max(0, (100 - this.cabinContaminationPct) / 100);
-        this.progressText.setText(`DECONTAMINATION PURITY: ${Math.round(purityPct * 100)}% / 100%`);
+    private sprayDeconJets() {
+        if (!this.isSuitDocked) {
+            SoundFX.playAlert();
+            this.showSurfaceFloatingText(360, 410, "⚠ Dock suit into collar before activating air shower!", UITheme.colors.emergencyRedStr);
+            return;
+        }
 
-        const isSafe = this.cabinContaminationPct <= 15;
-        this.statusBadge.setText(isSafe ? "✔ HABITAT CABIN TOXIN-FREE" : "⚠ TOXIC DUST DETECTED");
-        this.statusBadge.setColor(isSafe ? UITheme.colors.bioGreenStr : UITheme.colors.emergencyRedStr);
+        this.isAirCurtainActive = true;
+        SoundFX.playClick();
 
-        this.progressFill.clear();
-        this.progressFill.fillStyle(isSafe ? UITheme.colors.bioGreen : UITheme.colors.marsAmber, 1);
-        this.progressFill.fillRoundedRect(x + 2, y + 2, Math.max(8, (w - 4) * purityPct), h - 4, 4);
+        // Animated high-pressure cyan air particles spraying down
+        for (let i = 0; i < 24; i++) {
+            const p = this.add.circle(
+                720 + Phaser.Math.Between(-30, 30),
+                360,
+                Phaser.Math.Between(2, 5),
+                UITheme.colors.primaryCyan,
+                0.9
+            ).setDepth(25);
+
+            this.tweens.add({
+                targets: p,
+                y: 530,
+                alpha: 0,
+                duration: Phaser.Math.Between(300, 600),
+                onComplete: () => p.destroy()
+            });
+        }
+
+        this.currentVal = Math.max(12, this.currentVal - 20);
+        this.updateToxicDisplay();
+        this.updateVisorProgress(this.currentVal, this.challengeConfig.targetVal, "%");
+        this.showSurfaceFloatingText(720, 360, "💨 HEPA Air-Curtain Swept 99.7% of Surface Dust!", UITheme.colors.primaryCyanStr);
     }
 
-    private engageSuitport() {
-        this.suitportLockStatus = true;
-        this.cabinContaminationPct = Math.max(8, this.cabinContaminationPct - 35);
-        this.refreshState();
-        this.setActionFeedback("✔ Suitport locked! Spacesuit mounted outside living quarters.", true);
-    }
+    private purgeCabin() {
+        if (!this.isSuitDocked) {
+            SoundFX.playAlert();
+            this.showSurfaceFloatingText(360, 410, "⚠ Suit must be docked before running chemical purge!", UITheme.colors.emergencyRedStr);
+            return;
+        }
 
-    private activateHEPACurtain() {
-        this.hepaAirCurtainActive = true;
-        this.cabinContaminationPct = Math.max(4, this.cabinContaminationPct - 25);
-        this.refreshState();
-        this.setActionFeedback("💨 High-velocity HEPA air curtain engaged! Residual dust purged.", true);
-    }
-
-    private runSherlocScan() {
         SoundFX.playToggle(true);
-        this.refreshState();
-        this.setActionFeedback("🔬 SHERLOC analysis confirmed: 0.02% perchlorate trace. Within OSHA/NASA bio-limits.", true);
+        this.currentVal = 5; // Safely below 15% target
+        this.updateToxicDisplay();
+        this.updateVisorProgress(this.currentVal, this.challengeConfig.targetVal, "%");
+        this.showSurfaceFloatingText(370, 560, "✔ Cabin Purged! Perchlorate Residue at Safe 5% Level.", UITheme.colors.bioGreenStr);
+    }
+
+    private updateToxicDisplay() {
+        this.toxicTelemetryText.setText(`CONCENTRATION: ${this.currentVal}% (SAFE LIMIT <= 15%)`);
+        this.toxicTelemetryText.setColor(this.currentVal <= 15 ? UITheme.colors.bioGreenStr : UITheme.colors.emergencyRedStr);
     }
 
     protected isTargetMet(): boolean {
-        return this.cabinContaminationPct <= 15;
-    }
-
-    private refreshState() {
-        this.updateToxicityDisplay();
-        this.updateGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
+        return this.isSuitDocked && this.isAirCurtainActive && this.currentVal <= this.challengeConfig.targetVal;
     }
 }
 

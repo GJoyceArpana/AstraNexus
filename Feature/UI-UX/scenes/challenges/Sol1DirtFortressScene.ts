@@ -1,310 +1,243 @@
+import Phaser from "phaser";
 import UITheme from "../../styles/UITheme.ts";
-import ButtonFactory, { SoundFX } from "../../components/ButtonFactory.ts";
+import { SoundFX } from "../../components/ButtonFactory.ts";
 import SolChallengeBaseScene from "./SolChallengeBaseScene.ts";
 
 export class Sol1DirtFortressScene extends SolChallengeBaseScene {
-    private regolithMoundGraphics!: Phaser.GameObjects.Graphics;
-    private radDoseText!: Phaser.GameObjects.Text;
-    private targetThickness = 3.0;
-    private compactionPercent = 0;
+    private targetThickness = 3.0; // 3.0 meters basalt regolith
+    private compactionPercent = 25; // 25% to 100%
 
-    private domeCenterX = 0;
-    private domeBaseY = 0;
-    private gaugeX = 0;
-    private gaugeY = 0;
-    private gaugeW = 0;
-    private gaugeH = 0;
+    private regolithMoundGraphics!: Phaser.GameObjects.Graphics;
+    private domeSprite!: Phaser.GameObjects.Image;
+    private roverSprite!: Phaser.GameObjects.Image;
+    private radTelemetryText!: Phaser.GameObjects.Text;
+    private shovelGraphic!: Phaser.GameObjects.Graphics;
 
     constructor() {
         super("Sol1DirtFortressScene", {
             solNumber: 1,
-            title: "SOL 1: DIRT FORTRESS",
+            title: "SOL 1: THE DIRT FORTRESS",
             codename: "REGOLITH RADIATION SHIELDING",
-            hazardBadge: "COSMIC RADIATION (>0.70 mSv/Sol)",
-            briefing: "Mars lacks a planetary magnetosphere. Galactic cosmic rays and solar flares bombard the bare habitat shell. Use the rover bucket to excavate loose basalt regolith and pile a 3.0-meter thick soil layer over the roof.",
-            nasaFact: "NASA Langley tests confirm 3 meters of compacted Martian regolith provides radiation attenuation equivalent to Earth's atmosphere, blocking 95% of cosmic rays.",
-            primaryTarget: "Pile at least 3.0 meters of compacted regolith over habitat roof.",
-            unit: "m",
+            hazardBadge: "GALACTIC COSMIC RAYS (GCR) & CME PROTONS",
+            briefing: "Deep space radiation will exceed safe human exposure within 48 hours. Pilot the autonomous excavation rover to pile 3.0+ meters of basalt volcanic regolith over the pressurized habitat dome.",
+            nasaFact: "Mars lacks a global magnetosphere. NASA Langley radiation testing demonstrated that 3.0 meters of compacted Martian regolith cuts GCR radiation exposure by over 95%.",
+            primaryTarget: "Pile 3.0m compacted basalt soil over habitat dome.",
+            unit: "Meters",
             targetVal: 3.0,
             initialVal: 0.8
         });
     }
 
     protected createChallengeContent() {
-        const frameX = (this.W - 1220) / 2;
-        const frameY = (this.H - 660) / 2;
-        const topY = frameY + 70;
-        const colW = 575;
-        const colH = 505;
+        // Build Cosmic Radiation Atmosphere (violet-tinted dusky sky & basalt terrain)
+        this.createMartianSurfaceBase(0x1F0B18, 0xD45B38, 0x823420);
 
-        // -------------------------------------------------------------
-        // LEFT COLUMN: HABITAT SHIELD CROSS-SECTION VISUALIZER
-        // -------------------------------------------------------------
-        const leftX = frameX + 24;
-        const leftBg = this.add.graphics();
-        leftBg.fillStyle(UITheme.colors.cardBg, 0.9);
-        leftBg.fillRoundedRect(leftX, topY, colW, colH, 12);
-        leftBg.lineStyle(1.5, UITheme.colors.panelBorder, 0.9);
-        leftBg.strokeRoundedRect(leftX, topY, colW, colH, 12);
+        // 1. Habitat Pressurized Dome (Center-Right: x=820, y=460)
+        this.domeSprite = this.add.image(820, 460, "base-station");
+        this.domeSprite.setScale(0.68).setDepth(10);
+        this.domeSprite.setTint(0xF0A075);
 
-        this.add.text(leftX + 24, topY + 18, "HABITAT HULL & RADIATION ATTENUATION", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "14px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
-        });
+        // Dynamic Basalt Shield Layer Graphic (builds over the dome)
+        this.regolithMoundGraphics = this.add.graphics().setDepth(11);
+        this.updateRegolithVisuals();
 
-        // Habitat Dome Diagram Viewport
-        const viewW = colW - 48;
-        const viewH = 240;
-        const viewX = leftX + 24;
-        const viewY = topY + 50;
+        // 2. Basalt Excavation Quarry Trench (Left sector: x=320, y=570)
+        const trench = this.add.graphics().setDepth(5);
+        trench.fillStyle(0x3B140B, 0.95);
+        trench.fillRoundedRect(160, 560, 320, 70, 16);
+        trench.lineStyle(2, 0xD4663A, 0.7);
+        trench.strokeRoundedRect(160, 560, 320, 70, 16);
 
-        const viewFrame = this.add.graphics();
-        viewFrame.fillStyle(0x040B17, 1);
-        viewFrame.fillRoundedRect(viewX, viewY, viewW, viewH, 10);
-        viewFrame.lineStyle(1.5, UITheme.colors.panelBorder, 0.8);
-        viewFrame.strokeRoundedRect(viewX, viewY, viewW, viewH, 10);
-
-        // Habitat Shell Graphic
-        this.domeCenterX = viewX + viewW / 2;
-        this.domeBaseY = viewY + viewH - 30;
-
-        const habDome = this.add.graphics();
-        habDome.fillStyle(0x0C2B4E, 0.9);
-        habDome.fillEllipse(this.domeCenterX, this.domeBaseY, 320, 150);
-        habDome.lineStyle(3, UITheme.colors.primaryCyan, 1);
-        habDome.strokeEllipse(this.domeCenterX, this.domeBaseY, 320, 150);
-
-        // Internal Crew Life-Sign Glow
-        this.add.text(this.domeCenterX, this.domeBaseY - 15, "🏠 HABITAT PRESSURIZED CABIN", {
+        this.add.text(320, 595, "BASALT REGOLITH QUARRY PIT", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
+            color: UITheme.colors.solarGoldStr,
+            fontStyle: "bold"
+        }).setOrigin(0.5).setDepth(6);
+
+        // 3. Heavy Autonomous Excavator Rover
+        this.roverSprite = this.add.image(320, 500, "rover");
+        this.roverSprite.setScale(0.58).setDepth(15);
+
+        // Mechanical Shovel on the Rover
+        this.shovelGraphic = this.add.graphics().setDepth(16);
+        this.drawShovel(320 + 70, 500 + 20);
+
+        // 4. Live Dosimeter Scanner Display on the ground
+        const dosimeterBox = this.add.graphics().setDepth(20);
+        dosimeterBox.fillStyle(0x040B18, 0.88);
+        dosimeterBox.fillRoundedRect(560, 570, 260, 58, 8);
+        dosimeterBox.lineStyle(1.5, UITheme.colors.primaryCyan, 0.8);
+        dosimeterBox.strokeRoundedRect(560, 570, 260, 58, 8);
+
+        this.add.text(575, 582, "☢️ NASA DOSIMETER SENSOR", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10.5px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
-        }).setOrigin(0.5);
+        }).setDepth(21);
 
-        // Dynamic Regolith Shield Layer Graphic (piles up over dome)
-        this.regolithMoundGraphics = this.add.graphics();
-        this.updateRegolithVisuals(this.domeCenterX, this.domeBaseY);
-
-        // Dosimeter Telemetry Box
-        const radBoxY = topY + 310;
-        const radBox = this.add.graphics();
-        radBox.fillStyle(0x081528, 0.95);
-        radBox.fillRoundedRect(leftX + 24, radBoxY, colW - 48, 170, 10);
-        radBox.lineStyle(1.5, UITheme.colors.primaryCyan, 0.8);
-        radBox.strokeRoundedRect(leftX + 24, radBoxY, colW - 48, 170, 10);
-
-        this.add.text(leftX + 44, radBoxY + 16, "☢️ NASA DOSIMETER (RAD INSTRUMENT)", {
+        this.radTelemetryText = this.add.text(575, 602, "", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "12px",
-            color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
-        });
+        }).setDepth(21);
+        this.updateDosimeterDisplay();
 
-        this.radDoseText = this.add.text(leftX + 44, radBoxY + 42, "", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "20px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
-        });
-        this.updateRadDoseDisplay();
-
-        this.add.text(leftX + 44, radBoxY + 82, this.challengeConfig.nasaFact, {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "12.5px",
-            color: UITheme.colors.textSecondary,
-            lineSpacing: 4,
-            wordWrap: { width: colW - 88 }
-        });
-
-        // -------------------------------------------------------------
-        // RIGHT COLUMN: ROVER EXCAVATION & ENGINEERING CONTROLS
-        // -------------------------------------------------------------
-        const rightX = leftX + colW + 22;
-        const rightBg = this.add.graphics();
-        rightBg.fillStyle(UITheme.colors.cardBg, 0.9);
-        rightBg.fillRoundedRect(rightX, topY, colW, colH, 12);
-        rightBg.lineStyle(1.5, UITheme.colors.panelBorder, 0.9);
-        rightBg.strokeRoundedRect(rightX, topY, colW, colH, 12);
-
-        this.add.text(rightX + 24, topY + 18, "ROVER BUCKET EXCAVATOR CONTROLS", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "14px",
-            color: "#FFFFFF",
-            fontStyle: "bold"
-        });
-
-        // Live Progress Gauge
-        const gaugeY = topY + 54;
-        const barW = colW - 48;
-        const barH = 26;
-
-        this.progressText = this.add.text(rightX + 24, gaugeY, "", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "13px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold"
-        });
-
-        this.statusBadge = this.add.text(rightX + colW - 24, gaugeY, "", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            fontStyle: "bold"
-        }).setOrigin(1, 0);
-
-        this.gaugeX = rightX + 24;
-        this.gaugeY = gaugeY + 28;
-        this.gaugeW = barW;
-        this.gaugeH = barH;
-
-        const trackBg = this.add.graphics();
-        trackBg.fillStyle(0x061122, 1);
-        trackBg.fillRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
-        trackBg.lineStyle(1, UITheme.colors.panelBorder, 0.8);
-        trackBg.strokeRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
-
-        this.progressFill = this.add.graphics();
-        this.updateProgressGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
-
-        // Engineering Action Buttons
-        const btnY = topY + 130;
-
-        // Button 1: Scoop Regolith
-        ButtonFactory.createButton({
-            scene: this,
-            x: rightX + colW / 2,
-            y: btnY + 26,
-            width: colW - 48,
-            height: 52,
-            fontSize: "14px",
-            text: "EXCAVATE BASALT REGOLITH (+0.5m)",
-            primaryColor: UITheme.colors.primaryCyan,
+        // 5. Interactive Surface Hotspots on the Martian Ground
+        // Hotspot 1: Excavation Rover (Click to scoop dirt)
+        this.createSurfaceHotspot({
+            x: 320,
+            y: 440,
+            width: 170,
+            height: 90,
             icon: "🚜",
-            onClick: () => {
-                SoundFX.playClick();
-                this.excavateRegolith(0.5);
-            }
+            label: "EXCAVATOR ROVER",
+            actionHint: "CLICK TO EXCAVATE SOIL",
+            color: UITheme.colors.solarGold,
+            onClick: () => this.excavateSoil()
         });
 
-        // Button 2: Compact with Mechanical Tamper
-        ButtonFactory.createButton({
-            scene: this,
-            x: rightX + colW / 2,
-            y: btnY + 92,
-            width: colW - 48,
-            height: 50,
-            fontSize: "14px",
-            text: "COMPACT DIRT SHIELD (-15% VOIDS)",
-            primaryColor: UITheme.colors.marsAmber,
+        // Hotspot 2: Habitat Shield Mound (Click to compact)
+        this.createSurfaceHotspot({
+            x: 820,
+            y: 380,
+            width: 240,
+            height: 120,
             icon: "🔨",
-            onClick: () => {
-                SoundFX.playClick();
-                this.compactShield();
-            }
+            label: "HABITAT REGOLITH SHIELD",
+            actionHint: "CLICK TO COMPACT SOIL",
+            color: UITheme.colors.marsAmber,
+            onClick: () => this.compactSoil()
         });
 
-        // Button 3: Run Dosimeter Attenuation Test
-        ButtonFactory.createButton({
-            scene: this,
-            x: rightX + colW / 2,
-            y: btnY + 158,
-            width: colW - 48,
-            height: 50,
-            fontSize: "14px",
-            text: "RUN RAD ATTENUATION SCAN",
-            primaryColor: UITheme.colors.bioGreen,
+        // Hotspot 3: Dosimeter Instrument
+        this.createSurfaceHotspot({
+            x: 690,
+            y: 600,
+            width: 260,
+            height: 60,
             icon: "🔬",
-            onClick: () => {
-                SoundFX.playClick();
-                this.runDosimeterScan();
+            label: "RAD DOSIMETER",
+            actionHint: "CLICK TO SCAN ATTENUATION",
+            color: UITheme.colors.bioGreen,
+            onClick: () => this.scanRadiation()
+        });
+    }
+
+    private drawShovel(x: number, y: number) {
+        this.shovelGraphic.clear();
+        this.shovelGraphic.fillStyle(0x7E94B5, 1);
+        this.shovelGraphic.fillRoundedRect(x - 10, y - 8, 32, 16, 4);
+        this.shovelGraphic.lineStyle(2, 0xD4663A, 1);
+        this.shovelGraphic.strokeRoundedRect(x - 10, y - 8, 32, 16, 4);
+    }
+
+    private excavateSoil() {
+        if (this.currentVal >= this.targetThickness) {
+            this.showSurfaceFloatingText(320, 480, "✔ MAXIMUM SAFE SHIELDING REACHED (3.2m)", UITheme.colors.bioGreenStr);
+            return;
+        }
+
+        // Shovel scoop animation
+        this.tweens.add({
+            targets: this.roverSprite,
+            y: 512,
+            duration: 180,
+            yoyo: true,
+            repeat: 1
+        });
+
+        // Flying regolith dirt clod animation from rover to dome
+        const clod = this.add.circle(380, 510, 9, 0x8D4024).setDepth(30);
+        this.tweens.add({
+            targets: clod,
+            x: 780,
+            y: 440,
+            scaleX: 1.4,
+            scaleY: 1.4,
+            duration: 550,
+            ease: "Quad.easeOut",
+            onComplete: () => {
+                clod.destroy();
+                // Dust puff particles on dome
+                for (let i = 0; i < 8; i++) {
+                    const p = this.add.circle(
+                        780 + Phaser.Math.Between(-30, 30),
+                        440 + Phaser.Math.Between(-20, 20),
+                        Phaser.Math.Between(3, 7),
+                        0xD4663A,
+                        0.8
+                    ).setDepth(31);
+                    this.tweens.add({
+                        targets: p,
+                        alpha: 0,
+                        y: p.y - 25,
+                        duration: 400,
+                        onComplete: () => p.destroy()
+                    });
+                }
+
+                this.currentVal = Math.min(3.5, Number((this.currentVal + 0.6).toFixed(1)));
+                this.updateRegolithVisuals();
+                this.updateDosimeterDisplay();
+                this.updateVisorProgress(this.currentVal, this.targetThickness, "Meters");
+                this.showSurfaceFloatingText(820, 410, `+0.6m Basalt Soil Added (${this.currentVal.toFixed(1)}m)`, UITheme.colors.solarGoldStr);
             }
         });
-
-        // Soil Composition Card
-        const compBoxY = topY + 360;
-        const compBox = this.add.graphics();
-        compBox.fillStyle(0x08152B, 0.95);
-        compBox.fillRoundedRect(rightX + 24, compBoxY, colW - 48, 120, 8);
-        compBox.lineStyle(1.5, UITheme.colors.panelBorder, 0.8);
-        compBox.strokeRoundedRect(rightX + 24, compBoxY, colW - 48, 120, 8);
-
-        this.add.text(rightX + 40, compBoxY + 16, "GEOLOGICAL SOIL SPECIFICATION:", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
-        });
-        this.add.text(rightX + 40, compBoxY + 38, "• Material: Iron-rich basaltic volcanic sand & permafrost clay\n• Density: 1.55 g/cm³ uncompacted → 1.95 g/cm³ compacted\n• Radiation Stopping Power: 3m soil = 10m water equivalent", {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "12px",
-            color: "#E0ECFC",
-            lineSpacing: 5
-        });
     }
 
-    private updateRegolithVisuals(centerX: number, baseY: number) {
-        this.regolithMoundGraphics.clear();
-        const thicknessRatio = Math.min(1.0, this.currentVal / this.targetThickness);
-        const moundHeight = 20 + thicknessRatio * 55;
+    private compactSoil() {
+        this.compactionPercent = Math.min(100, this.compactionPercent + 25);
+        this.tweens.add({
+            targets: this.domeSprite,
+            scaleY: 0.65,
+            duration: 100,
+            yoyo: true,
+            repeat: 2
+        });
 
-        // Draw earthy basalt mound naturally bounded within viewport dimensions
-        this.regolithMoundGraphics.fillStyle(0x8D4024, 0.85);
-        this.regolithMoundGraphics.fillEllipse(centerX, baseY - moundHeight / 2, 320 + thicknessRatio * 30, 90 + moundHeight);
-        this.regolithMoundGraphics.lineStyle(2, 0xD4663A, 0.9);
-        this.regolithMoundGraphics.strokeEllipse(centerX, baseY - moundHeight / 2, 320 + thicknessRatio * 30, 90 + moundHeight);
+        this.updateDosimeterDisplay();
+        this.showSurfaceFloatingText(820, 390, `Soil Compacted to ${this.compactionPercent}% Density!`, UITheme.colors.marsAmberStr);
     }
 
-    private updateRadDoseDisplay() {
+    private scanRadiation() {
+        SoundFX.playToggle(true);
+        // Bio-green radar beam sweep over dome
+        const beam = this.add.rectangle(820, 460, 10, 220, UITheme.colors.bioGreen, 0.45).setDepth(25);
+        this.tweens.add({
+            targets: beam,
+            scaleX: 30,
+            alpha: 0,
+            duration: 700,
+            onComplete: () => beam.destroy()
+        });
+
+        this.updateDosimeterDisplay();
         const dose = Math.max(0.04, 0.70 - (this.currentVal / this.targetThickness) * 0.65).toFixed(2);
-        const attenuation = Math.min(96, Math.round((this.currentVal / this.targetThickness) * 95));
-        this.radDoseText.setText(`DOSE: ${dose} mSv/Sol (ATTENUATION: ${attenuation}%)`);
-        this.radDoseText.setColor(Number(dose) <= 0.15 ? UITheme.colors.bioGreenStr : UITheme.colors.emergencyRedStr);
+        this.showSurfaceFloatingText(690, 560, `Dose: ${dose} mSv/Sol · Attenuation ${Math.min(98, Math.round((this.currentVal / this.targetThickness) * 95))}%`, UITheme.colors.bioGreenStr);
     }
 
-    private updateProgressGauge(x: number, y: number, w: number, h: number) {
-        const pct = Math.min(1.0, this.currentVal / this.targetThickness);
-        this.progressText.setText(`SHIELD THICKNESS: ${this.currentVal.toFixed(1)} / ${this.targetThickness.toFixed(1)} METERS`);
+    private updateRegolithVisuals() {
+        this.regolithMoundGraphics.clear();
+        const ratio = Math.min(1.0, this.currentVal / this.targetThickness);
+        const moundH = 30 + ratio * 85;
 
-        const isDone = this.currentVal >= this.targetThickness;
-        this.statusBadge.setText(isDone ? "✔ RADIATION BARRIER SECURE" : "⏳ EXCAVATION IN PROGRESS");
-        this.statusBadge.setColor(isDone ? UITheme.colors.bioGreenStr : UITheme.colors.solarGoldStr);
+        // Draw protective basalt berm piling up over the dome
+        this.regolithMoundGraphics.fillStyle(0x73331C, 0.88);
+        this.regolithMoundGraphics.fillEllipse(820, 470 - moundH / 2, 280 + ratio * 40, 100 + moundH);
+        this.regolithMoundGraphics.lineStyle(2.5, 0xC45C34, 0.95);
+        this.regolithMoundGraphics.strokeEllipse(820, 470 - moundH / 2, 280 + ratio * 40, 100 + moundH);
+    }
 
-        this.progressFill.clear();
-        this.progressFill.fillStyle(isDone ? UITheme.colors.bioGreen : UITheme.colors.primaryCyan, 1);
-        this.progressFill.fillRoundedRect(x + 2, y + 2, Math.max(8, (w - 4) * pct), h - 4, 4);
+    private updateDosimeterDisplay() {
+        const dose = Math.max(0.04, 0.70 - (this.currentVal / this.targetThickness) * 0.65).toFixed(2);
+        this.radTelemetryText.setText(`DOSE: ${dose} mSv/Sol (TARGET <= 0.15)`);
+        this.radTelemetryText.setColor(Number(dose) <= 0.15 ? UITheme.colors.bioGreenStr : UITheme.colors.emergencyRedStr);
     }
 
     protected isTargetMet(): boolean {
         return this.currentVal >= this.targetThickness;
-    }
-
-    private excavateRegolith(amount: number) {
-        this.currentVal = Math.min(3.5, Number((this.currentVal + amount).toFixed(1)));
-
-        this.updateRegolithVisuals(this.domeCenterX, this.domeBaseY);
-        this.updateRadDoseDisplay();
-        this.updateProgressGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
-
-        if (this.currentVal >= this.targetThickness) {
-            this.setActionFeedback("✔ REGOLITH BARRIER EXCEEDS 3.0m NASA TARGET! RADIATION NORMALIZED.", true);
-        } else {
-            this.setActionFeedback(`Excavated +${amount}m basalt soil. Current depth: ${this.currentVal.toFixed(1)}m.`, false);
-        }
-    }
-
-    private compactShield() {
-        this.compactionPercent = Math.min(100, this.compactionPercent + 25);
-        this.updateRadDoseDisplay();
-        this.setActionFeedback(`Hydraulic tamper engaged! Soil compaction: ${this.compactionPercent}%. Density increased.`, true);
-    }
-
-    private runDosimeterScan() {
-        SoundFX.playToggle(true);
-        this.updateRadDoseDisplay();
-        const dose = Math.max(0.04, 0.70 - (this.currentVal / this.targetThickness) * 0.65).toFixed(2);
-        this.setActionFeedback(`RAD telemetry sync complete: Current exposure ${dose} mSv/Sol.`, Number(dose) <= 0.15);
     }
 }
 

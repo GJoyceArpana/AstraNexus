@@ -1,17 +1,17 @@
+import Phaser from "phaser";
 import UITheme from "../../styles/UITheme.ts";
-import ButtonFactory, { SoundFX } from "../../components/ButtonFactory.ts";
+import { SoundFX } from "../../components/ButtonFactory.ts";
 import SolChallengeBaseScene from "./SolChallengeBaseScene.ts";
 
 export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
-    private moxieKg = 0.4;
-    private waterLiters = 5;
-    private foodKg = 2;
-    private telemetryStatsText!: Phaser.GameObjects.Text;
+    private moxieO2Kg = 0;
+    private iceWaterLiters = 0;
+    private cropsHarvestedKg = 0;
 
-    private gaugeX = 0;
-    private gaugeY = 0;
-    private gaugeW = 0;
-    private gaugeH = 0;
+    private moxieSprite!: Phaser.GameObjects.Container;
+    private drillSprite!: Phaser.GameObjects.Container;
+    private greenSprite!: Phaser.GameObjects.Image;
+    private telemetryText!: Phaser.GameObjects.Text;
 
     constructor() {
         super("Sol4ISRUProductionScene", {
@@ -24,271 +24,219 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
             primaryTarget: "Achieve ISRU Trinity: Produce O2, harvest H2O ice, and yield crops.",
             unit: "Pillars",
             targetVal: 3,
-            initialVal: 1
+            initialVal: 0
         });
     }
 
     protected createChallengeContent() {
-        const frameX = (this.W - 1220) / 2;
-        const frameY = (this.H - 660) / 2;
-        const topY = frameY + 70;
-        const colW = 575;
-        const colH = 505;
+        // Glacial permafrost terrain atmosphere (blue-tinted horizon and icy ground)
+        this.createMartianSurfaceBase(0x0E1929, 0x4A709C, 0x6E4238);
 
-        // -------------------------------------------------------------
-        // LEFT COLUMN: 3 ISRU PRODUCTION PILLARS VISUALIZER
-        // -------------------------------------------------------------
-        const leftX = frameX + 24;
-        const leftBg = this.add.graphics();
-        leftBg.fillStyle(UITheme.colors.cardBg, 0.9);
-        leftBg.fillRoundedRect(leftX, topY, colW, colH, 12);
-        leftBg.lineStyle(1.5, UITheme.colors.panelBorder, 0.9);
-        leftBg.strokeRoundedRect(leftX, topY, colW, colH, 12);
+        // Subsurface Glacial Ice Shelf exposed on the ground
+        const iceShelf = this.add.graphics().setDepth(-18);
+        iceShelf.fillStyle(0x7EB8D9, 0.4);
+        iceShelf.fillEllipse(640, 560, 360, 48);
+        iceShelf.lineStyle(2, 0xA3D9F8, 0.7);
+        iceShelf.strokeEllipse(640, 560, 360, 48);
 
-        this.add.text(leftX + 24, topY + 18, "ISRU PRODUCTION TRINITY STATUS", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "14px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
-        });
+        // 1. MOXIE Atmospheric CO2 Extraction Tower (Left: x=260, y=470)
+        this.moxieSprite = this.add.container(260, 470).setDepth(12);
+        const moxieBase = this.add.graphics();
+        moxieBase.fillStyle(0x1F2A38, 1);
+        moxieBase.fillRoundedRect(-40, -60, 80, 120, 8);
+        moxieBase.lineStyle(2, UITheme.colors.primaryCyan, 1);
+        moxieBase.strokeRoundedRect(-40, -60, 80, 120, 8);
+        const moxieExhaust = this.add.rectangle(0, -75, 20, 30, 0x5C6D82);
+        const o2Tank = this.add.image(28, 0, "oxygen-cylinder").setScale(0.38);
+        this.moxieSprite.add([moxieBase, moxieExhaust, o2Tank]);
 
-        // 3 Visual Pillar Pod Cards
-        const cardW = colW - 48;
-        const cardH = 72;
-        const startCardY = topY + 50;
+        // 2. Heavy Subsurface Cryo-Well Drill Rig (Center: x=640, y=480)
+        this.drillSprite = this.add.container(640, 480).setDepth(13);
+        const drillDerrick = this.add.graphics();
+        drillDerrick.fillStyle(0x3B4A5C, 1);
+        drillDerrick.fillTriangle(0, -90, -45, 40, 45, 40);
+        drillDerrick.lineStyle(2, UITheme.colors.solarGold, 0.9);
+        drillDerrick.strokeTriangle(0, -90, -45, 40, 45, 40);
+        const drillPipe = this.add.rectangle(0, 0, 10, 80, 0x8DA2BA);
+        this.drillSprite.add([drillDerrick, drillPipe]);
 
-        // Pod 1: MOXIE Oxygen
-        this.createPillarCard(leftX + 24, startCardY, cardW, cardH, "💨 MOXIE 800°C ELECTROLYSIS", "Atmospheric CO₂ → Pure Breathable O₂", UITheme.colors.primaryCyan);
-        // Pod 2: Subsurface Cryo Well
-        this.createPillarCard(leftX + 24, startCardY + 84, cardW, cardH, "💧 CRYO-PERMAFROST WATER WELL", "Arcadia Glacial Subsurface Ice Melting", UITheme.colors.solarGold);
-        // Pod 3: LED Greenhouse
-        this.createPillarCard(leftX + 24, startCardY + 168, cardW, cardH, "🥔 HYDROPONIC LED GREENHOUSE", "Regolith Nutrient Beds & Red/Blue Spectrum", UITheme.colors.bioGreen);
+        // 3. LED Hydroponic Greenhouse (Right: x=1020, y=470)
+        this.greenSprite = this.add.image(1020, 470, "greenhouse");
+        this.greenSprite.setScale(0.55).setDepth(12);
 
-        // Telemetry Box
-        const statBoxY = topY + 310;
-        const statBox = this.add.graphics();
-        statBox.fillStyle(0x081528, 0.95);
-        statBox.fillRoundedRect(leftX + 24, statBoxY, colW - 48, 170, 10);
-        statBox.lineStyle(1.5, UITheme.colors.primaryCyan, 0.8);
-        statBox.strokeRoundedRect(leftX + 24, statBoxY, colW - 48, 170, 10);
+        // 4. ISRU Production Telemetry Card on ground
+        const statBox = this.add.graphics().setDepth(20);
+        statBox.fillStyle(0x050C1B, 0.9);
+        statBox.fillRoundedRect(360, 580, 560, 58, 8);
+        statBox.lineStyle(1.5, UITheme.colors.primaryCyan, 0.85);
+        statBox.strokeRoundedRect(360, 580, 560, 58, 8);
 
-        this.add.text(leftX + 44, statBoxY + 16, "📊 LIVE HARVEST OUTPUT TELEMETRY", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "12px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold"
-        });
-
-        this.telemetryStatsText = this.add.text(leftX + 44, statBoxY + 42, "", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "16px",
-            color: "#FFFFFF",
-            fontStyle: "bold"
-        });
-        this.updateStatsDisplay();
-
-        this.add.text(leftX + 44, statBoxY + 82, this.challengeConfig.nasaFact, {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "12.5px",
-            color: UITheme.colors.textSecondary,
-            lineSpacing: 4,
-            wordWrap: { width: colW - 88 }
-        });
-
-        // -------------------------------------------------------------
-        // RIGHT COLUMN: HARVEST & EXTRACTION ENGINEERING CONTROLS
-        // -------------------------------------------------------------
-        const rightX = leftX + colW + 22;
-        const rightBg = this.add.graphics();
-        rightBg.fillStyle(UITheme.colors.cardBg, 0.9);
-        rightBg.fillRoundedRect(rightX, topY, colW, colH, 12);
-        rightBg.lineStyle(1.5, UITheme.colors.panelBorder, 0.9);
-        rightBg.strokeRoundedRect(rightX, topY, colW, colH, 12);
-
-        this.add.text(rightX + 24, topY + 18, "ISRU AUTONOMOUS REFINERY CONTROLS", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "14px",
-            color: "#FFFFFF",
-            fontStyle: "bold"
-        });
-
-        // Gauge
-        const gaugeY = topY + 54;
-        const barW = colW - 48;
-        const barH = 26;
-
-        this.progressText = this.add.text(rightX + 24, gaugeY, "", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "13px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold"
-        });
-
-        this.statusBadge = this.add.text(rightX + colW - 24, gaugeY, "", {
+        this.add.text(380, 592, "🌿 ISRU RESOURCE AUTONOMY TELEMETRY", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
+            color: UITheme.colors.solarGoldStr,
             fontStyle: "bold"
-        }).setOrigin(1, 0);
+        }).setDepth(21);
 
-        this.gaugeX = rightX + 24;
-        this.gaugeY = gaugeY + 28;
-        this.gaugeW = barW;
-        this.gaugeH = barH;
+        this.telemetryText = this.add.text(380, 613, "", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "12px",
+            fontStyle: "bold"
+        }).setDepth(21);
+        this.updateTelemetry();
 
-        const trackBg = this.add.graphics();
-        trackBg.fillStyle(0x061122, 1);
-        trackBg.fillRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
-        trackBg.lineStyle(1, UITheme.colors.panelBorder, 0.8);
-        trackBg.strokeRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
-
-        this.progressFill = this.add.graphics();
-        this.updateGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
-
-        // Action Buttons
-        const btnY = topY + 130;
-
-        // Button 1: Run MOXIE
-        ButtonFactory.createButton({
-            scene: this,
-            x: rightX + colW / 2,
-            y: btnY + 26,
-            width: colW - 48,
-            height: 52,
-            fontSize: "14px",
-            text: "RUN MOXIE ELECTROLYSIS (+1.2 kg O₂)",
-            primaryColor: UITheme.colors.primaryCyan,
+        // 5. Interactive Surface Hotspots
+        // Hotspot 1: MOXIE Tower
+        this.createSurfaceHotspot({
+            x: 260,
+            y: 420,
+            width: 130,
+            height: 140,
             icon: "💨",
-            onClick: () => {
-                SoundFX.playClick();
-                this.runMOXIE();
-            }
+            label: "MOXIE O2 TOWER",
+            actionHint: "CLICK TO EXTRACT OXYGEN",
+            color: UITheme.colors.primaryCyan,
+            onClick: () => this.extractOxygen()
         });
 
-        // Button 2: Drill Subsurface Ice
-        ButtonFactory.createButton({
-            scene: this,
-            x: rightX + colW / 2,
-            y: btnY + 92,
-            width: colW - 48,
-            height: 50,
-            fontSize: "14px",
-            text: "DRILL SUBSURFACE GLACIAL ICE (+20 L H₂O)",
-            primaryColor: UITheme.colors.solarGold,
+        // Hotspot 2: Cryo-Ice Drill
+        this.createSurfaceHotspot({
+            x: 640,
+            y: 430,
+            width: 140,
+            height: 140,
             icon: "💧",
-            onClick: () => {
-                SoundFX.playClick();
-                this.drillIce();
-            }
+            label: "CRYO-ICE DRILL",
+            actionHint: "CLICK TO HARVEST ICE",
+            color: UITheme.colors.solarGold,
+            onClick: () => this.drillGlacialIce()
         });
 
-        // Button 3: Harvest Hydroponic Crops
-        ButtonFactory.createButton({
-            scene: this,
-            x: rightX + colW / 2,
-            y: btnY + 158,
-            width: colW - 48,
-            height: 50,
-            fontSize: "14px",
-            text: "HARVEST HYDROPONIC CROPS (+8 kg Food)",
-            primaryColor: UITheme.colors.bioGreen,
+        // Hotspot 3: Hydroponic Greenhouse
+        this.createSurfaceHotspot({
+            x: 1020,
+            y: 420,
+            width: 150,
+            height: 130,
             icon: "🥔",
-            onClick: () => {
-                SoundFX.playClick();
-                this.harvestCrops();
-            }
-        });
-
-        // Specs Box
-        const specBoxY = topY + 360;
-        const specBox = this.add.graphics();
-        specBox.fillStyle(0x08152B, 0.95);
-        specBox.fillRoundedRect(rightX + 24, specBoxY, colW - 48, 120, 8);
-        specBox.lineStyle(1.5, UITheme.colors.panelBorder, 0.8);
-        specBox.strokeRoundedRect(rightX + 24, specBoxY, colW - 48, 120, 8);
-
-        this.add.text(rightX + 40, specBoxY + 16, "NASA ECLSS & BIO-REGENERATIVE SPECIFICATION:", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
-        });
-        this.add.text(rightX + 40, specBoxY + 38, "• Human Daily Basals: 0.84 kg O₂ · 2.5 L potable water · 0.62 kg dry food\n• Loop Efficiency: 90% ECLSS urine recovery + 100% MOXIE O₂ top-up\n• Sol Autonomy Status: Complete closure achieved when all 3 pillars active", {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "12px",
-            color: "#E0ECFC",
-            lineSpacing: 5
+            label: "LED GREENHOUSE",
+            actionHint: "CLICK TO HARVEST POTATOES",
+            color: UITheme.colors.bioGreen,
+            onClick: () => this.harvestPotatoes()
         });
     }
 
-    private createPillarCard(x: number, y: number, w: number, h: number, title: string, subtitle: string, color: number) {
-        const bg = this.add.graphics();
-        bg.fillStyle(0x061122, 0.95);
-        bg.fillRoundedRect(x, y, w, h, 8);
-        bg.lineStyle(1.5, color, 0.8);
-        bg.strokeRoundedRect(x, y, w, h, 8);
+    private extractOxygen() {
+        SoundFX.playToggle(true);
 
-        this.add.text(x + 16, y + 14, title, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "13px",
-            color: "#FFFFFF",
-            fontStyle: "bold"
+        // MOXIE compressor vibration & vapor puffs
+        this.tweens.add({
+            targets: this.moxieSprite,
+            y: 466,
+            duration: 80,
+            yoyo: true,
+            repeat: 3
         });
 
-        this.add.text(x + 16, y + 38, subtitle, {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "11px",
-            color: UITheme.colors.textSecondary
+        for (let i = 0; i < 12; i++) {
+            const p = this.add.circle(
+                260 + Phaser.Math.Between(-10, 10),
+                390,
+                Phaser.Math.Between(3, 7),
+                UITheme.colors.primaryCyan,
+                0.85
+            ).setDepth(25);
+
+            this.tweens.add({
+                targets: p,
+                y: 340,
+                alpha: 0,
+                scaleX: 1.6,
+                scaleY: 1.6,
+                duration: Phaser.Math.Between(400, 700),
+                onComplete: () => p.destroy()
+            });
+        }
+
+        this.moxieO2Kg = Math.min(2.5, Number((this.moxieO2Kg + 0.8).toFixed(1)));
+        this.recalcPillars();
+        this.showSurfaceFloatingText(260, 390, `💨 +0.8 kg Pure O2 Generated at 800°C!`, UITheme.colors.primaryCyanStr);
+    }
+
+    private drillGlacialIce() {
+        SoundFX.playClick();
+
+        // Drill bit downward push animation
+        this.tweens.add({
+            targets: this.drillSprite,
+            y: 495,
+            duration: 250,
+            yoyo: true,
+            repeat: 2
         });
+
+        // Ice chip flying particles
+        for (let i = 0; i < 16; i++) {
+            const p = this.add.circle(
+                640 + Phaser.Math.Between(-25, 25),
+                530,
+                Phaser.Math.Between(2, 6),
+                0xA3D9F8,
+                0.95
+            ).setDepth(25);
+
+            this.tweens.add({
+                targets: p,
+                x: 640 + Phaser.Math.Between(-60, 60),
+                y: 510 + Phaser.Math.Between(-30, 10),
+                alpha: 0,
+                duration: 450,
+                onComplete: () => p.destroy()
+            });
+        }
+
+        this.iceWaterLiters = Math.min(30, this.iceWaterLiters + 10);
+        this.recalcPillars();
+        this.showSurfaceFloatingText(640, 420, `💧 +10L Melted Glacial H2O Pumped to Storage!`, UITheme.colors.solarGoldStr);
     }
 
-    private updateStatsDisplay() {
-        this.telemetryStatsText.setText(`OXYGEN: ${this.moxieKg.toFixed(1)} kg  |  WATER: ${this.waterLiters} L  |  FOOD: ${this.foodKg} kg`);
+    private harvestPotatoes() {
+        SoundFX.playToggle(true);
+
+        // Greenhouse grow-light illumination pulse
+        const bioGlow = this.add.ellipse(1020, 470, 180, 130, UITheme.colors.bioGreen, 0.4).setDepth(13);
+        this.tweens.add({
+            targets: bioGlow,
+            alpha: 0,
+            duration: 600,
+            onComplete: () => bioGlow.destroy()
+        });
+
+        this.cropsHarvestedKg = Math.min(15, this.cropsHarvestedKg + 5);
+        this.recalcPillars();
+        this.showSurfaceFloatingText(1020, 410, `🥔 +5 kg Nutrient LED Hydroponic Potatoes Harvested!`, UITheme.colors.bioGreenStr);
     }
 
-    private updateGauge(x: number, y: number, w: number, h: number) {
-        let activePillars = 0;
-        if (this.moxieKg >= 1.5) activePillars++;
-        if (this.waterLiters >= 20) activePillars++;
-        if (this.foodKg >= 8) activePillars++;
+    private recalcPillars() {
+        let count = 0;
+        if (this.moxieO2Kg >= 0.8) count++;
+        if (this.iceWaterLiters >= 10) count++;
+        if (this.cropsHarvestedKg >= 5) count++;
 
-        this.currentVal = activePillars;
-        const pct = activePillars / 3;
-        this.progressText.setText(`ISRU AUTONOMY: ${activePillars} / 3 ACTIVE PILLARS`);
-
-        const isFull = activePillars >= 3;
-        this.statusBadge.setText(isFull ? "✔ 100% COLONY INDEPENDENCE ACHIEVED" : "⏳ HARVESTING IN SITU ASSETS");
-        this.statusBadge.setColor(isFull ? UITheme.colors.bioGreenStr : UITheme.colors.solarGoldStr);
-
-        this.progressFill.clear();
-        this.progressFill.fillStyle(isFull ? UITheme.colors.bioGreen : UITheme.colors.primaryCyan, 1);
-        this.progressFill.fillRoundedRect(x + 2, y + 2, Math.max(8, (w - 4) * pct), h - 4, 4);
+        this.currentVal = count;
+        this.updateTelemetry();
+        this.updateVisorProgress(this.currentVal, this.challengeConfig.targetVal, "Pillars");
     }
 
-    private runMOXIE() {
-        this.moxieKg = Number((this.moxieKg + 1.2).toFixed(1));
-        this.refreshState();
-        this.setActionFeedback("💨 MOXIE high-temp solid oxide cell yielded +1.2 kg pure O₂ from Martian CO₂!", true);
-    }
-
-    private drillIce() {
-        this.waterLiters += 20;
-        this.refreshState();
-        this.setActionFeedback("💧 Thermal well drill tapped subsurface permafrost glacier! +20 L potable H₂O.", true);
-    }
-
-    private harvestCrops() {
-        this.foodKg += 8;
-        this.refreshState();
-        this.setActionFeedback("🥔 Hydroponic LED chamber harvested! +8 kg fresh Martian potatoes.", true);
+    private updateTelemetry() {
+        this.telemetryText.setText(
+            `O2: ${this.moxieO2Kg} kg (Pillar 1) | ICE H2O: ${this.iceWaterLiters} L (Pillar 2) | CROPS: ${this.cropsHarvestedKg} kg (Pillar 3)`
+        );
+        this.telemetryText.setColor(this.currentVal >= 3 ? UITheme.colors.bioGreenStr : UITheme.colors.solarGoldStr);
     }
 
     protected isTargetMet(): boolean {
-        return this.moxieKg >= 1.5 && this.waterLiters >= 20 && this.foodKg >= 8;
-    }
-
-    private refreshState() {
-        this.updateStatsDisplay();
-        this.updateGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
+        return this.currentVal >= this.challengeConfig.targetVal;
     }
 }
 

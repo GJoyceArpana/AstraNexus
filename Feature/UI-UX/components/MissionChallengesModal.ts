@@ -528,31 +528,14 @@ export class MissionChallengesModal {
         // Interactive Engineering Action Buttons
         const buttonY = topY + 215;
 
-        // 1. Primary Action Button (In-Modal Quick Action)
-        const primaryBtn = ButtonFactory.createButton({
-            scene: this.scene,
-            x: rightX + colW / 2,
-            y: buttonY + 20,
-            text: data.actionButtonText,
-            width: colW - 40,
-            height: 42,
-            primaryColor: UITheme.colors.primaryCyan,
-            fontSize: "13px",
-            onClick: () => {
-                SoundFX.playClick();
-                this.handlePrimaryAction(sol);
-            }
-        });
-        this.contentContainer.add(primaryBtn);
-
-        // 2. Full Dedicated Sol Scene Launch Button
+        // 1. Full Dedicated Sol Martian Surface Scene Launch Button (Primary CTA)
         const launchSceneBtn = ButtonFactory.createButton({
             scene: this.scene,
             x: rightX + colW / 2,
-            y: buttonY + 70,
-            text: `ENTER SOL 0${sol} SIMULATION SCENE ➔`,
+            y: buttonY + 24,
+            text: `🚀 DEPLOY TO SOL 0${sol} MARTIAN SURFACE ➔`,
             width: colW - 40,
-            height: 46,
+            height: 48,
             primaryColor: UITheme.colors.solarGold,
             secondaryColor: 0x1A1406,
             textColor: UITheme.colors.solarGoldStr,
@@ -587,6 +570,23 @@ export class MissionChallengesModal {
             }
         });
         this.contentContainer.add(launchSceneBtn);
+
+        // 2. In-Modal Quick Action Button
+        const primaryBtn = ButtonFactory.createButton({
+            scene: this.scene,
+            x: rightX + colW / 2,
+            y: buttonY + 80,
+            text: data.actionButtonText,
+            width: colW - 40,
+            height: 40,
+            primaryColor: UITheme.colors.primaryCyan,
+            fontSize: "12.5px",
+            onClick: () => {
+                SoundFX.playClick();
+                this.handlePrimaryAction(sol);
+            }
+        });
+        this.contentContainer.add(primaryBtn);
 
         // 3. Secondary Action Button (if present)
         if (data.secondaryActionText) {
