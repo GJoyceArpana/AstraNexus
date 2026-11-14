@@ -694,8 +694,10 @@ export class MissionChallengesModal {
                 SoundFX.playAlert();
                 break;
             case 3:
-                // Scraped dust
+                // Scraped dust off solar glass
                 SoundFX.playClick();
+                stateRecord.currentVal = Math.min(10, stateRecord.currentVal + 2);
+                this.renderSolChallenge(sol);
                 break;
             case 7:
                 // Jettison 50kg samples

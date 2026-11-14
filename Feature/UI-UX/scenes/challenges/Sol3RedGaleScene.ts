@@ -1,15 +1,21 @@
+import Phaser from "phaser";
 import UITheme from "../../styles/UITheme.ts";
 import ButtonFactory, { SoundFX } from "../../components/ButtonFactory.ts";
 import SolChallengeBaseScene from "./SolChallengeBaseScene.ts";
 
 export class Sol3RedGaleScene extends SolChallengeBaseScene {
-    private powerSurplusText!: Phaser.GameObjects.Text;
-    private solarOutputKW = 3.75; // 75% loss from 15.0 kW
-    private nuclearOutputKW = 0;   // 0 until deployed
+    private solarOutputKW = 3.75; // 75% obscuration from 15.0 kW baseline
+    private nuclearOutputKW = 0;   // 0 until KRUSTY reactor deployed
     private habitatTempC = -15;    // Freezing until thermal bus engaged
+    private dustClearedPct = 0;    // Electrostatic wipers sweep percentage
 
-    private reactorCoreGlow!: Phaser.GameObjects.Arc;
-    private reactorStatusLabel!: Phaser.GameObjects.Text;
+    // UI Telemetry Texts
+    private powerSurplusText!: Phaser.GameObjects.Text;
+    private solarStatusText!: Phaser.GameObjects.Text;
+    private solarBarFill!: Phaser.GameObjects.Graphics;
+    private reactorStatusText!: Phaser.GameObjects.Text;
+    private reactorCoreBadge!: Phaser.GameObjects.Text;
+    private thermalStatusText!: Phaser.GameObjects.Text;
 
     private gaugeX = 0;
     private gaugeY = 0;
@@ -39,7 +45,7 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
         const colH = 505;
 
         // -------------------------------------------------------------
-        // LEFT COLUMN: BLINDING RED DUST STORM & GRID TELEMETRY
+        // LEFT COLUMN: NASA POWER & ATMOSPHERIC TELEMETRY SENSORS
         // -------------------------------------------------------------
         const leftX = frameX + 24;
         const leftBg = this.add.graphics();
@@ -48,116 +54,110 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
         leftBg.lineStyle(1.5, UITheme.colors.panelBorder, 0.9);
         leftBg.strokeRoundedRect(leftX, topY, colW, colH, 12);
 
-        this.add.text(leftX + 24, topY + 18, "STORM VIEWPORT & SOLAR ARRAY SENSORS", {
+        this.add.text(leftX + 24, topY + 18, "⚡ MARS SURFACE POWER & ATMOSPHERIC SENSORS", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "14px",
             color: UITheme.colors.solarGoldStr,
             fontStyle: "bold"
         });
 
-        // Viewport
-        const viewW = colW - 48;
-        const viewH = 240;
-        const viewX = leftX + 24;
-        const viewY = topY + 50;
+        const cardW = colW - 48;
+        const cardX = leftX + 24;
+        const card1Y = topY + 48;
 
-        const stormWindow = this.add.graphics();
-        stormWindow.fillStyle(0x280E09, 0.95);
-        stormWindow.fillRoundedRect(viewX, viewY, viewW, viewH, 10);
-        stormWindow.lineStyle(2, UITheme.colors.marsAmber, 0.9);
-        stormWindow.strokeRoundedRect(viewX, viewY, viewW, viewH, 10);
+        // CARD 1: SOLAR ARRAY TELEMETRY
+        const card1Bg = this.add.graphics();
+        card1Bg.fillStyle(0x08152B, 0.95);
+        card1Bg.fillRoundedRect(cardX, card1Y, cardW, 110, 8);
+        card1Bg.lineStyle(1, UITheme.colors.panelBorder, 0.8);
+        card1Bg.strokeRoundedRect(cardX, card1Y, cardW, 110, 8);
 
-        this.add.text(viewX + viewW / 2, viewY + 24, "🌪 REGIONAL DUST GALE · ATMOSPHERIC OPACITY: TAU 4.2", {
+        this.add.text(cardX + 16, card1Y + 12, "☀️ PHOTOVOLTAIC SOLAR ARRAY SENSORS", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.marsAmberStr,
-            fontStyle: "bold"
-        }).setOrigin(0.5);
-
-        // Habitat Dome in distance with warm outline
-        const habSilhouette = this.add.ellipse(viewX + viewW / 2, viewY + viewH - 45, 180, 75, 0x1A0905, 0.95);
-        habSilhouette.setStrokeStyle(2, 0xD4663A, 0.8);
-
-        // Solar Array Status Icon (Left side of viewport)
-        this.add.text(viewX + 65, viewY + viewH - 40, "☀️ SOLAR ARRAY\n(DUST COATED)", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
+            fontSize: "12px",
             color: UITheme.colors.solarGoldStr,
-            align: "center",
             fontStyle: "bold"
-        }).setOrigin(0.5);
+        });
 
-        // Kilopower Nuclear Reactor Indicator (Right side of viewport)
-        this.reactorCoreGlow = this.add.circle(viewX + viewW - 65, viewY + viewH - 40, 18, 0x2A150A, 0.9);
-        this.reactorCoreGlow.setStrokeStyle(2, 0x7E94B5, 0.8);
+        this.solarStatusText = this.add.text(cardX + 16, card1Y + 34, "", {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "12px",
+            color: "#E0ECFC",
+            lineSpacing: 4
+        });
 
-        this.reactorStatusLabel = this.add.text(viewX + viewW - 65, viewY + viewH - 40, "⚛️\nOFFLINE", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "9px",
-            color: "#7E94B5",
-            align: "center",
-            fontStyle: "bold"
-        }).setOrigin(0.5);
+        // Dust Cleared Bar Track
+        const solarBarBg = this.add.graphics();
+        solarBarBg.fillStyle(0x040B18, 0.9);
+        solarBarBg.fillRoundedRect(cardX + 16, card1Y + 80, cardW - 32, 16, 4);
+        this.solarBarFill = this.add.graphics();
 
-        // 14 Glitch-Free Horizontal Wind Streaks (bounded mathematically inside viewport - zero stencil overhead)
-        for (let i = 0; i < 14; i++) {
-            const streakW = Phaser.Math.Between(40, 95);
-            const streakY = viewY + 45 + i * 11;
-            const startX = viewX + 15 + streakW / 2;
-            const endX = viewX + viewW - 15 - streakW / 2;
-            const streak = this.add.rectangle(
-                startX,
-                streakY,
-                streakW,
-                2.5,
-                0xE3714A,
-                Phaser.Math.FloatBetween(0.25, 0.75)
-            );
+        // CARD 2: KRUSTY NUCLEAR REACTOR CORE
+        const card2Y = card1Y + 120;
+        const card2Bg = this.add.graphics();
+        card2Bg.fillStyle(0x08152B, 0.95);
+        card2Bg.fillRoundedRect(cardX, card2Y, cardW, 110, 8);
+        card2Bg.lineStyle(1, UITheme.colors.panelBorder, 0.8);
+        card2Bg.strokeRoundedRect(cardX, card2Y, cardW, 110, 8);
 
-            this.tweens.add({
-                targets: streak,
-                x: endX,
-                duration: Phaser.Math.Between(550, 1200),
-                repeat: -1,
-                onRepeat: () => {
-                    streak.x = startX;
-                },
-                ease: "Linear"
-            });
-        }
-
-        // Telemetry Box
-        const statBoxY = topY + 310;
-        const statBox = this.add.graphics();
-        statBox.fillStyle(0x081528, 0.95);
-        statBox.fillRoundedRect(leftX + 24, statBoxY, colW - 48, 170, 10);
-        statBox.lineStyle(1.5, UITheme.colors.primaryCyan, 0.8);
-        statBox.strokeRoundedRect(leftX + 24, statBoxY, colW - 48, 170, 10);
-
-        this.add.text(leftX + 44, statBoxY + 16, "⚡ BASE POWER & THERMAL GRID", {
+        this.add.text(cardX + 16, card2Y + 12, "⚛️ KRUSTY 10 kWe STIRLING FISSION CORE", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "12px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
         });
 
-        this.powerSurplusText = this.add.text(leftX + 44, statBoxY + 42, "", {
+        this.reactorCoreBadge = this.add.text(cardX + cardW - 16, card2Y + 12, "[ CORE OFFLINE ]", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "18px",
+            fontSize: "11px",
+            color: UITheme.colors.emergencyRedStr,
+            fontStyle: "bold"
+        }).setOrigin(1, 0);
+
+        this.reactorStatusText = this.add.text(cardX + 16, card2Y + 36, "", {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "12px",
+            color: "#E0ECFC",
+            lineSpacing: 4
+        });
+
+        // CARD 3: COMBINED GRID TELEMETRY & SCIENCE FACT
+        const card3Y = card2Y + 120;
+        const card3Bg = this.add.graphics();
+        card3Bg.fillStyle(0x061122, 0.95);
+        card3Bg.fillRoundedRect(cardX, card3Y, cardW, 185, 8);
+        card3Bg.lineStyle(1.5, UITheme.colors.primaryCyan, 0.8);
+        card3Bg.strokeRoundedRect(cardX, card3Y, cardW, 185, 8);
+
+        this.add.text(cardX + 16, card3Y + 14, "📊 BASE POWER GRID & HABITAT THERMAL BUS", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "12px",
+            color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
         });
-        this.updateSurplusDisplay();
 
-        this.add.text(leftX + 44, statBoxY + 82, this.challengeConfig.nasaFact, {
+        this.powerSurplusText = this.add.text(cardX + 16, card3Y + 38, "", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "16px",
+            fontStyle: "bold"
+        });
+
+        this.thermalStatusText = this.add.text(cardX + 16, card3Y + 68, "", {
             fontFamily: UITheme.fonts.body,
-            fontSize: "12.5px",
+            fontSize: "12px",
+            fontStyle: "bold"
+        });
+
+        this.add.text(cardX + 16, card3Y + 102, this.challengeConfig.nasaFact, {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "12px",
             color: UITheme.colors.textSecondary,
             lineSpacing: 4,
-            wordWrap: { width: colW - 88 }
+            wordWrap: { width: cardW - 32 }
         });
 
         // -------------------------------------------------------------
-        // RIGHT COLUMN: KRUSTY KILOPOWER REACTOR CONTROLS
+        // RIGHT COLUMN: KRUSTY KILOPOWER REACTOR & THERMAL CONSOLE
         // -------------------------------------------------------------
         const rightX = leftX + colW + 22;
         const rightBg = this.add.graphics();
@@ -173,7 +173,7 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
             fontStyle: "bold"
         });
 
-        // Gauge
+        // Main Mission Progress Gauge
         const gaugeY = topY + 54;
         const barW = colW - 48;
         const barH = 26;
@@ -203,9 +203,8 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
         trackBg.strokeRoundedRect(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH, 6);
 
         this.progressFill = this.add.graphics();
-        this.updateGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
 
-        // Action Buttons
+        // 3 Interactive Action Buttons
         const btnY = topY + 130;
 
         // Button 1: Deploy Kilopower Reactor
@@ -259,7 +258,7 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
             }
         });
 
-        // Reactor Specs Box
+        // Reactor Specifications Card
         const specBoxY = topY + 360;
         const specBox = this.add.graphics();
         specBox.fillStyle(0x08152B, 0.95);
@@ -279,12 +278,49 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
             color: "#E0ECFC",
             lineSpacing: 5
         });
+
+        // Render Initial Telemetry State
+        this.refreshState();
+    }
+
+    private updateSolarCard() {
+        const cardW = 575 - 48;
+        const barW = cardW - 32;
+        const frameX = (this.W - 1220) / 2;
+        const leftX = frameX + 24;
+        const cardX = leftX + 24;
+        const card1Y = (this.H - 660) / 2 + 70 + 48;
+
+        this.solarStatusText.setText(
+            `Solar Generation: ${this.solarOutputKW.toFixed(2)} kW  |  Optical Opacity: Tau = 4.2\n` +
+            `Dust Coating: ${100 - this.dustClearedPct}% Obscuration  |  Array Health: NOMINAL`
+        );
+
+        this.solarBarFill.clear();
+        const fillW = Math.max(8, barW * (this.dustClearedPct / 100));
+        this.solarBarFill.fillStyle(UITheme.colors.solarGold, 1);
+        this.solarBarFill.fillRoundedRect(cardX + 16, card1Y + 80, fillW, 16, 4);
+    }
+
+    private updateReactorCard() {
+        const isOnline = this.nuclearOutputKW > 0;
+        this.reactorCoreBadge.setText(isOnline ? "[ CORE ONLINE · 10 kWe ]" : "[ CORE OFFLINE · 0 kWe ]");
+        this.reactorCoreBadge.setColor(isOnline ? UITheme.colors.bioGreenStr : UITheme.colors.emergencyRedStr);
+
+        this.reactorStatusText.setText(
+            `Fission Stirling Output: ${this.nuclearOutputKW.toFixed(1)} kW  |  Control Rods: ${isOnline ? "WITHDRAWN" : "INSERTED"}\n` +
+            `Sodium Loop Temp: ${isOnline ? "923 K (650°C)" : "258 K (-15°C)"}  |  Converter Efficiency: ${isOnline ? "31.4%" : "0.0%"}`
+        );
     }
 
     private updateSurplusDisplay() {
         const total = this.solarOutputKW + this.nuclearOutputKW;
-        this.powerSurplusText.setText(`GRID GENERATION: ${total.toFixed(2)} kW  |  CABIN TEMP: ${this.habitatTempC}°C`);
+        this.powerSurplusText.setText(`GRID GENERATION: ${total.toFixed(2)} kW (TARGET: 12.0 kW)`);
         this.powerSurplusText.setColor(total >= 12.0 ? UITheme.colors.bioGreenStr : UITheme.colors.emergencyRedStr);
+
+        const isWarm = this.habitatTempC > 0;
+        this.thermalStatusText.setText(`CABIN TEMPERATURE: ${this.habitatTempC}°C  |  THERMAL STATUS: ${isWarm ? "STABLE & HABITABLE" : "HYPOTHERMIA RISK"}`);
+        this.thermalStatusText.setColor(isWarm ? UITheme.colors.bioGreenStr : UITheme.colors.emergencyRedStr);
     }
 
     private updateGauge(x: number, y: number, w: number, h: number) {
@@ -303,28 +339,15 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
 
     private deployKilopower() {
         this.nuclearOutputKW = 10.0;
-        if (this.reactorCoreGlow) {
-            this.reactorCoreGlow.setFillStyle(UITheme.colors.primaryCyan, 1);
-            this.reactorCoreGlow.setStrokeStyle(2.5, 0xFFFFFF, 1);
-            this.reactorStatusLabel.setText("⚛️\n10 kW");
-            this.reactorStatusLabel.setColor("#FFFFFF");
-            this.tweens.add({
-                targets: this.reactorCoreGlow,
-                scaleX: 1.15,
-                scaleY: 1.15,
-                duration: 600,
-                yoyo: true,
-                repeat: -1
-            });
-        }
         this.refreshState();
         this.setActionFeedback("✔ KRUSTY Kilopower 10 kW nuclear Stirling reactor synchronized!", true);
     }
 
     private wipeSolarPanels() {
-        this.solarOutputKW = Math.min(6.5, this.solarOutputKW + 2.5);
+        this.dustClearedPct = Math.min(100, this.dustClearedPct + 40);
+        this.solarOutputKW = Math.min(6.5, 3.75 + (this.dustClearedPct / 100) * 2.75);
         this.refreshState();
-        this.setActionFeedback("🧹 Electrostatic wipers repelled Martian dust! Solar output boosted (+2.5 kW).", true);
+        this.setActionFeedback(`🧹 Electrostatic wipers swept dust! Solar array generation boosted (+${((this.dustClearedPct / 100) * 2.75).toFixed(2)} kW).`, true);
     }
 
     private engageHeating() {
@@ -339,6 +362,8 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
     }
 
     private refreshState() {
+        this.updateSolarCard();
+        this.updateReactorCard();
         this.updateSurplusDisplay();
         this.updateGauge(this.gaugeX, this.gaugeY, this.gaugeW, this.gaugeH);
     }
