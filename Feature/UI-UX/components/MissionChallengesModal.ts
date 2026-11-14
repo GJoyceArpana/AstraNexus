@@ -526,18 +526,18 @@ export class MissionChallengesModal {
         this.contentContainer.add(statusTag);
 
         // Interactive Engineering Action Buttons
-        const buttonY = topY + 230;
+        const buttonY = topY + 215;
 
-        // Primary Action Button
+        // 1. Primary Action Button (In-Modal Quick Action)
         const primaryBtn = ButtonFactory.createButton({
             scene: this.scene,
             x: rightX + colW / 2,
-            y: buttonY + 24,
+            y: buttonY + 20,
             text: data.actionButtonText,
             width: colW - 40,
-            height: 48,
+            height: 42,
             primaryColor: UITheme.colors.primaryCyan,
-            fontSize: "14px",
+            fontSize: "13px",
             onClick: () => {
                 SoundFX.playClick();
                 this.handlePrimaryAction(sol);
@@ -545,17 +545,38 @@ export class MissionChallengesModal {
         });
         this.contentContainer.add(primaryBtn);
 
-        // Secondary Action Button (if present)
+        // 2. Full Dedicated Sol Scene Launch Button
+        const launchSceneBtn = ButtonFactory.createButton({
+            scene: this.scene,
+            x: rightX + colW / 2,
+            y: buttonY + 70,
+            text: `🚀 ENTER SOL 0${sol} SIMULATION SCENE ➔`,
+            width: colW - 40,
+            height: 46,
+            primaryColor: UITheme.colors.solarGold,
+            secondaryColor: 0x1A1406,
+            textColor: UITheme.colors.solarGoldStr,
+            fontSize: "14px",
+            icon: "🚀",
+            onClick: () => {
+                SoundFX.playClick();
+                this.close();
+                this.scene.scene.start(this.getSolSceneKey(sol));
+            }
+        });
+        this.contentContainer.add(launchSceneBtn);
+
+        // 3. Secondary Action Button (if present)
         if (data.secondaryActionText) {
             const secondaryBtn = ButtonFactory.createButton({
                 scene: this.scene,
                 x: rightX + colW / 2,
-                y: buttonY + 84,
+                y: buttonY + 120,
                 text: data.secondaryActionText,
                 width: colW - 40,
-                height: 44,
+                height: 42,
                 primaryColor: UITheme.colors.marsAmber,
-                fontSize: "13px",
+                fontSize: "12.5px",
                 onClick: () => {
                     SoundFX.playClick();
                     this.handleSecondaryAction(sol);
@@ -564,23 +585,36 @@ export class MissionChallengesModal {
             this.contentContainer.add(secondaryBtn);
         }
 
-        // Complete & Proceed Button
+        // 4. Complete & Proceed Button
         const completeBtn = ButtonFactory.createButton({
             scene: this.scene,
             x: rightX + colW / 2,
-            y: topY + colH - 42,
+            y: topY + colH - 36,
             text: progressPct >= 1.0 ? "✦ ADVANCE TO NEXT SOL ✦" : "✦ MARK SOL OBJECTIVE COMPLETE ✦",
             width: colW - 40,
-            height: 52,
+            height: 46,
             primaryColor: progressPct >= 1.0 ? UITheme.colors.bioGreen : UITheme.colors.cardHover,
             secondaryColor: UITheme.colors.solarGold,
-            fontSize: "15px",
+            fontSize: "14px",
             onClick: () => {
                 SoundFX.playClick();
                 this.completeCurrentSol(sol);
             }
         });
         this.contentContainer.add(completeBtn);
+    }
+
+    private getSolSceneKey(sol: number): string {
+        switch (sol) {
+            case 1: return "Sol1DirtFortressScene";
+            case 2: return "Sol2PerchlorateBarrierScene";
+            case 3: return "Sol3RedGaleScene";
+            case 4: return "Sol4ISRUProductionScene";
+            case 5: return "Sol5SilenceCommsLagScene";
+            case 6: return "Sol6ColonyGridlockScene";
+            case 7: return "Sol7JourneyHomeMAVScene";
+            default: return "Sol1DirtFortressScene";
+        }
     }
 
     /**

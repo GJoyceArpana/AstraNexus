@@ -5,6 +5,15 @@ import BootScene from "./scenes/BootScene";
 import OutpostSolScene from "../Feature/UI-UX/scenes/OutpostSolScene.ts";
 import MarsWorldScene from "../Feature/UI-UX/scenes/MarsWorldScene.ts";
 import SwitchboardModalScene from "../Feature/UI-UX/scenes/SwitchboardModalScene.ts";
+import {
+    Sol1DirtFortressScene,
+    Sol2PerchlorateBarrierScene,
+    Sol3RedGaleScene,
+    Sol4ISRUProductionScene,
+    Sol5SilenceCommsLagScene,
+    Sol6ColonyGridlockScene,
+    Sol7JourneyHomeMAVScene
+} from "../Feature/UI-UX/index.ts";
 import StartScene from "./scenes/StartScene";
 import StoryScene from "./scenes/StoryScene";
 import CustomizationScene from "./scenes/CustomizationScene";
@@ -179,6 +188,13 @@ const config: Phaser.Types.Core.GameConfig = {
         OutpostSolScene,
         MarsWorldScene,
         SwitchboardModalScene,
+        Sol1DirtFortressScene,
+        Sol2PerchlorateBarrierScene,
+        Sol3RedGaleScene,
+        Sol4ISRUProductionScene,
+        Sol5SilenceCommsLagScene,
+        Sol6ColonyGridlockScene,
+        Sol7JourneyHomeMAVScene,
         StartScene,
         StoryScene,
         CustomizationScene,
