@@ -535,7 +535,7 @@ export class MissionChallengesModal {
             y: buttonY + 24,
             text: `🚀 DEPLOY TO SOL 0${sol} MARTIAN SURFACE ➔`,
             width: colW - 40,
-            height: 48,
+            height: 46,
             primaryColor: UITheme.colors.solarGold,
             secondaryColor: 0x1A1406,
             textColor: UITheme.colors.solarGoldStr,
@@ -575,12 +575,12 @@ export class MissionChallengesModal {
         const primaryBtn = ButtonFactory.createButton({
             scene: this.scene,
             x: rightX + colW / 2,
-            y: buttonY + 80,
+            y: buttonY + 78,
             text: data.actionButtonText,
             width: colW - 40,
-            height: 40,
+            height: 42,
             primaryColor: UITheme.colors.primaryCyan,
-            fontSize: "12.5px",
+            fontSize: "13px",
             onClick: () => {
                 SoundFX.playClick();
                 this.handlePrimaryAction(sol);
@@ -593,7 +593,7 @@ export class MissionChallengesModal {
             const secondaryBtn = ButtonFactory.createButton({
                 scene: this.scene,
                 x: rightX + colW / 2,
-                y: buttonY + 120,
+                y: buttonY + 128,
                 text: data.secondaryActionText,
                 width: colW - 40,
                 height: 42,

@@ -308,19 +308,7 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
         this.progressFill.fillRoundedRect(gaugeX + 2, gaugeY + 2, Math.max(8, (gaugeW - 4) * pct), gaugeH - 4, 4);
 
         if (this.advanceBtnContainer) {
-            const btnBg = this.advanceBtnContainer.getAt(0) as Phaser.GameObjects.Graphics;
-            const btnText = this.advanceBtnContainer.getAt(1) as Phaser.GameObjects.Text;
-            if (met) {
-                btnBg.clear();
-                btnBg.fillStyle(UITheme.colors.bioGreen, 1);
-                btnBg.fillRoundedRect(-125, -19, 250, 38, 8);
-                btnText.setColor("#FFFFFF");
-            } else {
-                btnBg.clear();
-                btnBg.fillStyle(UITheme.colors.cardHover, 0.6);
-                btnBg.fillRoundedRect(-125, -19, 250, 38, 8);
-                btnText.setColor("#7E94B5");
-            }
+            this.advanceBtnContainer.setAlpha(met ? 1.0 : 0.5);
         }
     }
 
@@ -341,14 +329,17 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
 
         // Floating Title Badge
         const badgeY = -config.height / 2 - 20;
+        const badgeW = 210;
+        const badgeH = 34;
+
         const badge = this.add.graphics();
-        badge.fillStyle(0x061122, 0.85);
-        badge.fillRoundedRect(-110, badgeY - 14, 220, 28, 6);
+        badge.fillStyle(0x050F1E, 0.88);
+        badge.fillRoundedRect(-badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 6);
         badge.lineStyle(1.5, config.color || UITheme.colors.primaryCyan, 0.85);
-        badge.strokeRoundedRect(-110, badgeY - 14, 220, 28, 6);
+        badge.strokeRoundedRect(-badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 6);
         c.add(badge);
 
-        const labelText = this.add.text(0, badgeY, `${config.icon || "⚙️"} ${config.label}`, {
+        const labelText = this.add.text(0, badgeY - 5, `${config.icon || "⚙️"} ${config.label}`, {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
             color: "#FFFFFF",
@@ -357,7 +348,7 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
         c.add(labelText);
 
         // Floating Action Subtext
-        const hintText = this.add.text(0, badgeY + 18, `[ ${config.actionHint} ]`, {
+        const hintText = this.add.text(0, badgeY + 9, `[ ${config.actionHint} ]`, {
             fontFamily: UITheme.fonts.heading,
             fontSize: "9.5px",
             color: UITheme.colors.solarGoldStr,
