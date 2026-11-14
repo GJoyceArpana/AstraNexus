@@ -4,10 +4,12 @@ import SolChallengeBaseScene from "./SolChallengeBaseScene.ts";
 
 export class Sol3RedGaleScene extends SolChallengeBaseScene {
     private powerSurplusText!: Phaser.GameObjects.Text;
-    private stormParticles: Phaser.GameObjects.Arc[] = [];
     private solarOutputKW = 3.75; // 75% loss from 15.0 kW
     private nuclearOutputKW = 0;   // 0 until deployed
     private habitatTempC = -15;    // Freezing until thermal bus engaged
+
+    private reactorCoreGlow!: Phaser.GameObjects.Arc;
+    private reactorStatusLabel!: Phaser.GameObjects.Text;
 
     private gaugeX = 0;
     private gaugeY = 0;
@@ -65,45 +67,60 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
         stormWindow.lineStyle(2, UITheme.colors.marsAmber, 0.9);
         stormWindow.strokeRoundedRect(viewX, viewY, viewW, viewH, 10);
 
-        // Animated Howling Dust Streaks (contained inside stormWindow via Geometry Mask)
-        const stormMaskG = this.make.graphics();
-        stormMaskG.fillStyle(0xffffff);
-        stormMaskG.fillRoundedRect(viewX, viewY, viewW, viewH, 10);
-        const stormMask = stormMaskG.createGeometryMask();
-
-        for (let i = 0; i < 35; i++) {
-            const p = this.add.circle(
-                viewX + Phaser.Math.Between(0, viewW),
-                viewY + Phaser.Math.Between(0, viewH),
-                Phaser.Math.FloatBetween(1.5, 4),
-                0xE3714A,
-                Phaser.Math.FloatBetween(0.3, 0.8)
-            );
-            p.setMask(stormMask);
-            this.stormParticles.push(p);
-
-            this.tweens.add({
-                targets: p,
-                x: `+=${Phaser.Math.Between(150, 300)}`,
-                duration: Phaser.Math.Between(400, 900),
-                repeat: -1,
-                onRepeat: () => {
-                    p.x = viewX - 10;
-                    p.y = viewY + Phaser.Math.Between(0, viewH);
-                }
-            });
-        }
-
-        this.add.text(viewX + viewW / 2, viewY + 30, "🌪 REGIONAL DUST GALE · ATMOSPHERIC OPACITY: TAU 4.2", {
+        this.add.text(viewX + viewW / 2, viewY + 24, "🌪 REGIONAL DUST GALE · ATMOSPHERIC OPACITY: TAU 4.2", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
             color: UITheme.colors.marsAmberStr,
             fontStyle: "bold"
         }).setOrigin(0.5);
 
-        // Habitat Dome in distance with faint light
-        const habSilhouette = this.add.ellipse(viewX + viewW / 2, viewY + viewH - 40, 160, 70, 0x1A0905, 0.9);
+        // Habitat Dome in distance with warm outline
+        const habSilhouette = this.add.ellipse(viewX + viewW / 2, viewY + viewH - 45, 180, 75, 0x1A0905, 0.95);
         habSilhouette.setStrokeStyle(2, 0xD4663A, 0.8);
+
+        // Solar Array Status Icon (Left side of viewport)
+        this.add.text(viewX + 65, viewY + viewH - 40, "☀️ SOLAR ARRAY\n(DUST COATED)", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10px",
+            color: UITheme.colors.solarGoldStr,
+            align: "center",
+            fontStyle: "bold"
+        }).setOrigin(0.5);
+
+        // Kilopower Nuclear Reactor Indicator (Right side of viewport)
+        this.reactorCoreGlow = this.add.circle(viewX + viewW - 65, viewY + viewH - 40, 18, 0x2A150A, 0.9);
+        this.reactorCoreGlow.setStrokeStyle(2, 0x7E94B5, 0.8);
+
+        this.reactorStatusLabel = this.add.text(viewX + viewW - 65, viewY + viewH - 40, "⚛️\nOFFLINE", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "9px",
+            color: "#7E94B5",
+            align: "center",
+            fontStyle: "bold"
+        }).setOrigin(0.5);
+
+        // 14 Glitch-Free Horizontal Wind Streaks (bounded mathematically inside viewport - zero stencil overhead)
+        for (let i = 0; i < 14; i++) {
+            const streakW = Phaser.Math.Between(40, 95);
+            const streakY = viewY + 45 + i * 11;
+            const streak = this.add.rectangle(
+                viewX + 15 + streakW / 2,
+                streakY,
+                streakW,
+                2.5,
+                0xE3714A,
+                Phaser.Math.FloatBetween(0.25, 0.75)
+            );
+
+            this.tweens.add({
+                targets: streak,
+                x: { from: viewX + 15 + streakW / 2, to: viewX + viewW - 15 - streakW / 2 },
+                alpha: { from: 0.2, to: 0.8 },
+                duration: Phaser.Math.Between(550, 1200),
+                repeat: -1,
+                ease: "Linear"
+            });
+        }
 
         // Telemetry Box
         const statBoxY = topY + 310;
@@ -282,8 +299,22 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
 
     private deployKilopower() {
         this.nuclearOutputKW = 10.0;
+        if (this.reactorCoreGlow) {
+            this.reactorCoreGlow.setFillStyle(UITheme.colors.primaryCyan, 1);
+            this.reactorCoreGlow.setStrokeStyle(2.5, 0xFFFFFF, 1);
+            this.reactorStatusLabel.setText("⚛️\n10 kW");
+            this.reactorStatusLabel.setColor("#FFFFFF");
+            this.tweens.add({
+                targets: this.reactorCoreGlow,
+                scaleX: 1.15,
+                scaleY: 1.15,
+                duration: 600,
+                yoyo: true,
+                repeat: -1
+            });
+        }
         this.refreshState();
-        this.setActionFeedback("⚛️ KRUSTY Kilopower 10 kW Stirling nuclear reactor online and synchronized!", true);
+        this.setActionFeedback("✔ KRUSTY Kilopower 10 kW nuclear Stirling reactor synchronized!", true);
     }
 
     private wipeSolarPanels() {
