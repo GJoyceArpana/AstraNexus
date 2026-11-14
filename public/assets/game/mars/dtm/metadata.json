@@ -1,0 +1,40 @@
+{
+  "source": "M20_JezeroCrater_CTXDEM_20m.tif",
+  "sourceWidth": 4456,
+  "sourceHeight": 5067,
+  "sampleStep": 10,
+  "width": 446,
+  "height": 507,
+  "elevation": {
+    "minMeters": -3446.7353515625,
+    "maxMeters": -484.0310974121094,
+    "noData": -3.4028234663852886e+38
+  },
+  "bounds": [
+    4328999.999999998,
+    1042080.0000000028,
+    4418119.999999998,
+    1143420.0000000028
+  ],
+  "resolution": [
+    20,
+    -20,
+    0
+  ],
+  "projection": 32767,
+  "assets": {
+    "color": "terrain.png",
+    "heightmap": "heightmap.png",
+    "isometricPreview": "terrain-isometric.png"
+  },
+  "heightmapEncoding": "16-bit grayscale PNG; 0 maps to minMeters and 65535 maps to maxMeters",
+  "integration": {
+    "projection": "2:1 diamond grid",
+    "tileWidth": 4,
+    "tileHeight": 2,
+    "heightmapDimensions": [
+      446,
+      507
+    ]
+  }
+}

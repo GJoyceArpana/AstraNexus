@@ -52,14 +52,7 @@ export class OutpostSolScene extends Phaser.Scene {
         if (!this.textures.exists("jezero-mosaic")) {
             this.load.image("jezero-mosaic", "/assets/game/mars/jezero-ctx-mosaic-3x3.png");
         }
-
-        // Preload Role Cards (matching Image 4 design)
-        if (!this.textures.exists("card_cadet")) {
-            this.load.image("card_cadet", "/assets/game/ui/card_cadet.png");
-        }
-        if (!this.textures.exists("card_director")) {
-            this.load.image("card_director", "/assets/game/ui/card_director.png");
-        }
+        // Role selection panels are rendered as live Phaser UI using transparent astronaut portraits.
 
         // Preload Avatar Frames (1 to 5)
         for (let i = 1; i <= 5; i++) {

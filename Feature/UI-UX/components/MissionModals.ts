@@ -105,9 +105,9 @@ export class MissionModals {
 
         const objectives = [
             "1. Inspect the Mars Habitat dome pressurization airlock.",
-            "2. Access the Power Switchboard: Connect Greenhouse & Life Support.",
-            "3. Board the exploration rover and map ancient Jezero crater rims.",
-            "4. Monitor NASA DONKI telemetry for coronal mass ejections."
+            "2. Route power to the greenhouse while keeping life support online.",
+            "3. Activate the greenhouse and harvest fresh crops.",
+            "4. Scan both marked survey beacons with the exploration rover."
         ];
 
         objectives.forEach((obj, idx) => {
@@ -122,6 +122,22 @@ export class MissionModals {
             container.add([check, text]);
         });
 
+        let started = false;
+        const startMission = () => {
+            if (started) return;
+            started = true;
+            container.destroy();
+            callbacks.onStart();
+        };
+        const handleKeyboard = (event: KeyboardEvent) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                startMission();
+            }
+        };
+        scene.input.keyboard?.on("keydown", handleKeyboard);
+        container.once("destroy", () => scene.input.keyboard?.off("keydown", handleKeyboard));
+
         // Start Button
         const startBtn = ButtonFactory.createButton({
             scene,
@@ -132,12 +148,17 @@ export class MissionModals {
             text: "COMMENCE SOL 01 MISSION ➔",
             primaryColor: UITheme.colors.solarGold,
             textColor: UITheme.colors.solarGoldStr,
-            onClick: () => {
-                container.destroy();
-                callbacks.onStart();
-            }
+            onClick: startMission
         });
         container.add(startBtn);
+
+        const keyboardHint = scene.add.text(width / 2, modalY + modalH - 8, "PRESS ENTER TO COMMENCE", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "9px",
+            color: "#9FB0BD",
+            fontStyle: "bold"
+        }).setOrigin(0.5, 1);
+        container.add(keyboardHint);
 
         return container;
     }

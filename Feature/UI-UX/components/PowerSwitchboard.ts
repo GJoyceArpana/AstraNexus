@@ -15,6 +15,7 @@ export interface PowerModule {
 
 export interface PowerSwitchboardCallbacks {
     onModuleToggled: (moduleId: string, isPowered: boolean) => void;
+    onApply?: (poweredModuleIds: string[]) => string | undefined;
     onClose: () => void;
 }
 
@@ -25,7 +26,7 @@ export class PowerSwitchboard {
 
     private maxPlugs = 3; // 3 active simultaneous plugs allowed out of 4 total capacity lines
     private totalBusCapacity = 4;
-    private activePlugsCount = 3;
+    private activePlugsCount = 0;
 
     private overloadWarningText!: Phaser.GameObjects.Text;
     private loadBarFill!: Phaser.GameObjects.Graphics;
@@ -98,9 +99,17 @@ export class PowerSwitchboard {
         statusText: Phaser.GameObjects.Text;
     }> = new Map();
 
-    constructor(scene: Phaser.Scene, callbacks: PowerSwitchboardCallbacks) {
+    constructor(scene: Phaser.Scene, callbacks: PowerSwitchboardCallbacks, initialPoweredModuleIds?: Iterable<string>) {
         this.scene = scene;
         this.callbacks = callbacks;
+        if (initialPoweredModuleIds) {
+            const initialPowered = new Set(initialPoweredModuleIds);
+            this.modules.forEach(module => { module.isPowered = initialPowered.has(module.id); });
+        } else if (((this.scene.registry.get("solLevel") as number) || 1) === 1) {
+            const greenhouse = this.modules.find(module => module.id === "greenhouse");
+            if (greenhouse) greenhouse.isPowered = false;
+        }
+        this.activePlugsCount = this.modules.filter(module => module.isPowered).length;
         this.container = this.scene.add.container(0, 0);
         this.container.setDepth(150);
 
@@ -187,7 +196,15 @@ export class PowerSwitchboard {
             secondaryColor: 0x082618,
             textColor: UITheme.colors.bioGreenStr,
             icon: "✔",
-            onClick: () => this.callbacks.onClose()
+            onClick: () => {
+                const poweredModuleIds = this.modules.filter(module => module.isPowered).map(module => module.id);
+                const issue = this.callbacks.onApply?.(poweredModuleIds);
+                if (issue) {
+                    this.overloadWarningText.setText(issue).setAlpha(1);
+                    return;
+                }
+                this.callbacks.onClose();
+            }
         });
         this.container.add(confirmBtn);
 
@@ -466,6 +483,11 @@ export class PowerSwitchboard {
     private toggleModule(id: string) {
         const mod = this.modules.find(m => m.id === id);
         if (!mod) return;
+
+        if (mod.isPowered && mod.isEssential) {
+            this.overloadWarningText.setText("HABITAT LIFE SUPPORT MUST REMAIN ONLINE.").setAlpha(1);
+            return;
+        }
 
         // If trying to turn on
         if (!mod.isPowered) {
