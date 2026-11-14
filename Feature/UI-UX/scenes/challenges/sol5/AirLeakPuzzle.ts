@@ -40,6 +40,8 @@ export class AirLeakPuzzle {
 
     private grid: PipeTile[][] = [];
     private isSolved = false;
+    private isClosed = false;
+    private completionTimer?: Phaser.Time.TimerEvent;
     private statusText!: Phaser.GameObjects.Text;
     private flowMeterFill!: Phaser.GameObjects.Graphics;
 
@@ -253,8 +255,11 @@ export class AirLeakPuzzle {
         }).setOrigin(1, 0.5);
         this.container.add(meterLabel);
 
-        // Initial flow evaluation
-        this.evaluateFlow();
+        // Wait for the first renderer pass before changing text styles. Phaser
+        // 4 can leave a newly-created text texture uninitialized in WebGL.
+        this.scene.time.delayedCall(0, () => {
+            if (!this.isClosed) this.evaluateFlow();
+        });
     }
 
     /**
@@ -269,9 +274,11 @@ export class AirLeakPuzzle {
         // (0,1) [STRAIGHT: rot 0 -> N,S]
         // (0,2) [ELBOW: rot 0 -> N,E]
         // (1,2) [T_JUNCTION: rot 1 -> E,S,W]
-        // (2,2) [STRAIGHT: rot 1 -> E,W]
-        // (2,3) [ELBOW: rot 0 -> N,E]
+        // (2,2) [T_JUNCTION: rot 2 -> N,S,W]
+        // (2,3) [ELBOW: dead-end branch]
         // (3,3) [ELBOW: rot 2 -> S,W] or STRAIGHT [E,W] to exit!
+        // (3,2) [ELBOW: rot 0 -> N,E]
+        // (3,3) [STRAIGHT: rot 1 -> E,W] to exit
         const puzzleBlueprint: { type: PipeType; initRot: number; solutionRot: number }[][] = [
             // Row 0
             [
@@ -291,14 +298,14 @@ export class AirLeakPuzzle {
             [
                 { type: "ELBOW", initRot: 3, solutionRot: 0 },        // (0,2) - Turns S to E
                 { type: "T_JUNCTION", initRot: 0, solutionRot: 1 },   // (1,2) - T-junction connecting W, E, S
-                { type: "STRAIGHT", initRot: 0, solutionRot: 1 },     // (2,2) - Flows W to E
-                { type: "ELBOW", initRot: 2, solutionRot: 2 }         // (3,2) - Turns W to S
+                { type: "T_JUNCTION", initRot: 1, solutionRot: 2 },   // (2,2) - Routes W down to the final row
+                { type: "ELBOW", initRot: 2, solutionRot: 2 }         // (2,3) - Dead-end branch
             ],
             // Row 3
             [
                 { type: "OBSTACLE", initRot: 0, solutionRot: 0 },     // (0,3) - BLOCKED DRAIN
                 { type: "ELBOW", initRot: 2, solutionRot: 0 },        // (1,3) - Dead end branch
-                { type: "OBSTACLE", initRot: 0, solutionRot: 0 },     // (2,3) - COLLAPSED CONDUIT
+                { type: "ELBOW", initRot: 2, solutionRot: 0 },        // (2,3) - Turns downflow into the final row
                 { type: "STRAIGHT", initRot: 0, solutionRot: 1 }      // (3,3) - Flows W to Outflow Target!
             ]
         ];
@@ -578,7 +585,8 @@ export class AirLeakPuzzle {
         // Success Fanfare & Glow
         this.scene.cameras.main.flash(400, 0, 229, 255, false);
 
-        this.scene.time.delayedCall(1600, () => {
+        this.completionTimer = this.scene.time.delayedCall(1600, () => {
+            if (this.isClosed) return;
             this.callbacks.onComplete();
             this.close();
         });
@@ -647,6 +655,10 @@ export class AirLeakPuzzle {
     }
 
     public close() {
+        if (this.isClosed) return;
+        this.isClosed = true;
+        this.completionTimer?.destroy();
+        this.completionTimer = undefined;
         this.container.destroy();
         this.callbacks.onClose();
     }

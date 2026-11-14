@@ -49,6 +49,8 @@ export class CircuitPuzzle {
 
     private isSolved = false;
     private isBreakerTripped = false;
+    private isClosed = false;
+    private completionTimer?: Phaser.Time.TimerEvent;
 
     private switches: CircuitSwitch[] = [];
     private relays: TransformerRelay[] = [];
@@ -206,8 +208,11 @@ export class CircuitPuzzle {
         ).setOrigin(1, 0.5);
         this.container.add(this.livePowerGaugeText);
 
-        // Evaluate starting circuit
-        this.evaluateCircuit();
+        // Wait for the first renderer pass before changing text styles. Phaser
+        // 4 can leave a newly-created text texture uninitialized in WebGL.
+        this.scene.time.delayedCall(0, () => {
+            if (!this.isClosed) this.evaluateCircuit();
+        });
     }
 
     private createPowerSourceNode(x: number, y: number) {
@@ -618,13 +623,18 @@ export class CircuitPuzzle {
 
         this.scene.cameras.main.flash(400, 255, 214, 0, false);
 
-        this.scene.time.delayedCall(1600, () => {
+        this.completionTimer = this.scene.time.delayedCall(1600, () => {
+            if (this.isClosed) return;
             this.callbacks.onComplete();
             this.close();
         });
     }
 
     public close() {
+        if (this.isClosed) return;
+        this.isClosed = true;
+        this.completionTimer?.destroy();
+        this.completionTimer = undefined;
         this.container.destroy();
         this.callbacks.onClose();
     }

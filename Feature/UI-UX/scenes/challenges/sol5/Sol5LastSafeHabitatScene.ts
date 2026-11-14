@@ -62,7 +62,6 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         D: Phaser.Input.Keyboard.Key;
         E: Phaser.Input.Keyboard.Key;
         H: Phaser.Input.Keyboard.Key;
-        ESC: Phaser.Input.Keyboard.Key;
     };
 
     // Core Mission Managers & Systems
@@ -81,6 +80,7 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
     private crates: SupplyCrate[] = [];
     private nearbyStation: DamagedStation | null = null;
     private nearbyCrate: SupplyCrate | null = null;
+    private missionEnded = false;
 
     // Interaction Prompt on ground
     private promptContainer!: Phaser.GameObjects.Container;
@@ -473,15 +473,17 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
     }
 
     private setupInputControls() {
-        this.cursors = this.input.keyboard!.createCursorKeys();
+        if (!this.input.keyboard) return;
+
+        this.input.keyboard.enabled = true;
+        this.cursors = this.input.keyboard.createCursorKeys();
         this.keys = {
             W: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W),
             A: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A),
             S: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S),
             D: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D),
             E: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E),
-            H: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.H),
-            ESC: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
+            H: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.H)
         };
 
         // Interact on E
@@ -495,8 +497,9 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
             }
         });
 
-        // Pause Menu on ESC
-        this.keys.ESC.on("down", () => {
+        // Pause Menu or puzzle close on ESC. Use the scene keyboard event so
+        // the handler remains reliable while a modal container has focus.
+        this.input.keyboard.on("keydown-ESC", () => {
             if (this.activePuzzle) {
                 this.activePuzzle.close();
                 this.activePuzzle = undefined;
@@ -533,7 +536,7 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
 
     override update(_time: number, delta: number) {
         // Update Resource Manager (only when no blocking pause / results modal)
-        if (!this.pauseModal && !this.resultsModal) {
+        if (!this.pauseModal && !this.resultsModal && !this.guideModal && !this.missionEnded) {
             this.resourceManager.update(delta);
         }
 
@@ -544,7 +547,7 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         this.updateEmergencyLighting();
 
         // Player Movement (disabled during interactive puzzle or pause modal)
-        if (!this.activePuzzle && !this.pauseModal && !this.resultsModal && !this.guideModal) {
+        if (!this.missionEnded && !this.activePuzzle && !this.pauseModal && !this.resultsModal && !this.guideModal) {
             this.handlePlayerMovement(delta);
             this.checkProximities();
         }
@@ -638,42 +641,54 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
     }
 
     private launchStationPuzzle(id: SubsystemId) {
+        if (this.activePuzzle || this.missionEnded) return;
+
         SoundFX.playClick();
+        const station = this.stations.find((candidate) => candidate.id === id);
+        if (station && !station.isRepaired) {
+            station.statusBadge.setText("◉ REPAIRING");
+            station.statusBadge.setColor(UITheme.colors.solarGoldStr);
+            station.beaconLight.setFillStyle(UITheme.colors.solarGold);
+        }
 
         switch (id) {
             case "air_distribution":
                 this.activePuzzle = new AirLeakPuzzle(this, {
                     onComplete: () => this.handlePuzzleComplete("air_distribution"),
-                    onClose: () => {
-                        this.activePuzzle = undefined;
-                    }
+                    onClose: () => this.handlePuzzleClosed("air_distribution")
                 });
                 break;
             case "electrical_grid":
                 this.activePuzzle = new CircuitPuzzle(this, {
                     onComplete: () => this.handlePuzzleComplete("electrical_grid"),
-                    onClose: () => {
-                        this.activePuzzle = undefined;
-                    }
+                    onClose: () => this.handlePuzzleClosed("electrical_grid")
                 });
                 break;
             case "oxygen_regulation":
                 this.activePuzzle = new PressurePuzzle(this, {
                     onComplete: () => this.handlePuzzleComplete("oxygen_regulation"),
-                    onClose: () => {
-                        this.activePuzzle = undefined;
-                    }
+                    onClose: () => this.handlePuzzleClosed("oxygen_regulation")
                 });
                 break;
             case "structural_hull":
                 this.activePuzzle = new StructuralRepairPuzzle(this, this.inventoryManager, {
                     onComplete: () => this.handlePuzzleComplete("structural_hull"),
-                    onClose: () => {
-                        this.activePuzzle = undefined;
-                    }
+                    onClose: () => this.handlePuzzleClosed("structural_hull")
                 });
                 break;
         }
+    }
+
+    private handlePuzzleClosed(id: SubsystemId) {
+        this.activePuzzle = undefined;
+
+        const station = this.stations.find((candidate) => candidate.id === id);
+        if (station && !station.isRepaired) {
+            station.statusBadge.setText("⚠ OFFLINE");
+            station.statusBadge.setColor(UITheme.colors.emergencyRedStr);
+            station.beaconLight.setFillStyle(UITheme.colors.emergencyRed);
+        }
+
     }
 
     private handlePuzzleComplete(id: SubsystemId) {
@@ -688,6 +703,7 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
             st.statusBadge.setColor(UITheme.colors.bioGreenStr);
             st.beaconLight.setFillStyle(UITheme.colors.bioGreen);
         }
+
     }
 
     private lootSupplyCrate(crate: SupplyCrate) {
@@ -723,6 +739,12 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
     }
 
     private handleMissionEnd(results: Sol5MissionResults) {
+        if (this.missionEnded) return;
+        this.missionEnded = true;
+        this.promptContainer?.setVisible(false);
+        this.nearbyStation = null;
+        this.nearbyCrate = null;
+
         SoundFX.playToggle(results.isSuccess);
 
         if (results.isSuccess) {
