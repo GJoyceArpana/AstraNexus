@@ -183,41 +183,50 @@ export class MissionModals {
         // Controls Summary Box
         const ctrlBox = scene.add.graphics();
         ctrlBox.fillStyle(0x081628, 0.9);
-        ctrlBox.fillRoundedRect(modalX + 35, modalY + 100, modalW - 70, 115, 8);
+        ctrlBox.fillRoundedRect(modalX + 35, modalY + 95, modalW - 70, 140, 8);
         ctrlBox.lineStyle(1.5, UITheme.colors.panelBorder, 1);
-        ctrlBox.strokeRoundedRect(modalX + 35, modalY + 100, modalW - 70, 115, 8);
+        ctrlBox.strokeRoundedRect(modalX + 35, modalY + 95, modalW - 70, 140, 8);
         container.add(ctrlBox);
 
-        const ctrlTitle = scene.add.text(modalX + 50, modalY + 112, "CADET KEYBOARD CONTROLS:", {
+        const ctrlTitle = scene.add.text(modalX + 50, modalY + 107, "CADET KEYBOARD & EVA CONTROLS:", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
         });
-        const ctrlText1 = scene.add.text(modalX + 50, modalY + 135, "• W / A / S / D  or  ARROWS: Move Astronaut / Steer Rover", {
+        const ctrlText1 = scene.add.text(modalX + 50, modalY + 128, "• W / A / S / D  or  ARROWS: Move Astronaut / Steer Rover", {
             fontFamily: UITheme.fonts.body,
-            fontSize: "13px",
-            color: "#FFFFFF"
+            fontSize: "12.5px",
+            color: "#FFFFFF",
+            wordWrap: { width: modalW - 100 }
         });
-        const ctrlText2 = scene.add.text(modalX + 50, modalY + 160, "• [ E ]: Interact with Base Modules & Airlocks", {
+        const ctrlText2 = scene.add.text(modalX + 50, modalY + 151, "• [ E ]: Interact with Base Modules, Airlocks & Rover", {
             fontFamily: UITheme.fonts.body,
-            fontSize: "13px",
-            color: "#FFFFFF"
+            fontSize: "12.5px",
+            color: "#FFFFFF",
+            wordWrap: { width: modalW - 100 }
         });
-        const ctrlText3 = scene.add.text(modalX + 50, modalY + 185, "• [ ESC ]: Toggle Mission Pause Menu", {
+        const ctrlText3 = scene.add.text(modalX + 50, modalY + 174, "• [ P ]: Power Switchboard   |   [ M ]: 7-Sol Challenges", {
             fontFamily: UITheme.fonts.body,
-            fontSize: "13px",
-            color: "#FFFFFF"
+            fontSize: "12.5px",
+            color: UITheme.colors.solarGoldStr,
+            wordWrap: { width: modalW - 100 }
         });
-        container.add([ctrlTitle, ctrlText1, ctrlText2, ctrlText3]);
+        const ctrlText4 = scene.add.text(modalX + 50, modalY + 197, "• [ ESC ]: Toggle Mission Pause Menu", {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "12.5px",
+            color: "#A0B4D0",
+            wordWrap: { width: modalW - 100 }
+        });
+        container.add([ctrlTitle, ctrlText1, ctrlText2, ctrlText3, ctrlText4]);
 
         // Buttons
         const resumeBtn = ButtonFactory.createButton({
             scene,
             x: width / 2,
-            y: modalY + 260,
+            y: modalY + 265,
             width: 280,
-            height: 46,
+            height: 44,
             text: "RESUME MISSION",
             primaryColor: UITheme.colors.bioGreen,
             onClick: () => {
@@ -229,9 +238,9 @@ export class MissionModals {
         const restartBtn = ButtonFactory.createButton({
             scene,
             x: width / 2,
-            y: modalY + 320,
+            y: modalY + 323,
             width: 280,
-            height: 46,
+            height: 44,
             text: "RESTART SOL 01",
             primaryColor: UITheme.colors.solarGold,
             onClick: () => {
@@ -243,9 +252,9 @@ export class MissionModals {
         const abortBtn = ButtonFactory.createButton({
             scene,
             x: width / 2,
-            y: modalY + 380,
+            y: modalY + 381,
             width: 280,
-            height: 46,
+            height: 44,
             text: "ABORT TO MAIN MENU",
             primaryColor: UITheme.colors.emergencyRed,
             onClick: () => {
@@ -376,9 +385,10 @@ export class MissionModals {
         });
         const insTitle = scene.add.text(modalX + 60, modalY + 292, stats.insightTitle, {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "16px",
+            fontSize: "15px",
             color: "#FFFFFF",
-            fontStyle: "bold"
+            fontStyle: "bold",
+            wordWrap: { width: modalW - 120 }
         });
         const insDesc = scene.add.text(modalX + 60, modalY + 322, stats.insightDesc, {
             fontFamily: UITheme.fonts.body,

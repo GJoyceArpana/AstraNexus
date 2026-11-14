@@ -190,10 +190,12 @@ export class OutpostSolTitle {
         // Subtitle
         const subtitle = this.scene.add.text(0, 62, "MARS HABITAT COLONIZATION & SURVIVAL SIMULATION", {
             fontFamily: UITheme.fonts.body,
-            fontSize: "14px",
+            fontSize: "12px",
             color: UITheme.colors.textSecondary,
             fontStyle: "bold",
-            letterSpacing: 2
+            letterSpacing: 1.5,
+            align: "center",
+            wordWrap: { width: 380 }
         }).setOrigin(0.5);
         titleGroup.add(subtitle);
 

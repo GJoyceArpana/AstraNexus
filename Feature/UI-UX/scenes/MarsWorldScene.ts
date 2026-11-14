@@ -446,23 +446,12 @@ export class MarsWorldScene extends Phaser.Scene {
         // Top-Center: Warning System (Task 7)
         this.warningSystem = new WarningNotification(this);
 
-        // Pause Button (Top Center-Right)
-        const pauseBtn = ButtonFactory.createIconButton(
-            this,
-            this.W - 380,
-            38,
-            "⏸",
-            18,
-            UITheme.colors.primaryCyan,
-            () => this.togglePauseMenu()
-        );
-        pauseBtn.setDepth(110);
-        // Prominent HUD 7-Sol Mission Challenges Button
+        // Top-Right Symmetrical HUD Navigation Controls
         const hudChallengesBtn = ButtonFactory.createButton({
             scene: this,
-            x: this.W - 500,
+            x: 695,
             y: 38,
-            width: 200,
+            width: 190,
             height: 38,
             fontSize: "12px",
             text: "7 SOL CHALLENGES [M]",
@@ -473,6 +462,18 @@ export class MarsWorldScene extends Phaser.Scene {
             onClick: () => this.toggleMissionChallenges()
         });
         hudChallengesBtn.setDepth(110);
+
+        // Pause Button (Symmetrically spaced next to Challenges button)
+        const pauseBtn = ButtonFactory.createIconButton(
+            this,
+            820,
+            38,
+            "⏸",
+            18,
+            UITheme.colors.primaryCyan,
+            () => this.togglePauseMenu()
+        );
+        pauseBtn.setDepth(110);
     }
 
     // =========================================================
@@ -505,7 +506,8 @@ export class MarsWorldScene extends Phaser.Scene {
             const line = this.add.text(14, 32 + idx * 24, obj.text, {
                 fontFamily: UITheme.fonts.body,
                 fontSize: "12px",
-                color: obj.done ? UITheme.colors.bioGreenStr : "#FFFFFF"
+                color: obj.done ? UITheme.colors.bioGreenStr : "#FFFFFF",
+                wordWrap: { width: cardW - 28 }
             });
 
             // Make Switchboard objective directly clickable
@@ -544,7 +546,8 @@ export class MarsWorldScene extends Phaser.Scene {
             fontFamily: UITheme.fonts.heading,
             fontSize: "10px",
             color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
+            fontStyle: "bold",
+            wordWrap: { width: cardW - 28 }
         });
         container.add(suitTag);
     }

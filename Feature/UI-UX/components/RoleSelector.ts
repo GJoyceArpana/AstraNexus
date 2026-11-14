@@ -247,52 +247,82 @@ export class RoleSelector {
         const bg = this.scene.add.graphics();
         bg.fillStyle(0x0E192E, 0.96);
         bg.fillRoundedRect(-w / 2, -h / 2, w, h, 20);
-        bg.lineStyle(3, UITheme.colors.marsAmber, 1);
+        bg.lineStyle(2.5, UITheme.colors.primaryCyan, 0.9);
         bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 20);
         this.cadetCardContainer.add(bg);
 
-        const title = this.scene.add.text(0, 40, "JUNIOR CADET", {
+        // Circular Icon Badge
+        const badgeCircle = this.scene.add.circle(0, -95, 38, 0x07152B);
+        badgeCircle.setStrokeStyle(2, UITheme.colors.primaryCyan, 1);
+        const badgeIcon = this.scene.add.text(0, -95, "👨‍🚀", { fontSize: "38px" }).setOrigin(0.5);
+        this.cadetCardContainer.add([badgeCircle, badgeIcon]);
+
+        const title = this.scene.add.text(0, -28, "JUNIOR CADET", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "24px",
-            color: UITheme.colors.marsAmberStr,
+            fontSize: "22px",
+            color: UITheme.colors.primaryCyanStr,
+            fontStyle: "bold",
+            letterSpacing: 1
+        }).setOrigin(0.5);
+
+        const badgeTag = this.scene.add.text(0, 4, "✦ STANDARD RECON CLEARANCE ✦", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10.5px",
+            color: UITheme.colors.solarGoldStr,
             fontStyle: "bold"
         }).setOrigin(0.5);
 
-        const desc = this.scene.add.text(0, 110, "Perfect for newer astronauts!\nFocus on exploration, basic operations,\nand learning about Mars with helpful guidance.", {
+        const desc = this.scene.add.text(0, 68, "Perfect for newer astronauts!\nFocus on exploration, surface mobility,\nand learning about Mars with guided telemetry.", {
             fontFamily: UITheme.fonts.body,
-            fontSize: "14px",
-            color: "#FFFFFF",
+            fontSize: "13px",
+            color: "#D0E2FF",
             align: "center",
-            lineSpacing: 5
+            lineSpacing: 5,
+            wordWrap: { width: 300 }
         }).setOrigin(0.5);
 
-        this.cadetCardContainer.add([title, desc]);
+        this.cadetCardContainer.add([title, badgeTag, desc]);
     }
 
     private renderDirectorFallback(w: number, h: number) {
         const bg = this.scene.add.graphics();
-        bg.fillStyle(0xFFFFFF, 0.98);
+        bg.fillStyle(0x0E192E, 0.96);
         bg.fillRoundedRect(-w / 2, -h / 2, w, h, 20);
-        bg.lineStyle(3, UITheme.colors.marsAmber, 1);
+        bg.lineStyle(2.5, UITheme.colors.solarGold, 0.9);
         bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 20);
         this.directorCardContainer.add(bg);
 
-        const title = this.scene.add.text(0, 40, "FLIGHT DIRECTOR", {
+        // Circular Icon Badge
+        const badgeCircle = this.scene.add.circle(0, -95, 38, 0x07152B);
+        badgeCircle.setStrokeStyle(2, UITheme.colors.solarGold, 1);
+        const badgeIcon = this.scene.add.text(0, -95, "🎖️", { fontSize: "38px" }).setOrigin(0.5);
+        this.directorCardContainer.add([badgeCircle, badgeIcon]);
+
+        const title = this.scene.add.text(0, -28, "FLIGHT DIRECTOR", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "24px",
-            color: UITheme.colors.marsAmberStr,
+            fontSize: "22px",
+            color: UITheme.colors.solarGoldStr,
+            fontStyle: "bold",
+            letterSpacing: 1
+        }).setOrigin(0.5);
+
+        const badgeTag = this.scene.add.text(0, 4, "✦ ADVANCED MISSION COMMAND ✦", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10.5px",
+            color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
         }).setOrigin(0.5);
 
-        const desc = this.scene.add.text(0, 110, "For experienced commanders!\nManage complex life support systems,\nresource allocation, and advanced challenges.", {
+        const desc = this.scene.add.text(0, 68, "For seasoned commanders!\nManage demanding ECLSS life support,\npower grids, and severe Martian weather.", {
             fontFamily: UITheme.fonts.body,
-            fontSize: "14px",
-            color: "#1A253A",
+            fontSize: "13px",
+            color: "#FFFFFF",
             align: "center",
-            lineSpacing: 5
+            lineSpacing: 5,
+            wordWrap: { width: 300 }
         }).setOrigin(0.5);
 
-        this.directorCardContainer.add([title, desc]);
+        this.directorCardContainer.add([title, badgeTag, desc]);
     }
 
     private updateCardSelection() {

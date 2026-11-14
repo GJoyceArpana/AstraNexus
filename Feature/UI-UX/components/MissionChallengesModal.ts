@@ -388,7 +388,8 @@ export class MissionChallengesModal {
             fontSize: "11px",
             color: UITheme.colors.emergencyRedStr,
             fontStyle: "bold",
-            letterSpacing: 0.5
+            letterSpacing: 0.5,
+            wordWrap: { width: colW - 64 }
         });
         this.contentContainer.add(hazardText);
 

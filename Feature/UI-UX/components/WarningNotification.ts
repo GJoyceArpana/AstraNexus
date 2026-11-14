@@ -47,7 +47,7 @@ export class WarningNotification {
     private displayBanner(payload: NotificationPayload) {
         const { width } = this.scene.scale;
         const bannerW = 600;
-        const bannerH = 74;
+        const bannerH = 84;
         const targetY = 188;
 
         const container = this.scene.add.container(width / 2, -bannerH);
@@ -103,16 +103,17 @@ export class WarningNotification {
         container.add(iconText);
 
         // Texts
-        const titleText = this.scene.add.text(-bannerW / 2 + 75, -bannerH / 2 + 16, payload.title.toUpperCase(), {
+        const titleText = this.scene.add.text(-bannerW / 2 + 75, -bannerH / 2 + 14, payload.title.toUpperCase(), {
             fontFamily: UITheme.fonts.heading,
             fontSize: "13px",
             color: primaryColorStr,
             fontStyle: "bold"
         });
-        const msgText = this.scene.add.text(-bannerW / 2 + 75, -bannerH / 2 + 36, payload.message, {
+        const msgText = this.scene.add.text(-bannerW / 2 + 75, -bannerH / 2 + 34, payload.message, {
             fontFamily: UITheme.fonts.body,
-            fontSize: "13px",
+            fontSize: "12.5px",
             color: "#FFFFFF",
+            lineSpacing: 3,
             wordWrap: { width: payload.actionLabel ? 320 : 470 }
         });
         container.add([titleText, msgText]);
