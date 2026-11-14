@@ -74,6 +74,9 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
     private resultsModal?: Sol5ResultsModal;
     private pauseModal?: Phaser.GameObjects.Container;
     private guideModal?: Phaser.GameObjects.Container;
+    private introductionModal?: Phaser.GameObjects.Container;
+    private introductionIndex = 0;
+    private introductionActive = false;
 
     // Interactive Stations & Crates
     private stations: DamagedStation[] = [];
@@ -145,6 +148,9 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         this.resultsModal = undefined;
         this.pauseModal = undefined;
         this.guideModal = undefined;
+        this.introductionModal = undefined;
+        this.introductionIndex = 0;
+        this.introductionActive = false;
         this.stations = [];
         this.crates = [];
         this.nearbyStation = null;
@@ -206,7 +212,10 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         this.hud.updateResources(this.resourceManager.getState());
         this.hud.updateInventory(this.inventoryManager.getInventory());
 
-        // 9. Initial Emergency Dispatch Warning Toast
+        // 9. Character introduction before the mission timer and controls activate
+        this.showCharacterIntroduction();
+
+        // 10. Initial Emergency Dispatch Warning Toast
         this.time.delayedCall(800, () => {
             this.hud.showAlertToast("⚠ EMERGENCY PROTOCOL: DUST GALE DAMAGED CRITICAL HABITAT SYSTEMS! INVESTIGATE STATIONS.", true);
         });
@@ -552,7 +561,7 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
 
     override update(_time: number, delta: number) {
         // Update Resource Manager (only when no blocking pause / results modal)
-        if (!this.pauseModal && !this.resultsModal && !this.guideModal && !this.missionEnded) {
+        if (!this.introductionActive && !this.pauseModal && !this.resultsModal && !this.guideModal && !this.missionEnded) {
             this.resourceManager.update(delta);
         }
 
@@ -563,10 +572,194 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         this.updateEmergencyLighting();
 
         // Player Movement (disabled during interactive puzzle or pause modal)
-        if (!this.missionEnded && !this.activePuzzle && !this.pauseModal && !this.resultsModal && !this.guideModal) {
+        if (!this.introductionActive && !this.missionEnded && !this.activePuzzle && !this.pauseModal && !this.resultsModal && !this.guideModal) {
             this.handlePlayerMovement(delta);
             this.checkProximities();
         }
+    }
+
+    private showCharacterIntroduction() {
+        const dialogue = [
+            "Hey Cadet! We've got a serious emergency at the Mars habitat!",
+            "A powerful Martian storm has damaged our critical life-support systems. We're losing oxygen pressure, and several essential systems are offline.",
+            "We need to repair four critical systems: air distribution pipes, the electrical grid, oxygen pressure regulators and the damaged exterior habitat walls.",
+            "Be careful! We have limited repair materials and a limited emergency buffer. Every repair matters.",
+            "Complete all four repairs and stabilize the habitat. Our survival depends on you!",
+            "Ready, Cadet? Let's save the habitat!"
+        ];
+
+        this.introductionActive = true;
+        this.introductionIndex = 0;
+
+        const modal = this.add.container(this.W / 2, this.H / 2).setDepth(300);
+        this.introductionModal = modal;
+
+        const scrim = this.add.rectangle(0, 0, this.W, this.H, 0x020713, 0.78)
+            .setInteractive();
+        modal.add(scrim);
+
+        const card = this.add.graphics();
+        card.fillStyle(0x07172A, 0.98);
+        card.fillRoundedRect(-555, -275, 1110, 550, 20);
+        card.lineStyle(2, UITheme.colors.primaryCyan, 0.9);
+        card.strokeRoundedRect(-555, -275, 1110, 550, 20);
+        modal.add(card);
+
+        const portraitFrame = this.add.graphics();
+        portraitFrame.fillStyle(0x0C2942, 1);
+        portraitFrame.fillRoundedRect(-525, -225, 300, 410, 16);
+        portraitFrame.lineStyle(2, UITheme.colors.solarGold, 0.9);
+        portraitFrame.strokeRoundedRect(-525, -225, 300, 410, 16);
+        modal.add(portraitFrame);
+
+        const suitKey = `${this.equippedGender}_avatar_${this.equippedSuitFrame}`;
+        const portrait = this.add.image(-375, -18, suitKey);
+        portrait.setDisplaySize(250, 365);
+        portrait.setDepth(1);
+        modal.add(portrait);
+
+        const portraitLabel = this.add.text(-375, 210, this.equippedCallsign.toUpperCase(), {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "13px",
+            color: UITheme.colors.solarGoldStr,
+            fontStyle: "bold",
+            letterSpacing: 1.5
+        }).setOrigin(0.5);
+        modal.add(portraitLabel);
+
+        const panel = this.add.graphics();
+        panel.fillStyle(0x0B2038, 1);
+        panel.fillRoundedRect(-185, -225, 700, 410, 16);
+        panel.lineStyle(1.5, 0x3E6C91, 0.9);
+        panel.strokeRoundedRect(-185, -225, 700, 410, 16);
+        modal.add(panel);
+
+        const heading = this.add.text(-145, -190, "EMERGENCY COMMAND BRIEFING", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "18px",
+            color: UITheme.colors.primaryCyanStr,
+            fontStyle: "bold",
+            letterSpacing: 1.2
+        });
+        modal.add(heading);
+
+        const speaker = this.add.text(-145, -145, "MISSION CONTROL · OUTPOST SOL", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10px",
+            color: UITheme.colors.solarGoldStr,
+            fontStyle: "bold",
+            letterSpacing: 1
+        });
+        modal.add(speaker);
+
+        const dialogueText = this.add.text(-145, -88, "", {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "20px",
+            color: "#E8F7FF",
+            lineSpacing: 10,
+            wordWrap: { width: 610 },
+            maxLines: 5
+        });
+        modal.add(dialogueText);
+
+        const progress = this.add.text(480, 155, "", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "11px",
+            color: "#8FAFC8",
+            fontStyle: "bold"
+        }).setOrigin(1, 0.5);
+        modal.add(progress);
+
+        const renderDialogue = () => {
+            dialogueText.setText(dialogue[this.introductionIndex]);
+            progress.setText(`${this.introductionIndex + 1} / ${dialogue.length}`);
+            this.tweens.add({
+                targets: dialogueText,
+                alpha: { from: 0.35, to: 1 },
+                duration: 220,
+                ease: "Quad.easeOut"
+            });
+        };
+
+        const advanceDialogue = () => {
+            SoundFX.playClick();
+            if (this.introductionIndex >= dialogue.length - 1) {
+                this.closeCharacterIntroduction();
+            } else {
+                this.introductionIndex++;
+                renderDialogue();
+            }
+        };
+
+        const continueButton = ButtonFactory.createButton({
+            scene: this,
+            x: 265,
+            y: 205,
+            width: 210,
+            height: 44,
+            text: "CONTINUE  ➜",
+            primaryColor: UITheme.colors.primaryCyan,
+            secondaryColor: 0x103B59,
+            fontSize: "13px",
+            onClick: advanceDialogue
+        });
+        modal.add(continueButton);
+
+        const skipButton = this.add.text(480, -250, "SKIP INTRODUCTION", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10px",
+            color: "#A9C3D7",
+            fontStyle: "bold",
+            backgroundColor: "#061322",
+            padding: { x: 10, y: 7 }
+        }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+        skipButton.on("pointerdown", () => {
+            SoundFX.playClick();
+            this.closeCharacterIntroduction();
+        });
+        modal.add(skipButton);
+
+        this.input.keyboard?.on("keydown-ENTER", advanceDialogue, this);
+        this.input.keyboard?.on("keydown-SPACE", advanceDialogue, this);
+        renderDialogue();
+
+        modal.setAlpha(0);
+        modal.y += 24;
+        this.tweens.add({
+            targets: modal,
+            alpha: 1,
+            y: this.H / 2,
+            duration: 420,
+            ease: "Back.easeOut"
+        });
+    }
+
+    private closeCharacterIntroduction() {
+        if (!this.introductionActive || !this.introductionModal) return;
+
+        this.introductionActive = false;
+        this.input.keyboard?.off("keydown-ENTER", undefined, this);
+        this.input.keyboard?.off("keydown-SPACE", undefined, this);
+        const modal = this.introductionModal;
+        this.introductionModal = undefined;
+
+        this.tweens.add({
+            targets: modal,
+            alpha: 0,
+            y: this.H / 2 + 24,
+            duration: 260,
+            ease: "Quad.easeIn",
+            onComplete: () => modal.destroy()
+        });
+
+        this.resourceManager.start();
+        this.input.enabled = true;
+        if (this.input.keyboard) {
+            this.input.keyboard.enabled = true;
+            this.input.keyboard.manager.enabled = true;
+            this.input.keyboard.resetKeys();
+        }
+        this.game.canvas?.focus();
     }
 
     private handlePlayerMovement(delta: number) {
