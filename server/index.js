@@ -24,6 +24,13 @@ app.get("/", (req, res) => {
     status: "ONLINE"
   });
 });
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Outpost Sol backend is running",
+    timestamp: new Date().toISOString()
+  });
+});
 
 app.use("/api/nasa", nasaRoutes);
 
