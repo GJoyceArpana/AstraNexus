@@ -53,6 +53,17 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
 
         // 5. Bottom Navigation Control Bar
         this.createBottomBar();
+
+        // 6. Keyboard Shortcut: ESC to safely return to Mars
+        this.input.keyboard?.on("keydown-ESC", () => {
+            SoundFX.playClick();
+            this.returnToMars();
+        });
+    }
+
+    shutdown() {
+        this.tweens.killAll();
+        this.input.keyboard?.removeAllListeners();
     }
 
     private createAtmosphericBackdrop() {
@@ -260,8 +271,15 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
         this.cameras.main.fadeOut(300, 10, 5, 20);
         this.time.delayedCall(300, () => {
             this.scene.stop();
-            if (this.scene.isSleeping("MarsWorldScene")) {
-                this.scene.wake("MarsWorldScene");
+            const marsScene = this.scene.get("MarsWorldScene");
+            if (marsScene) {
+                marsScene.scene.setVisible(true);
+                marsScene.scene.resume();
+                marsScene.input.enabled = true;
+                if (marsScene.input && marsScene.input.keyboard) {
+                    marsScene.input.keyboard.enabled = true;
+                }
+                marsScene.cameras.main.fadeIn(350, 10, 5, 20);
             } else {
                 this.scene.start("MarsWorldScene");
             }

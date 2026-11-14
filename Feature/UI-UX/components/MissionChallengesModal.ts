@@ -560,9 +560,24 @@ export class MissionChallengesModal {
             icon: "🚀",
             onClick: () => {
                 SoundFX.playClick();
+                const solKey = this.getSolSceneKey(sol);
                 this.close();
-                this.scene.scene.sleep("MarsWorldScene");
-                this.scene.scene.launch(this.getSolSceneKey(sol));
+
+                // 1. Completely hide and pause MarsWorldScene so zero background rendering or physics runs
+                this.scene.scene.setVisible(false, "MarsWorldScene");
+                this.scene.scene.pause("MarsWorldScene");
+                this.scene.input.enabled = false;
+                if (this.scene.input && this.scene.input.keyboard) {
+                    this.scene.input.keyboard.enabled = false;
+                }
+
+                // 2. Stop any existing instance of the challenge scene before launching fresh
+                if (this.scene.scene.isActive(solKey)) {
+                    this.scene.scene.stop(solKey);
+                }
+
+                // 3. Launch dedicated challenge scene cleanly
+                this.scene.scene.launch(solKey);
             }
         });
         this.contentContainer.add(launchSceneBtn);
