@@ -103,8 +103,10 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
         for (let i = 0; i < 14; i++) {
             const streakW = Phaser.Math.Between(40, 95);
             const streakY = viewY + 45 + i * 11;
+            const startX = viewX + 15 + streakW / 2;
+            const endX = viewX + viewW - 15 - streakW / 2;
             const streak = this.add.rectangle(
-                viewX + 15 + streakW / 2,
+                startX,
                 streakY,
                 streakW,
                 2.5,
@@ -114,10 +116,12 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
 
             this.tweens.add({
                 targets: streak,
-                x: { from: viewX + 15 + streakW / 2, to: viewX + viewW - 15 - streakW / 2 },
-                alpha: { from: 0.2, to: 0.8 },
+                x: endX,
                 duration: Phaser.Math.Between(550, 1200),
                 repeat: -1,
+                onRepeat: () => {
+                    streak.x = startX;
+                },
                 ease: "Linear"
             });
         }

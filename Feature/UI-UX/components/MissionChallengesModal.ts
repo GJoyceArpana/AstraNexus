@@ -563,21 +563,27 @@ export class MissionChallengesModal {
                 const solKey = this.getSolSceneKey(sol);
                 this.close();
 
-                // 1. Completely hide and pause MarsWorldScene so zero background rendering or physics runs
-                this.scene.scene.setVisible(false, "MarsWorldScene");
-                this.scene.scene.pause("MarsWorldScene");
-                this.scene.input.enabled = false;
-                if (this.scene.input && this.scene.input.keyboard) {
-                    this.scene.input.keyboard.enabled = false;
+                // Stop any existing Sol challenge scenes to ensure zero scene stacking or WebGL conflicts
+                const allSolKeys = [
+                    "Sol1DirtFortressScene",
+                    "Sol2PerchlorateBarrierScene",
+                    "Sol3RedGaleScene",
+                    "Sol4ISRUProductionScene",
+                    "Sol5SilenceCommsLagScene",
+                    "Sol6ColonyGridlockScene",
+                    "Sol7JourneyHomeMAVScene"
+                ];
+
+                for (const key of allSolKeys) {
+                    if (this.scene.scene.isActive(key) || this.scene.scene.isSleeping(key) || this.scene.scene.isPaused(key)) {
+                        this.scene.scene.stop(key);
+                    }
                 }
 
-                // 2. Stop any existing instance of the challenge scene before launching fresh
-                if (this.scene.scene.isActive(solKey)) {
-                    this.scene.scene.stop(solKey);
-                }
-
-                // 3. Launch dedicated challenge scene cleanly
+                // Sleep MarsWorldScene cleanly and launch dedicated challenge scene on top
+                this.scene.scene.sleep("MarsWorldScene");
                 this.scene.scene.launch(solKey);
+                this.scene.scene.bringToTop(solKey);
             }
         });
         this.contentContainer.add(launchSceneBtn);

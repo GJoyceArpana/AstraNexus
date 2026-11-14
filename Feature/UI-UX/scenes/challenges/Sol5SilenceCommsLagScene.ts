@@ -84,23 +84,20 @@ export class Sol5SilenceCommsLagScene extends SolChallengeBaseScene {
         wave.lineStyle(2, UITheme.colors.solarGold, 0.8);
         wave.lineBetween(viewX + 95, viewY + viewH / 2, viewX + viewW - 90, viewY + viewH / 2);
 
-        // Signal Pulse Tween
-        const pulse = this.add.circle(viewX + 100, viewY + viewH / 2, 6, UITheme.colors.primaryCyan);
+        // Signal Pulse Tween (cleanly bounded between Earth and Mars stations)
+        const pulseStartX = viewX + 100;
+        const pulseEndX = viewX + viewW - 95;
+        const pulse = this.add.circle(pulseStartX, viewY + viewH / 2, 6, UITheme.colors.primaryCyan);
         this.tweens.add({
             targets: pulse,
-            x: viewX + viewW - 95,
+            x: pulseEndX,
             duration: 2000,
             repeat: -1,
+            onRepeat: () => {
+                pulse.x = pulseStartX;
+            },
             ease: "Linear"
         });
-
-        // Geometry Mask for orbital space
-        const viewMaskG = this.make.graphics();
-        viewMaskG.fillStyle(0xffffff);
-        viewMaskG.fillRoundedRect(viewX, viewY, viewW, viewH, 10);
-        const viewMask = viewMaskG.createGeometryMask();
-        wave.setMask(viewMask);
-        pulse.setMask(viewMask);
 
         // Delay Badge
         this.add.text(viewX + viewW / 2, viewY + viewH / 2 - 25, "📡 SPEED-OF-LIGHT LATENCY: 12m 00s (210,000,000 km)", {

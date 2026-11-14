@@ -86,15 +86,6 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
 
         // Dynamic Regolith Shield Layer Graphic (piles up over dome)
         this.regolithMoundGraphics = this.add.graphics();
-
-        // Strict Viewport Geometry Mask to contain dome and regolith inside viewFrame
-        const viewMaskG = this.make.graphics();
-        viewMaskG.fillStyle(0xffffff);
-        viewMaskG.fillRoundedRect(viewX, viewY, viewW, viewH, 10);
-        const viewMask = viewMaskG.createGeometryMask();
-        habDome.setMask(viewMask);
-        this.regolithMoundGraphics.setMask(viewMask);
-
         this.updateRegolithVisuals(this.domeCenterX, this.domeBaseY);
 
         // Dosimeter Telemetry Box
@@ -256,13 +247,13 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
     private updateRegolithVisuals(centerX: number, baseY: number) {
         this.regolithMoundGraphics.clear();
         const thicknessRatio = Math.min(1.0, this.currentVal / this.targetThickness);
-        const moundHeight = 25 + thicknessRatio * 75;
+        const moundHeight = 20 + thicknessRatio * 55;
 
-        // Draw earthy basalt mound
+        // Draw earthy basalt mound naturally bounded within viewport dimensions
         this.regolithMoundGraphics.fillStyle(0x8D4024, 0.85);
-        this.regolithMoundGraphics.fillEllipse(centerX, baseY - moundHeight / 2, 360 + thicknessRatio * 40, 110 + moundHeight);
+        this.regolithMoundGraphics.fillEllipse(centerX, baseY - moundHeight / 2, 320 + thicknessRatio * 30, 90 + moundHeight);
         this.regolithMoundGraphics.lineStyle(2, 0xD4663A, 0.9);
-        this.regolithMoundGraphics.strokeEllipse(centerX, baseY - moundHeight / 2, 360 + thicknessRatio * 40, 110 + moundHeight);
+        this.regolithMoundGraphics.strokeEllipse(centerX, baseY - moundHeight / 2, 320 + thicknessRatio * 30, 90 + moundHeight);
     }
 
     private updateRadDoseDisplay() {

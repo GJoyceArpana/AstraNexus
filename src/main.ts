@@ -148,7 +148,8 @@ const config: Phaser.Types.Core.GameConfig = {
         pixelArt: false,
         roundPixels: false,
         powerPreference: "high-performance",
-        transparent: false
+        transparent: false,
+        clearBeforeRender: true
     },
 
     scale: {

@@ -73,13 +73,6 @@ export class Sol7JourneyHomeMAVScene extends SolChallengeBaseScene {
         this.rocketGraphic = this.add.graphics();
         this.drawRocketGraphic(viewX + viewW / 2, viewY + viewH - 30);
 
-        // Mask launchpad viewport
-        const launchMaskG = this.make.graphics();
-        launchMaskG.fillStyle(0xffffff);
-        launchMaskG.fillRoundedRect(viewX, viewY, viewW, viewH, 10);
-        const launchMask = launchMaskG.createGeometryMask();
-        this.rocketGraphic.setMask(launchMask);
-
         // Rocket Label
         this.add.text(viewX + viewW / 2, viewY + 30, "🚀 ARES-VII RETURN CAPSULE", {
             fontFamily: UITheme.fonts.heading,
@@ -268,15 +261,15 @@ export class Sol7JourneyHomeMAVScene extends SolChallengeBaseScene {
         SoundFX.playToggle(true);
         this.setActionFeedback("🚀 ENGINES IGNITED! MARS ASCENT VEHICLE ACHIEVED ORBITAL RENDEZVOUS!", true);
 
-        // Rocket Launch Animation: Flames and lift upward!
+        // Rocket Launch Animation: Flames and lift upward cleanly!
         this.tweens.add({
             targets: this.rocketGraphic,
             y: -250,
-            duration: 2500,
+            alpha: 0,
+            duration: 2200,
             ease: "Quad.easeIn",
             onComplete: () => {
-                this.cameras.main.flash(800, 255, 255, 255);
-                this.time.delayedCall(1000, () => {
+                this.time.delayedCall(400, () => {
                     this.completeChallengeAndAdvance();
                 });
             }

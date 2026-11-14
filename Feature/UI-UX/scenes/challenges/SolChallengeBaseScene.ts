@@ -37,7 +37,12 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
     }
 
     create() {
-        this.cameras.main.fadeIn(400, 10, 5, 20);
+        this.cameras.main.setBackgroundColor("#070E1A");
+
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            this.tweens.killAll();
+            this.input.keyboard?.removeAllListeners();
+        });
 
         // 1. Mars deep atmospheric background
         this.createAtmosphericBackdrop();
@@ -67,23 +72,16 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
     }
 
     private createAtmosphericBackdrop() {
-        // Deep Space Gradient
+        // Deep Space Solid / Gradient
         const bg = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x070E1A).setOrigin(0.5);
         bg.setDepth(-10);
 
-        // Atmospheric Mars Glow
-        const halo = this.add.circle(this.W / 2, this.H + 80, 580, UITheme.colors.marsGlow, 0.22);
-        halo.setDepth(-9);
-        this.tweens.add({
-            targets: halo,
-            alpha: 0.32,
-            duration: 3500,
-            yoyo: true,
-            repeat: -1
-        });
+        // Atmospheric Mars Horizon Glow
+        const horizon = this.add.ellipse(this.W / 2, this.H, 1200, 240, UITheme.colors.marsGlow, 0.22);
+        horizon.setDepth(-9);
 
         // Twinkling stars / dust
-        for (let i = 0; i < 40; i++) {
+        for (let i = 0; i < 30; i++) {
             const p = this.add.circle(
                 Phaser.Math.Between(0, this.W),
                 Phaser.Math.Between(0, this.H * 0.7),
@@ -255,35 +253,24 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
         const nextSol = Math.min(7, this.challengeConfig.solNumber + 1);
         this.registry.set("solLevel", nextSol);
 
-        this.cameras.main.flash(500, 0, 230, 118);
         SoundFX.playToggle(true);
 
-        this.time.delayedCall(600, () => {
-            const marsScene = this.scene.get("MarsWorldScene");
-            if (marsScene) {
-                marsScene.events.emit("solLevelUpdated", nextSol);
-            }
-            this.returnToMars();
-        });
+        const marsScene = this.scene.get("MarsWorldScene");
+        if (marsScene) {
+            marsScene.events.emit("solLevelUpdated", nextSol);
+        }
+        this.returnToMars();
     }
 
     protected returnToMars() {
-        this.cameras.main.fadeOut(300, 10, 5, 20);
-        this.time.delayedCall(300, () => {
-            this.scene.stop();
-            const marsScene = this.scene.get("MarsWorldScene");
-            if (marsScene) {
-                marsScene.scene.setVisible(true);
-                marsScene.scene.resume();
-                marsScene.input.enabled = true;
-                if (marsScene.input && marsScene.input.keyboard) {
-                    marsScene.input.keyboard.enabled = true;
-                }
-                marsScene.cameras.main.fadeIn(350, 10, 5, 20);
-            } else {
-                this.scene.start("MarsWorldScene");
-            }
-        });
+        this.scene.stop();
+        const marsScene = this.scene.get("MarsWorldScene");
+        if (marsScene) {
+            marsScene.scene.wake();
+            marsScene.scene.bringToTop();
+        } else {
+            this.scene.start("MarsWorldScene");
+        }
     }
 
     /**
