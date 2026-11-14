@@ -448,23 +448,6 @@ export class MarsWorldScene extends Phaser.Scene {
             () => this.togglePauseMenu()
         );
         pauseBtn.setDepth(110);
-
-        // Prominent HUD Switchboard Quick-Action Button
-        const hudSwitchboardBtn = ButtonFactory.createButton({
-            scene: this,
-            x: this.W - 485,
-            y: 38,
-            width: 170,
-            height: 38,
-            fontSize: "12px",
-            text: "SWITCHBOARD [P]",
-            primaryColor: UITheme.colors.solarGold,
-            secondaryColor: 0x1A1204,
-            textColor: UITheme.colors.solarGoldStr,
-            icon: "⚡",
-            onClick: () => this.openSwitchboard()
-        });
-        hudSwitchboardBtn.setDepth(110);
     }
 
     // =========================================================
