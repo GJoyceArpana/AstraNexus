@@ -32,7 +32,7 @@ export class MissionChallengesModal {
 
     private currentSolTab: number = 1;
     private activeSolData: Record<number, { currentVal: number; completed: boolean }> = {
-        1: { currentVal: 1.25, completed: false }, // 1.25m / 3.0m regolith
+        1: { currentVal: 0, completed: false },    // 0% water flow
         2: { currentVal: 0, completed: false },    // 0% perchlorate in cabin
         3: { currentVal: 0, completed: false },    // 0 = solar uncleaned / kilopower offline
         4: { currentVal: 1, completed: false },    // ISRU systems active
@@ -47,19 +47,19 @@ export class MissionChallengesModal {
     private readonly challenges: Record<number, SolChallengeDetail> = {
         1: {
             solNumber: 1,
-            title: "SOL 1: DIRT FORTRESS",
-            codename: "REGOLITH SHIELDING",
-            icon: "🏗️",
-            hazardBadge: "HIGH COSMIC RADIATION (>0.70 mSv/Sol)",
-            briefing: "Mars lacks a global magnetic field. Galactic cosmic rays penetrate the unshielded habitat hull. Use the rover to excavate loose basalt regolith and pile a 3.0-meter thick radiation barrier over the roof.",
-            nasaFact: "NASA research confirms that 3 meters of compacted Martian soil provides radiation shielding equivalent to Earth's atmosphere, blocking 95% of cosmic rays.",
-            primaryTarget: "Pile at least 3.0 meters of compacted regolith over habitat roof.",
-            progressMetric: "Shield Depth",
-            currentVal: 1.25,
-            targetVal: 3.0,
-            unit: "m",
-            actionButtonText: "🚜 EXCAVATE & PILE REGOLITH (+0.5m)",
-            secondaryActionText: "🛡️ TEST RADIATION ATTENUATION"
+            title: "SOL 1: SPACE-TOMATO GREENHOUSE",
+            codename: "CRYO-WATER IRRIGATION",
+            icon: "🍅",
+            hazardBadge: "HYDROPONIC CROP STARVATION RISK",
+            briefing: "Astronauts need fresh food! Melted underground glacial ice is ready, but the greenhouse irrigation pipes are disconnected. Connect them so the water flows directly into the empty plant pods to sprout giant Martian space-tomatoes.",
+            nasaFact: "NASA’s Veggie and Advanced Plant Habitat (APH) aboard the ISS have grown fresh salads and dwarf tomatoes in microgravity using capillary water delivery.",
+            primaryTarget: "Rotate and connect pipe grid to deliver water to plant pods.",
+            progressMetric: "Water Flow",
+            currentVal: 0,
+            targetVal: 100,
+            unit: "%",
+            actionButtonText: "🍅 ENTER GREENHOUSE PUZZLE ➔",
+            secondaryActionText: "🌱 INSPECT HYDROPONIC BEDS"
         },
         2: {
             solNumber: 2,
@@ -648,8 +648,8 @@ export class MissionChallengesModal {
 
         switch (sol) {
             case 1:
-                // Regolith Piling (+0.5m)
-                stateRecord.currentVal = Math.min(3.0, Number((stateRecord.currentVal + 0.5).toFixed(2)));
+                // Water flow (+25%)
+                stateRecord.currentVal = Math.min(100, stateRecord.currentVal + 25);
                 break;
             case 2:
                 // Suitport Decontamination
