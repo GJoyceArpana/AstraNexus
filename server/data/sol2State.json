@@ -1,0 +1,24 @@
+{
+  "event": "A Martian dust devil just coated our radiator fins in toxic perchlorate salt and jammed the outdoor ice-pipe valve!",
+  "phase": "NIGHT",
+  "choice": "A",
+  "lockedSuitportPlug": true,
+  "modules": {
+    "suitport": true,
+    "ice_melter": true,
+    "moxie": true,
+    "greenhouse": true
+  },
+  "freePowerPlugs": 2,
+  "icePipeFrozen": false,
+  "iceMelterEfficiency": 1,
+  "waterYieldPercent": 50,
+  "updatedAt": "2026-11-14T14:12:53.434Z",
+  "choiceLabel": "Send Astronaut Outside to Clear Ice Pipe",
+  "consequences": {
+    "suitContaminated": true,
+    "suitportForcedOnline": true,
+    "freePowerPlugsRemaining": 2,
+    "iceMelterWorking": true
+  }
+}

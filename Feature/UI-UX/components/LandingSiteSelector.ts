@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import UITheme from "../styles/UITheme.ts";
-import ButtonFactory from "./ButtonFactory.ts";
+import ButtonFactory, { SoundFX } from "./ButtonFactory.ts";
 
 export type LandingSiteId = "jezero" | "arcadia";
 
@@ -21,60 +21,6 @@ export interface LandingSiteInfo {
 export interface LandingSiteSelectorCallbacks {
     onSiteSelected: (site: LandingSiteId) => void;
     onBack: () => void;
-}
-
-class SiteSoundFX {
-    private static ctx: AudioContext | null = null;
-    private static getContext(): AudioContext | null {
-        if (!SiteSoundFX.ctx && typeof window !== "undefined") {
-            const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-            if (AudioCtx) SiteSoundFX.ctx = new AudioCtx();
-        }
-        if (SiteSoundFX.ctx && SiteSoundFX.ctx.state === "suspended") {
-            SiteSoundFX.ctx.resume();
-        }
-        return SiteSoundFX.ctx;
-    }
-
-    public static playHover() {
-        try {
-            const ctx = SiteSoundFX.getContext();
-            if (!ctx) return;
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = "sine";
-            osc.frequency.setValueAtTime(560, ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(860, ctx.currentTime + 0.04);
-            gain.gain.setValueAtTime(0.04, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.04);
-        } catch {
-            // Audio policy fallback
-        }
-    }
-
-    public static playSelect() {
-        try {
-            const ctx = SiteSoundFX.getContext();
-            if (!ctx) return;
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = "triangle";
-            osc.frequency.setValueAtTime(440, ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08);
-            gain.gain.setValueAtTime(0.08, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.08);
-        } catch {
-            // Audio policy fallback
-        }
-    }
 }
 
 export class LandingSiteSelector {
@@ -335,7 +281,7 @@ export class LandingSiteSelector {
         tab.add(hitShield);
 
         hitShield.on("pointerover", () => {
-            SiteSoundFX.playHover();
+            SoundFX.playHover();
 
             this.scene.tweens.killTweensOf(visuals);
             this.scene.tweens.killTweensOf(hoverGlow);
@@ -384,7 +330,7 @@ export class LandingSiteSelector {
         });
 
         hitShield.on("pointerdown", () => {
-            SiteSoundFX.playSelect();
+            SoundFX.playSelect();
 
             // Tactile feedback bounce
             this.scene.tweens.add({

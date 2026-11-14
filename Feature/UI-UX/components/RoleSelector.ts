@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import UITheme from "../styles/UITheme.ts";
-import ButtonFactory from "./ButtonFactory.ts";
+import ButtonFactory, { SoundFX } from "./ButtonFactory.ts";
 
 export type GameRole = "cadet" | "director";
 
@@ -126,6 +126,7 @@ export class RoleSelector {
         this.cadetCardContainer.add(cardShield);
 
         cardShield.on("pointerover", () => {
+            SoundFX.playHover();
             this.scene.tweens.add({
                 targets: this.cadetCardContainer,
                 scaleX: 1.03,
@@ -146,6 +147,7 @@ export class RoleSelector {
         });
 
         cardShield.on("pointerdown", () => {
+            SoundFX.playSelect();
             this.selectedRole = "cadet";
             this.updateCardSelection();
         });
@@ -195,6 +197,7 @@ export class RoleSelector {
         this.directorCardContainer.add(cardShield);
 
         cardShield.on("pointerover", () => {
+            SoundFX.playHover();
             this.scene.tweens.add({
                 targets: this.directorCardContainer,
                 scaleX: 1.03,
@@ -215,6 +218,7 @@ export class RoleSelector {
         });
 
         cardShield.on("pointerdown", () => {
+            SoundFX.playSelect();
             this.selectedRole = "director";
             this.updateCardSelection();
         });

@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import UITheme from "../styles/UITheme.ts";
+import { SoundFX } from "./ButtonFactory.ts";
 
 export interface TelemetryData {
     sol: number;
@@ -155,6 +156,7 @@ export class TelemetryPanel {
             insBtn.input!.cursor = "pointer";
 
             insBtn.on("pointerdown", () => {
+                SoundFX.playClick();
                 if (this.onOpenInsights) this.onOpenInsights();
             });
 

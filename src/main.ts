@@ -18,6 +18,7 @@ import StartScene from "./scenes/StartScene";
 import StoryScene from "./scenes/StoryScene";
 import CustomizationScene from "./scenes/CustomizationScene";
 import LunarWorldScene from "./scenes/LunarWorldScene";
+import { SoundFX } from "../Feature/UI-UX/components/ButtonFactory.ts";
 
 // =============================================
 // ASTRA NEXUS - GAME CONFIGURATION
@@ -33,11 +34,15 @@ await Promise.all([
     document.fonts.ready
 ]);
 
+// Initialize audio context unlock eagerly
+SoundFX.initGlobalUnlock();
+
 // =============================================
 // GLOBAL FULLSCREEN SYSTEM (Hotkeys F & F11 + Button)
 // =============================================
 
 function toggleFullscreen() {
+    SoundFX.playClick();
     if (!document.fullscreenElement) {
         const el = document.documentElement;
         if (el.requestFullscreen) {
@@ -230,6 +235,24 @@ const game = new Phaser.Game(config);
 // CANVAS STYLING
 // =============================================
 
+// =============================================
+// UNIVERSAL AUDIO FEEDBACK SYSTEM
+// =============================================
+
+// Hook Phaser scenes dynamically as they start or change
+const hookedScenes = new WeakSet<Phaser.Scene>();
+
+const hookSceneAudio = (scene: Phaser.Scene) => {
+    if (!scene || hookedScenes.has(scene)) return;
+    hookedScenes.add(scene);
+
+    if (scene.input) {
+        scene.input.on("gameobjectdown", (_pointer: Phaser.Input.Pointer, _gameObject: Phaser.GameObjects.GameObject) => {
+            SoundFX.playClick();
+        });
+    }
+};
+
 game.events.once("ready", () => {
     const canvas = game.canvas;
 
@@ -243,7 +266,39 @@ game.events.once("ready", () => {
             outline: "none"
         });
     }
+
+    // Attach to initial scenes and keep polling active scenes on step
+    game.scene.scenes.forEach(hookSceneAudio);
+    game.events.on("step", () => {
+        game.scene.getScenes(true).forEach(hookSceneAudio);
+    });
 });
+
+// Global DOM Click Interceptor for buttons, fullscreen pill, and interactive tags
+window.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+    if (
+        target.tagName === "BUTTON" ||
+        target.closest("button") ||
+        target.id === "fullscreen-btn" ||
+        target.closest("#fullscreen-btn") ||
+        target.getAttribute("role") === "button" ||
+        (target.style && target.style.cursor === "pointer")
+    ) {
+        SoundFX.playClick();
+    }
+}, { capture: true, passive: true });
+
+// Global Action Hotkeys Sound
+window.addEventListener("keydown", (event) => {
+    const actionHotkeys = ["e", "E", "m", "M", "p", "P", "f", "F", "Escape", "Enter", " "];
+    if (actionHotkeys.includes(event.key)) {
+        const active = document.activeElement;
+        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+        SoundFX.playKeyStroke();
+    }
+}, { capture: true, passive: true });
 
 // =============================================
 // RESPONSIVE RESIZE

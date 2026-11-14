@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import UITheme from "../styles/UITheme.ts";
-import ButtonFactory from "./ButtonFactory.ts";
+import { SoundFX } from "./ButtonFactory.ts";
 
 export interface OutpostSolTitleCallbacks {
     onStartMission: () => void;
@@ -36,283 +36,271 @@ export class OutpostSolTitle {
     private init() {
         const { width, height } = this.scene.scale;
 
-        // 1. Atmosphere & Mars Horizon
+        // 1. Serene Martian Celestial Sky, Realistic Sun & Smooth Horizon (Zero Creases/Lines)
         this.createMarsAtmosphere(width, height);
 
-        // 2. Outpost Sol Habitat Visuals
-        this.createHabitatSilhouette(width, height);
+        // 2. Perfectly Spaced Base Station Assets (Completely Stable, Zero Crowding)
+        this.createBaseStationScene(width, height);
 
-        // 3. Floating Dust & Twinkling Stars
-        this.createDustParticles(width, height);
+        // 3. Static Cosmic Stars in Deep Space
+        this.createStars(width, height);
 
-        // 4. Logo & Mission Header
-        this.createTitleTypography(width);
+        // 4. Command Console Frame & SOL SURVIVOR Terminal Menu
+        this.createCommandTerminal(height);
 
-        // 5. Interactive Navigation Menu
-        this.createMainMenu(width, height);
-
-        // 6. NASA Official Badge & Footer
+        // 5. Clean, Legible NASA Open Data Footer
         this.createFooter(width, height);
     }
 
+    // =========================================================
+    // 1. MARS ATMOSPHERE & REALISTIC CELESTIAL SUN (NO CREASES/LINES)
+    // =========================================================
     private createMarsAtmosphere(w: number, h: number) {
-        // Deep Space Backdrop
+        // Deep Space Celestial Background
         const bg = this.scene.add.rectangle(0, 0, w, h, UITheme.colors.marsSky).setOrigin(0);
         this.container.add(bg);
 
-        // Distant Mars Sun & Atmospheric Halo
-        const sunGlow = this.scene.add.circle(w * 0.78, h * 0.22, 180, UITheme.colors.marsGlow, 0.25);
-        const sunCore = this.scene.add.circle(w * 0.78, h * 0.22, 60, 0xFFAB91, 0.95);
-        this.container.add([sunGlow, sunCore]);
+        // Realistic Martian Sun: Small, bright celestial star (not a giant orange ball!)
+        const sunX = w * 0.78;
+        const sunY = h * 0.18;
 
-        this.scene.tweens.add({
-            targets: sunGlow,
-            scale: 1.15,
-            alpha: 0.35,
-            duration: 3500,
-            yoyo: true,
-            repeat: -1,
-            ease: "Sine.easeInOut"
-        });
+        const sunHalo = this.scene.add.circle(sunX, sunY, 36, 0xFFE082, 0.16);
+        const sunCore = this.scene.add.circle(sunX, sunY, 15, 0xFFFFFF, 0.98);
+        this.container.add([sunHalo, sunCore]);
 
-        // Mars Mountain Ridges (Layered depth)
-        const ridgeFar = this.scene.add.ellipse(w * 0.5, h * 0.88, w * 1.3, 260, UITheme.colors.marsDeepRust);
-        const ridgeMid = this.scene.add.ellipse(w * 0.8, h * 0.92, w * 1.1, 220, 0x93443C);
+        // Smooth, Seamless Martian Horizon Curves (No sharp lines, No creases, No seams)
+        const farHill = this.scene.add.ellipse(w * 0.60, h * 0.86, w * 1.35, 260, UITheme.colors.marsDeepRust);
+        const midHill = this.scene.add.ellipse(w * 0.85, h * 0.90, w * 1.15, 220, 0x93443C);
         const ground = this.scene.add.rectangle(0, h * 0.82, w, h * 0.18, UITheme.colors.marsSurface).setOrigin(0);
-        
-        this.container.add([ridgeFar, ridgeMid, ground]);
+
+        this.container.add([farHill, midHill, ground]);
     }
 
-    private createHabitatSilhouette(w: number, h: number) {
-        // If textures exist in asset library, render Mars habitat structures
+    // =========================================================
+    // 2. BASE STATION ASSETS (PERFECTLY SPACED & STABLE)
+    // =========================================================
+    private createBaseStationScene(w: number, h: number) {
+        const baseGroup = this.scene.add.container(0, 0);
+
         const savedMaterial = this.scene.registry.get("baseConstructionMaterial") ||
             (typeof window !== "undefined" && window.localStorage ? localStorage.getItem("astra_base_material") : null);
 
-        if (savedMaterial === "sand" && this.scene.textures.exists("sand-base-station")) {
-            const hab = this.scene.add.image(w * 0.78, h * 0.76, "sand-base-station");
-            hab.setScale(0.36);
-            this.container.add(hab);
-        } else if (this.scene.textures.exists("mars-habitat")) {
-            const hab = this.scene.add.image(w * 0.78, h * 0.75, "mars-habitat");
-            hab.setScale(0.55);
-            if (savedMaterial === "glass") {
-                hab.setTint(0xD0F8FF);
-            }
-            this.container.add(hab);
-        }
-
+        // 1. Solar Panels Array: Cleanly spaced well to the left (x = 760)
+        // Completely clear of the habitat's stairs and platform with ~250px breathing room!
         if (this.scene.textures.exists("solar-panels")) {
-            const solar = this.scene.add.image(w * 0.62, h * 0.79, "solar-panels");
-            solar.setScale(0.45);
-            this.container.add(solar);
+            const solar = this.scene.add.image(w * 0.60, h * 0.77, "solar-panels");
+            solar.setScale(0.44);
+            baseGroup.add(solar);
         }
 
-        if (this.scene.textures.exists("dish-antenna")) {
-            const dish = this.scene.add.image(w * 0.90, h * 0.66, "dish-antenna");
-            dish.setScale(0.38);
-            this.container.add(dish);
+        // 2. Habitat Dome: Proud centerpiece at x = 1000, y = 520
+        const habX = w * 0.79;
+        const habY = h * 0.73;
+
+        let hab: Phaser.GameObjects.Image | null = null;
+        if (savedMaterial === "sand" && this.scene.textures.exists("sand-base-station")) {
+            hab = this.scene.add.image(habX, habY, "sand-base-station");
+            hab.setScale(0.36);
+        } else if (this.scene.textures.exists("mars-habitat")) {
+            hab = this.scene.add.image(habX, habY, "mars-habitat");
+            hab.setScale(0.55);
+            if (savedMaterial === "glass") hab.setTint(0xD0F8FF);
+        } else if (this.scene.textures.exists("base-station")) {
+            hab = this.scene.add.image(habX, habY, "base-station");
+            hab.setScale(0.66);
         }
+
+        if (hab) {
+            baseGroup.add(hab);
+        }
+
+        // 3. High-Gain Dish Antenna: Placed comfortably to the right of the habitat
+        if (this.scene.textures.exists("dish-antenna")) {
+            const dish = this.scene.add.image(w * 0.92, h * 0.64, "dish-antenna");
+            dish.setScale(0.38);
+            baseGroup.add(dish);
+        }
+
+        this.container.add(baseGroup);
     }
 
-    private createDustParticles(w: number, h: number) {
-        // Twinkling stars
-        for (let i = 0; i < 60; i++) {
+    // =========================================================
+    // 3. COSMIC TWINKLING STARS (DEEP SKY ONLY)
+    // =========================================================
+    private createStars(w: number, h: number) {
+        for (let i = 0; i < 65; i++) {
             const star = this.scene.add.circle(
-                Phaser.Math.Between(0, w),
-                Phaser.Math.Between(0, h * 0.65),
+                Phaser.Math.Between(15, w - 15),
+                Phaser.Math.Between(15, h * 0.62),
                 Phaser.Math.FloatBetween(0.8, 2.0),
                 0xFFFFFF,
                 Phaser.Math.FloatBetween(0.3, 0.9)
             );
             this.container.add(star);
-
-            this.scene.tweens.add({
-                targets: star,
-                alpha: 0.15,
-                duration: Phaser.Math.Between(1200, 3000),
-                yoyo: true,
-                repeat: -1
-            });
-        }
-
-        // Drifting red Martian dust
-        for (let i = 0; i < 25; i++) {
-            const dust = this.scene.add.circle(
-                Phaser.Math.Between(0, w),
-                Phaser.Math.Between(h * 0.4, h * 0.9),
-                Phaser.Math.FloatBetween(1.5, 3.5),
-                UITheme.colors.marsAmber,
-                Phaser.Math.FloatBetween(0.2, 0.6)
-            );
-            this.particles.push(dust);
-            this.container.add(dust);
-
-            this.scene.tweens.add({
-                targets: dust,
-                x: `+=${Phaser.Math.Between(60, 180)}`,
-                y: `+=${Phaser.Math.Between(-30, 30)}`,
-                alpha: 0.1,
-                duration: Phaser.Math.Between(4000, 8000),
-                yoyo: true,
-                repeat: -1
-            });
         }
     }
 
-    private createTitleTypography(w: number) {
-        const titleGroup = this.scene.add.container(w * 0.30, 140);
+    // =========================================================
+    // 4. COMMAND TERMINAL CONSOLE & SOL SURVIVOR BRANDING
+    // =========================================================
+    private createCommandTerminal(h: number) {
+        const termW = 460;
+        const termH = 645;
+        const termX = 40;
+        const termY = (h - termH) / 2;
 
-        // Status Ribbon
-        const statusBadge = this.scene.add.graphics();
-        statusBadge.fillStyle(UITheme.colors.panelBg, 0.85);
-        statusBadge.fillRoundedRect(-160, -64, 320, 26, 6);
-        statusBadge.lineStyle(1.5, UITheme.colors.primaryCyan, 0.8);
-        statusBadge.strokeRoundedRect(-160, -64, 320, 26, 6);
-        titleGroup.add(statusBadge);
+        const terminal = this.scene.add.container(termX, termY);
 
-        const statusText = this.scene.add.text(0, -51, "✦ NASA MARS EXPLORATION INITIATIVE ✦", {
+        // 1. Sleek Frosted Glass Console Panel
+        const glassBg = this.scene.add.graphics();
+        glassBg.fillStyle(0x061122, 0.92);
+        glassBg.fillRoundedRect(0, 0, termW, termH, 16);
+        glassBg.lineStyle(2, UITheme.colors.primaryCyan, 0.85);
+        glassBg.strokeRoundedRect(0, 0, termW, termH, 16);
+
+        // Inner glowing border
+        glassBg.lineStyle(1, 0x1E3B68, 0.6);
+        glassBg.strokeRoundedRect(6, 6, termW - 12, termH - 12, 12);
+
+        // Futuristic Cyber Corner Accents
+        const cornerSize = 18;
+        glassBg.lineStyle(3, UITheme.colors.solarGold, 1);
+        glassBg.lineBetween(0, cornerSize, 0, 0);
+        glassBg.lineBetween(0, 0, cornerSize, 0);
+        glassBg.lineBetween(termW - cornerSize, 0, termW, 0);
+        glassBg.lineBetween(termW, 0, termW, cornerSize);
+        glassBg.lineBetween(0, termH - cornerSize, 0, termH);
+        glassBg.lineBetween(0, termH, cornerSize, termH);
+        glassBg.lineBetween(termW - cornerSize, termH, termW, termH);
+        glassBg.lineBetween(termW, termH - cornerSize, termW, termH);
+
+        terminal.add(glassBg);
+
+        // Terminal Top System Header
+        const sysTag = this.scene.add.text(termW / 2, 22, "✦ NASA MARS BASE EXPEDITION · 2026 ✦", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
             color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold"
-        }).setOrigin(0.5);
-        titleGroup.add(statusText);
-
-        // Glowing Main Title Shadow
-        const titleShadow = this.scene.add.text(3, 3, "OUTPOST SOL", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "64px",
-            color: "#000000",
-            fontStyle: "900"
-        }).setOrigin(0.5);
-        titleGroup.add(titleShadow);
-
-        // Main Title
-        const titleText = this.scene.add.text(0, 0, "OUTPOST SOL", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "64px",
-            color: "#FFFFFF",
-            fontStyle: "900"
-        }).setOrigin(0.5);
-        titleGroup.add(titleText);
-
-        // Glowing Underline / Energy Bar
-        const bar = this.scene.add.graphics();
-        bar.fillStyle(UITheme.colors.marsAmber, 1);
-        bar.fillRoundedRect(-180, 42, 360, 4, 2);
-        titleGroup.add(bar);
-
-        // Subtitle
-        const subtitle = this.scene.add.text(0, 62, "MARS HABITAT COLONIZATION & SURVIVAL SIMULATION", {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "12px",
-            color: UITheme.colors.textSecondary,
             fontStyle: "bold",
-            letterSpacing: 1.5,
-            align: "center",
-            wordWrap: { width: 380 }
+            letterSpacing: 2
         }).setOrigin(0.5);
-        titleGroup.add(subtitle);
+        terminal.add(sysTag);
 
-        this.container.add(titleGroup);
-    }
+        // 2. MAIN LOGO: "SOL SURVIVOR" (Blockbuster Sci-Fi Title Typography)
+        const titleY = 64;
 
-    private createMainMenu(w: number, _h: number) {
-        const startY = 275;
-        const spacing = 62;
-        const menuX = w * 0.30;
-        const btnW = 370;
+        // Glowing Golden Drop Shadow
+        const titleGlow = this.scene.add.text(termW / 2, titleY + 2, "SOL SURVIVOR", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "44px",
+            color: "#FF6D00",
+            fontStyle: "900",
+            letterSpacing: 2
+        }).setOrigin(0.5);
+        titleGlow.setShadow(0, 0, "#FFAB00", 16);
+        terminal.add(titleGlow);
 
-        // Button 1: LAUNCH MISSION
-        const launchBtn = ButtonFactory.createButton({
-            scene: this.scene,
-            x: menuX,
-            y: startY,
-            width: btnW,
+        // Crisp Radiant Solar Gold & White Main Title
+        const mainTitle = this.scene.add.text(termW / 2, titleY, "SOL SURVIVOR", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "44px",
+            color: "#FFF9C4",
+            fontStyle: "900",
+            letterSpacing: 2
+        }).setOrigin(0.5);
+        mainTitle.setShadow(0, 2, "#000000", 6);
+        terminal.add(mainTitle);
+
+        // Mission Subtitle
+        const subTitle = this.scene.add.text(termW / 2, titleY + 36, "FIVE WAYS NOT TO POP! · SURVIVAL SIMULATION", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10.5px",
+            color: UITheme.colors.solarGoldStr,
+            fontStyle: "bold",
+            letterSpacing: 1.2
+        }).setOrigin(0.5);
+        terminal.add(subTitle);
+
+        // Glowing Decorative Divider Line with Center Diamond Pip
+        const divG = this.scene.add.graphics();
+        divG.lineStyle(1.5, UITheme.colors.primaryCyan, 0.6);
+        divG.lineBetween(35, titleY + 54, termW - 35, titleY + 54);
+        divG.fillStyle(UITheme.colors.solarGold, 1);
+        divG.fillCircle(termW / 2, titleY + 54, 3.5);
+        terminal.add(divG);
+
+        // 3. INTERACTIVE NAVIGATION MENU
+        const menuStartY = titleY + 76;
+        const menuBtnW = 404;
+        const btnSpacing = 68;
+
+        // HERO BUTTON 1: INITIALIZE (Directly launches Customization & Descent)
+        const launchBtn = this.createHeroButton({
+            x: termW / 2,
+            y: menuStartY + 28,
+            width: menuBtnW,
             height: 52,
-            fontSize: "15px",
-            text: "INITIALIZE MISSION",
-            primaryColor: UITheme.colors.solarGold,
-            secondaryColor: 0x221A08,
-            textColor: UITheme.colors.solarGoldStr,
+            title: "INITIALIZE",
             icon: "🚀",
             onClick: () => this.callbacks.onStartMission()
         });
-        this.container.add(launchBtn);
+        terminal.add(launchBtn);
 
-        // Button 2: SELECT ROLE / DIFFICULTY
-        const roleBtn = ButtonFactory.createButton({
-            scene: this.scene,
-            x: menuX,
-            y: startY + spacing,
-            width: btnW,
+        // BUTTON 2: ASTRONAUT CUSTOMIZATION
+        const customBtn = this.createMenuCard({
+            x: termW / 2,
+            y: menuStartY + 28 + btnSpacing,
+            width: menuBtnW,
             height: 50,
-            fontSize: "14px",
-            text: "COMMAND ROLE SELECTOR",
-            primaryColor: UITheme.colors.primaryCyan,
-            icon: "🎖",
-            onClick: () => this.callbacks.onSelectRole()
-        });
-        this.container.add(roleBtn);
-
-        // Button 3: LANDING-SITE RADAR
-        const siteBtn = ButtonFactory.createButton({
-            scene: this.scene,
-            x: menuX,
-            y: startY + spacing * 2,
-            width: btnW,
-            height: 50,
-            fontSize: "14px",
-            text: "MARS LANDING SITES",
-            primaryColor: UITheme.colors.marsAmber,
-            icon: "🪐",
-            onClick: () => this.callbacks.onSelectLandingSite()
-        });
-        this.container.add(siteBtn);
-
-        // Button 4: ASTRONAUT CUSTOMIZER
-        const customBtn = ButtonFactory.createButton({
-            scene: this.scene,
-            x: menuX,
-            y: startY + spacing * 3,
-            width: btnW,
-            height: 50,
-            fontSize: "14px",
-            text: "ASTRONAUT CUSTOMIZATION",
-            primaryColor: UITheme.colors.cosmicPurple,
+            title: "ASTRONAUT CUSTOMIZATION",
+            subtitle: "Suits, Visors, Colors & Surface Tools",
             icon: "🧑‍🚀",
+            accentColor: UITheme.colors.primaryCyan,
             onClick: () => this.callbacks.onCustomization()
         });
-        this.container.add(customBtn);
+        terminal.add(customBtn);
 
-        // Button 5: NASA TELEMETRY & SCIENCE
-        const telemetryBtn = ButtonFactory.createButton({
-            scene: this.scene,
-            x: menuX,
-            y: startY + spacing * 4,
-            width: btnW,
+        // BUTTON 3: MARS LANDING SITES
+        const siteBtn = this.createMenuCard({
+            x: termW / 2,
+            y: menuStartY + 28 + btnSpacing * 2,
+            width: menuBtnW,
             height: 50,
-            fontSize: "14px",
-            text: "NASA TELEMETRY ARCHIVE",
-            primaryColor: UITheme.colors.bioGreen,
+            title: "MARS LANDING SITES",
+            subtitle: "Jezero Crater & Arcadia Planitia",
+            icon: "🪐",
+            accentColor: UITheme.colors.marsAmber,
+            onClick: () => this.callbacks.onSelectLandingSite()
+        });
+        terminal.add(siteBtn);
+
+        // BUTTON 4: NASA TELEMETRY ARCHIVE
+        const telemetryBtn = this.createMenuCard({
+            x: termW / 2,
+            y: menuStartY + 28 + btnSpacing * 3,
+            width: menuBtnW,
+            height: 50,
+            title: "NASA TELEMETRY ARCHIVE",
+            subtitle: "Live DONKI Space Weather & Mars Data",
             icon: "📡",
+            accentColor: UITheme.colors.bioGreen,
             onClick: () => this.callbacks.onOpenTelemetry()
         });
-        this.container.add(telemetryBtn);
+        terminal.add(telemetryBtn);
 
-        // Button 6: HOW TO PLAY
-        const howToBtn = ButtonFactory.createButton({
-            scene: this.scene,
-            x: menuX,
-            y: startY + spacing * 5,
-            width: btnW,
+        // BUTTON 5: CADET SURVIVAL GUIDE
+        const guideBtn = this.createMenuCard({
+            x: termW / 2,
+            y: menuStartY + 28 + btnSpacing * 4,
+            width: menuBtnW,
             height: 50,
-            fontSize: "14px",
-            text: "CADET MISSION GUIDE",
-            primaryColor: 0x88A0C4,
+            title: "CADET SURVIVAL GUIDE",
+            subtitle: "How to Play, Controls & Mission Tips",
             icon: "📖",
+            accentColor: 0x4FC3F7,
             onClick: () => this.callbacks.onHowToPlay()
         });
+<<<<<<< HEAD
         this.container.add(howToBtn);
 
         this.menuButtons = [launchBtn, roleBtn, siteBtn, customBtn, telemetryBtn, howToBtn];
@@ -369,20 +357,258 @@ export class OutpostSolTitle {
         const buttonHeight = this.menuFocusIndex === 0 ? 52 : 50;
         ring.lineStyle(2, 0xE8FCFF, 0.95);
         ring.strokeRoundedRect(button.x - 194, button.y - buttonHeight / 2 - 5, 388, buttonHeight + 10, 15);
+=======
+        terminal.add(guideBtn);
+
+        // Console Bottom Status Pill inside terminal
+        const termStatus = this.scene.add.text(termW / 2, termH - 24, "● SYSTEM ONLINE · MRO RELAY: ACTIVE · LAT 18.38°N", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "9px",
+            color: UITheme.colors.primaryCyanStr,
+            letterSpacing: 1
+        }).setOrigin(0.5);
+        terminal.add(termStatus);
+
+        this.container.add(terminal);
+>>>>>>> origin/main
     }
 
+    // =========================================================
+    // HERO BUTTON BUILDER (Glowing Golden Launch Action)
+    // =========================================================
+    private createHeroButton(config: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        title: string;
+        icon: string;
+        onClick: () => void;
+    }): Phaser.GameObjects.Container {
+        const btn = this.scene.add.container(config.x, config.y);
+        const w = config.width;
+        const h = config.height;
+
+        // Solid Radiant Golden Body
+        const bg = this.scene.add.graphics();
+        bg.fillGradientStyle(0xFFD600, 0xFFAB00, 0xFF8F00, 0xFF6F00, 1);
+        bg.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
+        bg.lineStyle(2, 0xFFFFFF, 0.9);
+        bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
+        btn.add(bg);
+
+        // Centered Icon & Title
+        const iconText = this.scene.add.text(-68, 0, config.icon, {
+            fontSize: "20px"
+        }).setOrigin(0.5);
+        btn.add(iconText);
+
+        const titleText = this.scene.add.text(-44, 0, config.title, {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "16px",
+            color: "#0A111E",
+            fontStyle: "900",
+            letterSpacing: 2
+        }).setOrigin(0, 0.5);
+        btn.add(titleText);
+
+        // Hit Shield for instant responsiveness
+        const hit = this.scene.add.rectangle(0, 0, w, h, 0x000000, 0.001);
+        hit.setInteractive({ useHandCursor: true });
+        btn.add(hit);
+
+        hit.on("pointerover", () => {
+            SoundFX.playHover();
+            this.scene.tweens.add({
+                targets: btn,
+                scaleX: 1.02,
+                scaleY: 1.02,
+                duration: 90,
+                ease: "Back.easeOut"
+            });
+            bg.clear();
+            bg.fillGradientStyle(0xFFFF8D, 0xFFD600, 0xFFA000, 0xFF8F00, 1);
+            bg.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
+            bg.lineStyle(2.5, 0xFFFFFF, 1);
+            bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
+        });
+
+        hit.on("pointerout", () => {
+            this.scene.tweens.add({
+                targets: btn,
+                scaleX: 1.0,
+                scaleY: 1.0,
+                duration: 100,
+                ease: "Quad.easeOut"
+            });
+            bg.clear();
+            bg.fillGradientStyle(0xFFD600, 0xFFAB00, 0xFF8F00, 0xFF6F00, 1);
+            bg.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
+            bg.lineStyle(2, 0xFFFFFF, 0.9);
+            bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
+        });
+
+        hit.on("pointerdown", () => {
+            SoundFX.playClick();
+            this.scene.tweens.add({
+                targets: btn,
+                scaleX: 0.97,
+                scaleY: 0.97,
+                duration: 50,
+                yoyo: true,
+                onComplete: () => config.onClick()
+            });
+        });
+
+        return btn;
+    }
+
+    // =========================================================
+    // SLEEK MENU CARD BUILDER (Rich 2-Line High-Tech Buttons)
+    // =========================================================
+    private createMenuCard(config: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        title: string;
+        subtitle: string;
+        icon: string;
+        accentColor: number;
+        onClick: () => void;
+    }): Phaser.GameObjects.Container {
+        const btn = this.scene.add.container(config.x, config.y);
+        const w = config.width;
+        const h = config.height;
+        const hexStr = `#${config.accentColor.toString(16).padStart(6, "0")}`;
+
+        // Background Box
+        const bg = this.scene.add.graphics();
+        bg.fillStyle(0x0C1D38, 0.88);
+        bg.fillRoundedRect(-w / 2, -h / 2, w, h, 8);
+        bg.lineStyle(1.5, config.accentColor, 0.7);
+        bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
+        btn.add(bg);
+
+        // Icon in Neon Container Box
+        const iconBox = this.scene.add.graphics();
+        iconBox.fillStyle(0x07152B, 0.9);
+        iconBox.fillRoundedRect(-w / 2 + 8, -h / 2 + 7, 36, 36, 6);
+        iconBox.lineStyle(1, config.accentColor, 0.8);
+        iconBox.strokeRoundedRect(-w / 2 + 8, -h / 2 + 7, 36, 36, 6);
+        btn.add(iconBox);
+
+        const iconText = this.scene.add.text(-w / 2 + 26, 0, config.icon, {
+            fontSize: "17px"
+        }).setOrigin(0.5);
+        btn.add(iconText);
+
+        // Main Title
+        const titleText = this.scene.add.text(-w / 2 + 54, -7, config.title, {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "12.5px",
+            color: "#FFFFFF",
+            fontStyle: "bold",
+            letterSpacing: 1
+        }).setOrigin(0, 0.5);
+        btn.add(titleText);
+
+        // Subtitle / Description
+        const subText = this.scene.add.text(-w / 2 + 54, 10, config.subtitle, {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "10px",
+            color: "#9BB5D5"
+        }).setOrigin(0, 0.5);
+        btn.add(subText);
+
+        // Right-side chevron arrow
+        const arrow = this.scene.add.text(w / 2 - 20, 0, "➔", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "13px",
+            color: hexStr,
+            fontStyle: "bold"
+        }).setOrigin(0.5);
+        btn.add(arrow);
+
+        // Interactive Hit Shield
+        const hit = this.scene.add.rectangle(0, 0, w, h, 0x000000, 0.001);
+        hit.setInteractive({ useHandCursor: true });
+        btn.add(hit);
+
+        hit.on("pointerover", () => {
+            SoundFX.playHover();
+            this.scene.tweens.add({
+                targets: btn,
+                x: config.x + 6,
+                duration: 90,
+                ease: "Back.easeOut"
+            });
+            bg.clear();
+            bg.fillStyle(0x132E58, 0.96);
+            bg.fillRoundedRect(-w / 2, -h / 2, w, h, 8);
+            bg.lineStyle(2, config.accentColor, 1);
+            bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
+            titleText.setColor(hexStr);
+        });
+
+        hit.on("pointerout", () => {
+            this.scene.tweens.add({
+                targets: btn,
+                x: config.x,
+                duration: 90,
+                ease: "Quad.easeOut"
+            });
+            bg.clear();
+            bg.fillStyle(0x0C1D38, 0.88);
+            bg.fillRoundedRect(-w / 2, -h / 2, w, h, 8);
+            bg.lineStyle(1.5, config.accentColor, 0.7);
+            bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
+            titleText.setColor("#FFFFFF");
+        });
+
+        hit.on("pointerdown", () => {
+            SoundFX.playSelect();
+            this.scene.tweens.add({
+                targets: btn,
+                scaleX: 0.98,
+                scaleY: 0.98,
+                duration: 50,
+                yoyo: true,
+                onComplete: () => config.onClick()
+            });
+        });
+
+        return btn;
+    }
+
+    // =========================================================
+    // 5. HIGH-CONTRAST FOOTER STATUS BAR
+    // =========================================================
     private createFooter(w: number, h: number) {
-        const footerText = this.scene.add.text(
+        const footerY = h - 18;
+
+        const footer = this.scene.add.text(
             w * 0.5,
-            h - 22,
-            "ASTRA NEXUS · POWERED BY NASA OPEN DATA (DONKI & MARS TREK) · CHILD-SAFE INTERFACE",
+            footerY,
+            "ASTRA NEXUS · SOL SURVIVOR · POWERED BY NASA OPEN DATA (DONKI / MARS TREK / PDS) · CHILD SAFE",
             {
-                fontFamily: UITheme.fonts.body,
-                fontSize: "12px",
-                color: UITheme.colors.textMuted
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "10.5px",
+                color: "#C2D7EF",
+                fontStyle: "bold",
+                letterSpacing: 1
             }
         ).setOrigin(0.5);
-        this.container.add(footerText);
+
+        // Add subtle dark pill background so footer stands out on any terrain
+        const bounds = footer.getBounds();
+        const pillBg = this.scene.add.graphics();
+        pillBg.fillStyle(0x060E1A, 0.85);
+        pillBg.fillRoundedRect(bounds.x - 14, bounds.y - 4, bounds.width + 28, bounds.height + 8, 6);
+        pillBg.lineStyle(1, 0x1E3B68, 0.6);
+        pillBg.strokeRoundedRect(bounds.x - 14, bounds.y - 4, bounds.width + 28, bounds.height + 8, 6);
+
+        this.container.add([pillBg, footer]);
     }
 
     public destroy() {
