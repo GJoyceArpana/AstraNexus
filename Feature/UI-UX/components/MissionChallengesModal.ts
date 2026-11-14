@@ -36,7 +36,7 @@ export class MissionChallengesModal {
         2: { currentVal: 0, completed: false },    // 0% perchlorate in cabin
         3: { currentVal: 0, completed: false },    // 0 = solar uncleaned / kilopower offline
         4: { currentVal: 1, completed: false },    // ISRU systems active
-        5: { currentVal: 2, completed: false },    // 2 commands queued
+        5: { currentVal: 0, completed: false },    // 0 / 4 systems repaired
         6: { currentVal: 4, completed: false },    // 4 modules balanced
         7: { currentVal: 150, completed: false },  // 150 kg samples
     };
@@ -111,19 +111,19 @@ export class MissionChallengesModal {
         },
         5: {
             solNumber: 5,
-            title: "SOL 5: THE 12-MINUTE SILENCE",
-            codename: "SOLAR STORM & COMMS LAG",
-            icon: "📡",
-            hazardBadge: "CME PROTON FLARE (+85 mSv) & COMMS BLACKOUT",
-            briefing: "NASA DONKI space weather reports an X-class solar flare launching an energetic Coronal Mass Ejection (CME) toward Mars. Because radio signals take 12 minutes one-way, you must pre-program autonomous rover actions!",
-            nasaFact: "Radio signals between Earth and Mars take 4 to 24 minutes depending on planetary orbits. Mars rovers must execute pre-programmed drive sequences autonomously.",
-            primaryTarget: "Shelter crew inside regolith bunker and queue autonomous rover actions.",
-            progressMetric: "Command Queue Slots",
-            currentVal: 2,
-            targetVal: 3,
-            unit: "Slots",
-            actionButtonText: "🤖 EXECUTE PRE-PROGRAMMED BUFFER",
-            secondaryActionText: "🛡️ MOVE CREW TO STORM BUNKER"
+            title: "SOL 5: THE LAST SAFE HABITAT",
+            codename: "MARS HABITAT EMERGENCY REPAIR",
+            icon: "🚨",
+            hazardBadge: "CATASTROPHIC LIFE SUPPORT & DEPRESSURIZATION RISK",
+            briefing: "A ferocious Martian dust storm has battered Outpost Sol, rupturing the air conduit, shorting the electrical grid, destabilizing oxygen regulation, and cracking the exterior hull. Explore the damaged research habitat, collect repair materials, and solve 4 engineering mini-games to restore the base before the emergency reserve runs out!",
+            nasaFact: "Mars ambient atmospheric pressure is only 610 Pa (<1% of Earth). The Armstrong Limit is 6.3 kPa, where unpressurized water boils at body temperature. NASA habitats maintain 56-70 kPa with ECLSS scrubbers.",
+            primaryTarget: "Restore all 4 critical systems: Air Distribution, Power Grid, O2 Regulation & Hull Seal.",
+            progressMetric: "Systems Restored",
+            currentVal: 0,
+            targetVal: 4,
+            unit: "Systems",
+            actionButtonText: "🚨 ENTER EMERGENCY HABITAT ➔",
+            secondaryActionText: "📦 SEARCH SUPPLY CRATES"
         },
         6: {
             solNumber: 6,
@@ -608,7 +608,7 @@ export class MissionChallengesModal {
             case 2: return "Sol2PerchlorateBarrierScene";
             case 3: return "Sol3RedGaleScene";
             case 4: return "Sol4ISRUProductionScene";
-            case 5: return "Sol5SilenceCommsLagScene";
+            case 5: return "Sol5LastSafeHabitatScene";
             case 6: return "Sol6ColonyGridlockScene";
             case 7: return "Sol7JourneyHomeMAVScene";
             default: return "Sol1DirtFortressScene";
@@ -641,8 +641,9 @@ export class MissionChallengesModal {
                 stateRecord.currentVal = Math.min(3, stateRecord.currentVal + 1);
                 break;
             case 5:
-                // Execute command buffer
-                stateRecord.currentVal = 3;
+                // Repair habitat subsystem
+                stateRecord.currentVal = Math.min(4, stateRecord.currentVal + 1);
+                stateRecord.completed = stateRecord.currentVal >= 4;
                 break;
             case 6:
                 // Auto-balance grid
