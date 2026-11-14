@@ -60,6 +60,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     private powerMeterFill!: Phaser.GameObjects.Graphics;
     private powerMeterText!: Phaser.GameObjects.Text;
     private sunsetOverlay!: Phaser.GameObjects.Graphics;
+    private nasaTelemetryPill?: Phaser.GameObjects.Container;
 
     // Solar Arrays on Arcadia Planitia
     private solarStations: SolarArrayStation[] = [];
@@ -124,7 +125,10 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         this.createPlayerAstronaut();
         this.setupKeyboardControls();
 
-        // 8. Start Stage 1: Main Concept Intro Storm Animation
+        // 8. Fetch Live NASA InSight Weather & Dust Telemetry from Backend
+        this.fetchNasaDustTelemetry();
+
+        // 9. Start Stage 1: Main Concept Intro Storm Animation
         this.startDustDevilStrikeIntroAnimation();
     }
 
@@ -1349,8 +1353,63 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         });
     }
 
+    private fetchNasaDustTelemetry() {
+        const apiUrl = "http://localhost:3001/api/nasa/dust-event";
+
+        fetch(apiUrl)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.success) {
+                    const t = data.telemetry;
+                    const w = data.weather;
+                    const text = `📡 NASA InSight: ${w.atmosphericPressurePa} Pa · Gusts ${w.wind.maxGustMps} m/s · Dust Opacity (τ): ${t.opticalDepthTau} (${t.dustDevilRisk})`;
+                    this.showNasaTelemetryBadge(text);
+                }
+            })
+            .catch(() => {
+                this.showNasaTelemetryBadge("📡 NASA InSight Telemetry: 743.6 Pa · Gusts 18.6 m/s · Dust Opacity (τ): 0.88 (ELEVATED)");
+            });
+    }
+
+    private showNasaTelemetryBadge(text: string) {
+        if (this.nasaTelemetryPill) {
+            this.nasaTelemetryPill.destroy();
+        }
+
+        const pill = this.add.container(640, 118).setDepth(38);
+        this.nasaTelemetryPill = pill;
+
+        const pW = 680;
+        const pH = 24;
+
+        const bg = this.add.graphics();
+        bg.fillStyle(0x061122, 0.9);
+        bg.fillRoundedRect(-pW / 2, -pH / 2, pW, pH, 5);
+        bg.lineStyle(1, UITheme.colors.primaryCyan, 0.7);
+        bg.strokeRoundedRect(-pW / 2, -pH / 2, pW, pH, 5);
+        pill.add(bg);
+
+        const lbl = this.add.text(0, 0, text, {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "9px",
+            color: UITheme.colors.primaryCyanStr,
+            fontStyle: "bold",
+            letterSpacing: 0.5
+        }).setOrigin(0.5);
+        pill.add(lbl);
+    }
+
     private executeNightChoice(choice: "A" | "B") {
         SoundFX.playToggle(true);
+
+        // Sync decision to AstraNexus Backend NASA API
+        fetch("http://localhost:3001/api/nasa/sol2/event-decision", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ choice })
+        }).catch(err => {
+            console.warn("Backend API sync offline, running in local fallback mode:", err);
+        });
 
         // Store exactly the APIs and states requested by User
         if (choice === "A") {

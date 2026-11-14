@@ -380,8 +380,8 @@ export class AstronautCustomizer {
         bg.strokeRoundedRect(0, 0, w, h, UITheme.layout.cardRadius);
         panel.add(bg);
 
-        // 1. Gender Selection - Clean single-row layout with zero overlap
-        const genderLabel = this.scene.add.text(20, 24, "1. ASTRONAUT CADET BASE:", {
+        // 1. Gender Selection - Clean single-row layout with generous 100px+ spacing
+        const genderLabel = this.scene.add.text(20, 26, "1. ASTRONAUT CADET BASE:", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
             color: UITheme.colors.primaryCyanStr,
@@ -390,8 +390,8 @@ export class AstronautCustomizer {
         }).setOrigin(0, 0.5);
         panel.add(genderLabel);
 
-        this.boyBtn = this.createGenderButton(panel, 300, 24, "boy", "BOY CADET", "👨‍🚀");
-        this.girlBtn = this.createGenderButton(panel, 470, 24, "girl", "GIRL CADET", "👩‍🚀");
+        this.boyBtn = this.createGenderButton(panel, 410, 26, "boy", "BOY CADET", "👨‍🚀");
+        this.girlBtn = this.createGenderButton(panel, 580, 26, "girl", "GIRL CADET", "👩‍🚀");
         this.updateGenderButtons();
 
         // 2. Select Mars Suit Model (5 Visual Cards)
@@ -407,7 +407,7 @@ export class AstronautCustomizer {
         this.createSuitCards(panel, 20, 78, w - 40);
 
         // 3. Suit Telemetry & Beam Color
-        const colorLabel = this.scene.add.text(20, 212, "3. SUIT TELEMETRY ACCENT COLOR:", {
+        const colorLabel = this.scene.add.text(20, 210, "3. SUIT TELEMETRY ACCENT COLOR:", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
             color: UITheme.colors.primaryCyanStr,
@@ -417,9 +417,9 @@ export class AstronautCustomizer {
         panel.add(colorLabel);
 
         this.suitColors.forEach((color, idx) => {
-            const swatch = this.scene.add.container(40 + idx * 115, 250);
+            const swatch = this.scene.add.container(55 + idx * 125, 252);
 
-            const circle = this.scene.add.circle(0, 0, 14, color.hex, 1);
+            const circle = this.scene.add.circle(0, 0, 13, color.hex, 1);
             circle.setStrokeStyle(2.5, idx === this.selectedColorIndex ? 0xFFFFFF : 0x1A3050, 1);
             swatch.add(circle);
 
@@ -457,12 +457,12 @@ export class AstronautCustomizer {
         panel.add(toolLabel);
 
         const toolCardW = 350;
-        const toolCardH = 50;
+        const toolCardH = 48;
         this.tools.forEach((tool, idx) => {
             const row = Math.floor(idx / 2);
             const col = idx % 2;
             const cardX = 20 + col * 368;
-            const cardY = 326 + row * 58;
+            const cardY = 326 + row * 56;
 
             const card = this.scene.add.container(cardX, cardY);
             const cardBg = this.scene.add.graphics();
@@ -481,7 +481,7 @@ export class AstronautCustomizer {
                 color: UITheme.colors.textSecondary,
                 wordWrap: { width: 295 }
             });
-            const perk = this.scene.add.text(38, 33, tool.perk, {
+            const perk = this.scene.add.text(38, 31, tool.perk, {
                 fontFamily: UITheme.fonts.body,
                 fontSize: "8.5px",
                 color: UITheme.colors.bioGreenStr,
@@ -507,7 +507,7 @@ export class AstronautCustomizer {
         this.updateToolCardVisuals();
 
         // 5. Callsign Section (Completely inside the panel with zero overlap!)
-        const nameLabel = this.scene.add.text(20, 474, "5. ACTIVE CADET CALLSIGN:", {
+        const nameLabel = this.scene.add.text(20, 472, "5. ACTIVE CADET CALLSIGN:", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
             color: UITheme.colors.primaryCyanStr,
@@ -516,10 +516,10 @@ export class AstronautCustomizer {
         }).setOrigin(0, 0.5);
         panel.add(nameLabel);
 
-        const badgeW = 180;
+        const badgeW = 190;
         const badgeH = 32;
-        const badgeX = 275;
-        const badgeY = 474;
+        const badgeX = 330;
+        const badgeY = 472;
 
         const badgeBg = this.scene.add.graphics();
         badgeBg.fillStyle(0x071B33, 0.95);
@@ -539,9 +539,9 @@ export class AstronautCustomizer {
         const callsignPresets = ["Cadet Orion", "Commander Nova", "Ares One", "Sol Walker", "Astra Scout"];
         const cycleBtn = ButtonFactory.createButton({
             scene: this.scene,
-            x: 480,
+            x: 560,
             y: badgeY,
-            width: 170,
+            width: 180,
             height: 32,
             fontSize: "11px",
             text: "CYCLE CALLSIGN 🎲",
@@ -562,13 +562,13 @@ export class AstronautCustomizer {
 
     private createGenderButton(panel: Phaser.GameObjects.Container, x: number, y: number, gender: GenderType, label: string, icon: string): Phaser.GameObjects.Container {
         const btn = this.scene.add.container(x, y);
-        const w = 150, h = 30;
+        const w = 140, h = 32;
 
         const bg = this.scene.add.graphics();
         btn.add(bg);
 
-        const iconText = this.scene.add.text(-46, 0, icon, { fontSize: "14px" }).setOrigin(0.5);
-        const labelText = this.scene.add.text(-26, 0, label, {
+        const iconText = this.scene.add.text(-44, 0, icon, { fontSize: "14px" }).setOrigin(0.5);
+        const labelText = this.scene.add.text(-24, 0, label, {
             fontFamily: UITheme.fonts.heading,
             fontSize: "10px",
             color: "#FFFFFF",
@@ -592,7 +592,7 @@ export class AstronautCustomizer {
     }
 
     private updateGenderButtons() {
-        const w = 150, h = 30, r = 8;
+        const w = 140, h = 32, r = 8;
 
         if (this.boyBtn && this.boyBtn.list[0]) {
             const boyBg = this.boyBtn.list[0] as Phaser.GameObjects.Graphics;
@@ -767,7 +767,7 @@ export class AstronautCustomizer {
 
     private updateToolCardVisuals() {
         const cardW = 350;
-        const cardH = 58;
+        const cardH = 48;
         this.tools.forEach(tool => {
             const card = this.toolCards.get(tool.id);
             if (!card) return;
