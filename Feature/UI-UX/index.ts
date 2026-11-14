@@ -9,6 +9,7 @@ export * from "./components/OutpostSolTitle.ts";
 export * from "./components/RoleSelector.ts";
 export * from "./components/LandingSiteSelector.ts";
 export * from "./components/AstronautCustomizer.ts";
+export * from "./components/BaseMaterialSelector.ts";
 export * from "./components/ResourceMeters.ts";
 export * from "./components/PowerSwitchboard.ts";
 export * from "./components/TelemetryPanel.ts";

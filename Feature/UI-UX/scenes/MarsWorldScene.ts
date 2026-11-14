@@ -62,6 +62,7 @@ export class MarsWorldScene extends Phaser.Scene {
 
     // Sol Level & Persistent Customization (Suits in next levels)
     private solLevel = 1;
+    private baseMaterial: "glass" | "sand" = "glass";
     private equippedGender: "boy" | "girl" = "boy";
     private equippedSuitName = "ALPHA RECON EVA";
     private equippedSuitFrame = 1;
@@ -152,6 +153,19 @@ export class MarsWorldScene extends Phaser.Scene {
             this.equippedCallsign = custom.callsign || "Cadet Orion";
             this.equippedToolId = custom.toolId || "drill";
         }
+
+        // Load base construction material (Glass Biosphere vs Sintered Sand Vault)
+        const regMaterial = this.registry.get("baseConstructionMaterial") as "glass" | "sand" | undefined;
+        let savedMaterial: "glass" | "sand" | null = null;
+        if (typeof window !== "undefined" && window.localStorage) {
+            try {
+                const item = localStorage.getItem("astra_base_material");
+                if (item === "glass" || item === "sand") savedMaterial = item;
+            } catch {
+                // Ignore storage errors
+            }
+        }
+        this.baseMaterial = regMaterial || savedMaterial || "glass";
 
         // Initialize Level Objectives based on Sol Level
         if (this.solLevel === 1) {
@@ -280,10 +294,36 @@ export class MarsWorldScene extends Phaser.Scene {
         const habImg = this.add.image(660, 440, "base-station");
         habImg.setScale(0.65);
         habImg.setDepth(10);
+
+        const isGlass = this.baseMaterial === "glass";
+        if (isGlass) {
+            // Glass Biosphere: cyan tint and dynamic animated bio-halo glow
+            habImg.setTint(0xD0F8FF);
+            const domeGlow = this.add.ellipse(660, 428, 230, 145, 0x00E5FF, 0.18);
+            domeGlow.setDepth(9);
+            this.tweens.add({
+                targets: domeGlow,
+                alpha: 0.32,
+                scaleX: 1.05,
+                scaleY: 1.05,
+                duration: 2500,
+                yoyo: true,
+                repeat: -1,
+                ease: "Sine.easeInOut"
+            });
+        } else {
+            // Sand Regolith Vault: terracotta ochre tint and heavy interlocking basalt sand foundation
+            habImg.setTint(0xE0936C);
+            const sandFoundation = this.add.ellipse(660, 475, 275, 78, 0xC46B42, 0.45);
+            sandFoundation.setStrokeStyle(2, 0xFFD600, 0.55);
+            sandFoundation.setDepth(9);
+        }
+
+        const habName = isGlass ? "OUTPOST SOL GLASS BIOSPHERE DOME" : "OUTPOST SOL SINTERED REGOLITH VAULT";
         this.modules.push({
             id: "hab",
-            name: "OUTPOST SOL HABITAT DOME",
-            icon: "🏠",
+            name: habName,
+            icon: isGlass ? "🌐" : "🏛️",
             x: 660,
             y: 440,
             sprite: habImg,
@@ -625,10 +665,13 @@ export class MarsWorldScene extends Phaser.Scene {
         const currentLife = this.resourceMeters.getMeterValue("lifeSupport");
         this.resourceMeters.setMeterValue("lifeSupport", currentLife + 8);
 
+        const isGlass = this.baseMaterial === "glass";
         this.warningSystem.show({
             type: "INFO",
-            title: "HABITAT INSPECTION",
-            message: "Atmospheric scrubbers nominal. Pressure: 1.0 ATM. Oxygen mix balanced.",
+            title: isGlass ? "GLASS BIOSPHERE INSPECTION" : "REGOLITH VAULT INSPECTION",
+            message: isGlass
+                ? "Fused silica dome: 92% daylight transmission. Atmospheric scrubbers nominal at 1.0 ATM."
+                : "Sintered basalt vault: +55% passive cosmic ray defense active. Structural regolith shell integrity 100%.",
             durationMs: 4500
         });
     }

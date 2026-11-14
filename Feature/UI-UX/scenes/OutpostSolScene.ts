@@ -4,10 +4,11 @@ import OutpostSolTitle from "../components/OutpostSolTitle.ts";
 import RoleSelector, { type GameRole } from "../components/RoleSelector.ts";
 import LandingSiteSelector, { type LandingSiteId } from "../components/LandingSiteSelector.ts";
 import AstronautCustomizer, { type CustomizationData } from "../components/AstronautCustomizer.ts";
+import BaseMaterialSelector, { type BaseMaterialType } from "../components/BaseMaterialSelector.ts";
 import MissionModals from "../components/MissionModals.ts";
 import ButtonFactory from "../components/ButtonFactory.ts";
 
-export type OutpostFlowState = "TITLE" | "ROLE" | "SITE" | "CUSTOMIZE" | "BRIEFING" | "HOW_TO_PLAY" | "TELEMETRY_ARCHIVE";
+export type OutpostFlowState = "TITLE" | "ROLE" | "SITE" | "CUSTOMIZE" | "BASE_MATERIAL" | "BRIEFING" | "HOW_TO_PLAY" | "TELEMETRY_ARCHIVE";
 
 export class OutpostSolScene extends Phaser.Scene {
     private currentState: OutpostFlowState = "TITLE";
@@ -20,6 +21,7 @@ export class OutpostSolScene extends Phaser.Scene {
     private roleComponent?: RoleSelector;
     private siteComponent?: LandingSiteSelector;
     private customizerComponent?: AstronautCustomizer;
+    private baseMaterialComponent?: BaseMaterialSelector;
     private modalContainer?: Phaser.GameObjects.Container;
 
     constructor() {
@@ -28,6 +30,9 @@ export class OutpostSolScene extends Phaser.Scene {
 
     preload() {
         // Preload any essential base images if not already preloaded by BootScene
+        if (!this.textures.exists("base-station")) {
+            this.load.image("base-station", "/assets/game/base/base-station.png");
+        }
         if (!this.textures.exists("mars-habitat")) {
             this.load.image("mars-habitat", "/assets/game/base/lunar-habitat.png");
         }
@@ -133,9 +138,24 @@ export class OutpostSolScene extends Phaser.Scene {
 
         this.customizerComponent = new AstronautCustomizer(this, {
             onComplete: (_data: CustomizationData) => {
-                this.showMissionBriefing();
+                this.showBaseMaterialSelector();
             },
             onBack: () => this.showLandingSiteSelector()
+        });
+    }
+
+    /**
+     * STATE 4.5: Mars Base Construction Material Selector (Glass Biosphere vs Sand Regolith Vault)
+     */
+    private showBaseMaterialSelector() {
+        this.clearActiveComponents();
+        this.currentState = "BASE_MATERIAL";
+
+        this.baseMaterialComponent = new BaseMaterialSelector(this, {
+            onMaterialSelected: (_mat: BaseMaterialType) => {
+                this.showMissionBriefing();
+            },
+            onBack: () => this.showCustomizer()
         });
     }
 
@@ -296,6 +316,10 @@ export class OutpostSolScene extends Phaser.Scene {
         if (this.customizerComponent) {
             this.customizerComponent.destroy();
             this.customizerComponent = undefined;
+        }
+        if (this.baseMaterialComponent) {
+            this.baseMaterialComponent.destroy();
+            this.baseMaterialComponent = undefined;
         }
         if (this.modalContainer) {
             this.modalContainer.destroy();
