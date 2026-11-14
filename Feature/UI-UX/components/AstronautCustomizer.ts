@@ -194,7 +194,7 @@ export class AstronautCustomizer {
         this.createAvatarDisplay(240, 310);
 
         // 4. Right Column: Controls Panel (Suits, Colors, Tools, Callsign)
-        this.createControlsPanel(490, 74, 760, 515);
+        this.createControlsPanel(490, 74, 760, 525);
 
         // 5. Footer Buttons
         const backBtn = ButtonFactory.createButton({
@@ -381,48 +381,48 @@ export class AstronautCustomizer {
         panel.add(bg);
 
         // 1. Gender Selection
-        const genderLabel = this.scene.add.text(20, 12, "1. ASTRONAUT CADET BASE:", {
+        const genderLabel = this.scene.add.text(20, 14, "1. ASTRONAUT CADET BASE:", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "12px",
+            fontSize: "11px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
         });
         panel.add(genderLabel);
 
-        this.boyBtn = this.createGenderButton(panel, 115, 38, "boy", "BOY CADET", "👨‍🚀");
-        this.girlBtn = this.createGenderButton(panel, 295, 38, "girl", "GIRL CADET", "👩‍🚀");
+        this.boyBtn = this.createGenderButton(panel, 110, 48, "boy", "BOY CADET", "👨‍🚀");
+        this.girlBtn = this.createGenderButton(panel, 280, 48, "girl", "GIRL CADET", "👩‍🚀");
         this.updateGenderButtons();
 
         // 2. Select Mars Suit Model (5 Visual Cards)
-        const suitLabel = this.scene.add.text(20, 68, "2. SELECT MARS SUIT MODEL (EQUIPPED ACROSS ALL SOL MISSIONS):", {
+        const suitLabel = this.scene.add.text(20, 78, "2. SELECT MARS SUIT MODEL (EQUIPPED ACROSS ALL SOL MISSIONS):", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "12px",
+            fontSize: "11px",
             color: UITheme.colors.solarGoldStr,
             fontStyle: "bold"
         });
         panel.add(suitLabel);
 
-        this.createSuitCards(panel, 20, 88, w - 40);
+        this.createSuitCards(panel, 20, 102, w - 40);
 
         // 3. Suit Telemetry & Beam Color
-        const colorLabel = this.scene.add.text(20, 218, "3. SUIT TELEMETRY ACCENT COLOR:", {
+        const colorLabel = this.scene.add.text(20, 230, "3. SUIT TELEMETRY ACCENT COLOR:", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "12px",
+            fontSize: "11px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
         });
         panel.add(colorLabel);
 
         this.suitColors.forEach((color, idx) => {
-            const swatch = this.scene.add.container(40 + idx * 115, 246);
+            const swatch = this.scene.add.container(40 + idx * 115, 268);
 
-            const circle = this.scene.add.circle(0, 0, 16, color.hex, 1);
-            circle.setStrokeStyle(3, idx === this.selectedColorIndex ? 0xFFFFFF : 0x1A3050, 1);
+            const circle = this.scene.add.circle(0, 0, 15, color.hex, 1);
+            circle.setStrokeStyle(2.5, idx === this.selectedColorIndex ? 0xFFFFFF : 0x1A3050, 1);
             swatch.add(circle);
 
-            const name = this.scene.add.text(0, 22, color.name, {
+            const name = this.scene.add.text(0, 20, color.name, {
                 fontFamily: UITheme.fonts.body,
-                fontSize: "10px",
+                fontSize: "9.5px",
                 color: "#A0B4D0"
             }).setOrigin(0.5);
             swatch.add(name);
@@ -443,42 +443,42 @@ export class AstronautCustomizer {
         });
 
         // 4. Surface Tool Loadout
-        const toolLabel = this.scene.add.text(20, 288, "4. MARS SURFACE TOOL LOADOUT:", {
+        const toolLabel = this.scene.add.text(20, 312, "4. MARS SURFACE TOOL LOADOUT:", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "12px",
+            fontSize: "11px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
         });
         panel.add(toolLabel);
 
         const toolCardW = 350;
-        const toolCardH = 58;
+        const toolCardH = 54;
         this.tools.forEach((tool, idx) => {
             const row = Math.floor(idx / 2);
             const col = idx % 2;
             const cardX = 20 + col * 368;
-            const cardY = 308 + row * 64;
+            const cardY = 336 + row * 60;
 
             const card = this.scene.add.container(cardX, cardY);
             const cardBg = this.scene.add.graphics();
             card.add(cardBg);
 
-            const icon = this.scene.add.text(14, 11, tool.icon, { fontSize: "18px" });
-            const title = this.scene.add.text(42, 7, tool.name, {
+            const icon = this.scene.add.text(12, 10, tool.icon, { fontSize: "17px" });
+            const title = this.scene.add.text(40, 6, tool.name, {
                 fontFamily: UITheme.fonts.heading,
-                fontSize: "11px",
+                fontSize: "10.5px",
                 color: "#FFFFFF",
                 fontStyle: "bold"
             });
-            const desc = this.scene.add.text(42, 22, tool.desc, {
+            const desc = this.scene.add.text(40, 20, tool.desc, {
                 fontFamily: UITheme.fonts.body,
-                fontSize: "9.5px",
+                fontSize: "9px",
                 color: UITheme.colors.textSecondary,
                 wordWrap: { width: 295 }
             });
-            const perk = this.scene.add.text(42, 39, tool.perk, {
+            const perk = this.scene.add.text(40, 36, tool.perk, {
                 fontFamily: UITheme.fonts.body,
-                fontSize: "9.5px",
+                fontSize: "9px",
                 color: UITheme.colors.bioGreenStr,
                 fontStyle: "bold"
             });
@@ -502,7 +502,7 @@ export class AstronautCustomizer {
         this.updateToolCardVisuals();
 
         // 5. Callsign Section (Completely inside the panel with zero overlap!)
-        const nameLabel = this.scene.add.text(20, 466, "5. ACTIVE CADET CALLSIGN:", {
+        const nameLabel = this.scene.add.text(20, 480, "5. ACTIVE CADET CALLSIGN:", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
             color: UITheme.colors.primaryCyanStr,
@@ -513,7 +513,7 @@ export class AstronautCustomizer {
         const badgeW = 180;
         const badgeH = 32;
         const badgeX = 275;
-        const badgeY = 466;
+        const badgeY = 480;
 
         const badgeBg = this.scene.add.graphics();
         badgeBg.fillStyle(0x071B33, 0.95);
@@ -556,15 +556,15 @@ export class AstronautCustomizer {
 
     private createGenderButton(panel: Phaser.GameObjects.Container, x: number, y: number, gender: GenderType, label: string, icon: string): Phaser.GameObjects.Container {
         const btn = this.scene.add.container(x, y);
-        const w = 165, h = 34;
+        const w = 160, h = 30;
 
         const bg = this.scene.add.graphics();
         btn.add(bg);
 
-        const iconText = this.scene.add.text(-55, 0, icon, { fontSize: "16px" }).setOrigin(0.5);
-        const labelText = this.scene.add.text(-32, 0, label, {
+        const iconText = this.scene.add.text(-50, 0, icon, { fontSize: "15px" }).setOrigin(0.5);
+        const labelText = this.scene.add.text(-28, 0, label, {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
+            fontSize: "10.5px",
             color: "#FFFFFF",
             fontStyle: "bold"
         }).setOrigin(0, 0.5);
@@ -586,7 +586,7 @@ export class AstronautCustomizer {
     }
 
     private updateGenderButtons() {
-        const w = 165, h = 34, r = 8;
+        const w = 160, h = 30, r = 8;
 
         if (this.boyBtn && this.boyBtn.list[0]) {
             const boyBg = this.boyBtn.list[0] as Phaser.GameObjects.Graphics;
@@ -623,7 +623,7 @@ export class AstronautCustomizer {
 
     private createSuitCards(panel: Phaser.GameObjects.Container, startX: number, startY: number, _totalW: number) {
         const cardW = 134;
-        const cardH = 120;
+        const cardH = 114;
         const cardGap = 12;
         const suits = this.getSuitModels();
 
@@ -635,14 +635,14 @@ export class AstronautCustomizer {
             const bg = this.scene.add.graphics();
             card.add(bg);
 
-            // 1: Thumbnail Image of suit (scale 0.076, ~42-47px tall, perfectly centered at y=59 with 16px clear gap to tag and boots)
+            // 1: Thumbnail Image of suit (scale 0.074, ~42px tall, perfectly centered at y=56)
             const frameKey = `${this.gender}_avatar_${suit.frame}`;
-            const thumb = this.scene.add.image(cardW / 2, 59, this.scene.textures.exists(frameKey) ? frameKey : "boy-astronaut");
-            thumb.setScale(0.076);
+            const thumb = this.scene.add.image(cardW / 2, 56, this.scene.textures.exists(frameKey) ? frameKey : "boy-astronaut");
+            thumb.setScale(0.074);
             card.add(thumb);
 
             // 2: Suit Tag Top Pill
-            const tag = this.scene.add.text(cardW / 2, 13, `SUIT 0${suit.frame}`, {
+            const tag = this.scene.add.text(cardW / 2, 12, `SUIT 0${suit.frame}`, {
                 fontFamily: UITheme.fonts.heading,
                 fontSize: "9px",
                 color: UITheme.colors.primaryCyanStr,
@@ -652,7 +652,7 @@ export class AstronautCustomizer {
 
             // 3: Name (Never overlaps thumbnail, fully contained in card)
             const shortName = this.getSuitShortName(suit.name);
-            const name = this.scene.add.text(cardW / 2, 104, shortName, {
+            const name = this.scene.add.text(cardW / 2, 99, shortName, {
                 fontFamily: UITheme.fonts.heading,
                 fontSize: "9px",
                 color: "#FFFFFF",
@@ -698,7 +698,7 @@ export class AstronautCustomizer {
 
     private updateSuitCards() {
         const cardW = 134;
-        const cardH = 120;
+        const cardH = 114;
         const suits = this.getSuitModels();
 
         this.suitCards.forEach((card, idx) => {
@@ -730,8 +730,8 @@ export class AstronautCustomizer {
             const thumb = card.list[1] as Phaser.GameObjects.Image;
             if (thumb && this.scene.textures.exists(frameKey)) {
                 thumb.setTexture(frameKey);
-                thumb.setScale(0.076);
-                thumb.setPosition(cardW / 2, 59);
+                thumb.setScale(0.074);
+                thumb.setPosition(cardW / 2, 56);
             }
 
             // Update tag style
@@ -739,7 +739,7 @@ export class AstronautCustomizer {
             if (tag) {
                 tag.setColor(isSelected ? UITheme.colors.solarGoldStr : UITheme.colors.primaryCyanStr);
                 tag.setText(isSelected ? `★ SUIT 0${suitFrame}` : `SUIT 0${suitFrame}`);
-                tag.setPosition(cardW / 2, 13);
+                tag.setPosition(cardW / 2, 12);
             }
 
             // Update name label
@@ -747,7 +747,7 @@ export class AstronautCustomizer {
             if (name && suit) {
                 const shortName = this.getSuitShortName(suit.name);
                 name.setText(shortName);
-                name.setPosition(cardW / 2, 104);
+                name.setPosition(cardW / 2, 99);
             }
         });
     }
