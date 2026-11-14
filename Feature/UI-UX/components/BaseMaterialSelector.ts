@@ -51,19 +51,19 @@ export class BaseMaterialSelector {
         },
         sand: {
             id: "sand",
-            name: "SINTERED REGOLITH VAULT",
-            subtitle: "3D-Printed Martian Sand & Compacted Basalt",
-            materialTag: "FORTIFIED REGOLITH VAULT",
+            name: "SINTERED SAND VAULT",
+            subtitle: "100% Sintered Martian Regolith Sand Architecture",
+            materialTag: "MONOLITHIC SAND BASE",
             accentColor: UITheme.colors.solarGold,
             accentColorStr: UITheme.colors.solarGoldStr,
-            description: "Fortified habitat shell created by microwave-sintering indigenous iron-rich Martian sand into high-density interlocking basalt blocks. Delivers superior cosmic radiation shielding and sandstorm resilience.",
+            description: "Monolithic habitat sculpted and sintered entirely out of Martian sand and basalt grains. Banked directly inside natural windblown sand dunes, providing impenetrable cosmic ray armor and sandstorm resistance.",
             perks: [
                 { icon: "🛡️", label: "Radiation Shield", value: "+55% Passive Cosmic Ray Deflection" },
                 { icon: "🌪️", label: "Storm Armor", value: "100% Micro-Meteoroid & Sand Abrasion Proof" },
-                { icon: "🌡️", label: "Thermal Inertia", value: "High Basalt Mass (Prevents Night Freeze)" },
-                { icon: "🧱", label: "In-Situ Materials", value: "Zero Earth Resupply (100% Martian Sand)" }
+                { icon: "🏜️", label: "Sand Dunes", value: "Covered in Natural Windblown Regolith Dunes" },
+                { icon: "🧱", label: "100% Sand Built", value: "Zero Earth Resupply (Pure Martian Sand)" }
             ],
-            scienceFact: "NASA ISRU Architecture: Sintering Martian regolith sand with microwave energy bonds basaltic grains into interlocking structural vaults 3x stronger than Earth concrete."
+            scienceFact: "NASA ISRU Architecture: Autonomous rovers microwave-sinter indigenous red Martian sand into monolithic interlocking sandcastles 3x stronger than concrete, shielded under natural regolith dunes."
         }
     };
 
@@ -357,16 +357,14 @@ export class BaseMaterialSelector {
         previewG.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 8);
         card.add(previewG);
 
-        const habKey = this.scene.textures.exists("base-station")
-            ? "base-station"
-            : (this.scene.textures.exists("mars-habitat") ? "mars-habitat" : undefined);
+        if (type === "glass") {
+            const habKey = this.scene.textures.exists("base-station")
+                ? "base-station"
+                : (this.scene.textures.exists("mars-habitat") ? "mars-habitat" : undefined);
 
-        if (habKey) {
-            const habImg = this.scene.add.image(x, y + 6, habKey);
-            habImg.setScale(0.24);
-
-            if (type === "glass") {
-                // Radiant cyan glass dome tint & specular highlight
+            if (habKey) {
+                const habImg = this.scene.add.image(x, y + 6, habKey);
+                habImg.setScale(0.24);
                 habImg.setTint(0xC8F4FF);
                 const glassHalo = this.scene.add.ellipse(x, y - 6, 80, 52, 0x00E5FF, 0.22);
                 card.add([glassHalo, habImg]);
@@ -379,12 +377,25 @@ export class BaseMaterialSelector {
                     repeat: -1,
                     ease: "Sine.easeInOut"
                 });
-            } else {
-                // Ochre/terracotta sintered regolith sand tint & heavy sand foundation
-                habImg.setTint(0xE0936C);
-                const sandRing = this.scene.add.ellipse(x, y + 16, 120, 36, 0xC46B42, 0.35);
-                sandRing.setStrokeStyle(1.5, 0xFFD600, 0.6);
-                card.add([sandRing, habImg]);
+            }
+        } else {
+            // Realistic Sand Base Station: structure sculpted out of sand and banked in dunes
+            const sandKey = this.scene.textures.exists("sand-base-station")
+                ? "sand-base-station"
+                : (this.scene.textures.exists("base-station") ? "base-station" : undefined);
+
+            if (sandKey) {
+                const isRealSand = sandKey === "sand-base-station";
+                const sandDune = this.scene.add.ellipse(x, y + 24, 160, 32, 0x98411D, 0.55);
+                sandDune.setStrokeStyle(1.5, 0xE0936C, 0.7);
+                card.add(sandDune);
+
+                const sandImg = this.scene.add.image(x, y + (isRealSand ? 2 : 6), sandKey);
+                sandImg.setScale(isRealSand ? 0.125 : 0.24);
+                if (!isRealSand) {
+                    sandImg.setTint(0xE0936C);
+                }
+                card.add(sandImg);
             }
         }
     }

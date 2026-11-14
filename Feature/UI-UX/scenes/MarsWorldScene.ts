@@ -6,7 +6,7 @@ import WarningNotification from "../components/WarningNotification.ts";
 import PowerSwitchboard from "../components/PowerSwitchboard.ts";
 import MissionModals, { type SolResultsStats } from "../components/MissionModals.ts";
 import MissionChallengesModal from "../components/MissionChallengesModal.ts";
-import ButtonFactory from "../components/ButtonFactory.ts";
+import ButtonFactory, { SoundFX } from "../components/ButtonFactory.ts";
 import type { CustomizationData } from "../components/AstronautCustomizer.ts";
 import type { GameRole } from "../components/RoleSelector.ts";
 import type { LandingSiteId } from "../components/LandingSiteSelector.ts";
@@ -97,6 +97,7 @@ export class MarsWorldScene extends Phaser.Scene {
 
         // Mars base assets
         this.load.image("base-station", "/assets/game/base/base-station.png");
+        this.load.image("sand-base-station", "/assets/game/base/sand-base-station.png");
         this.load.image("greenhouse", "/assets/game/base/greenhouse.png");
         this.load.image("solar-panels", "/assets/game/base/solar-panels.png");
         this.load.image("dish-antenna", "/assets/game/base/dish-antenna.png");
@@ -307,14 +308,16 @@ export class MarsWorldScene extends Phaser.Scene {
         });
 
         // Module 2: Mars Habitat Dome (Center: x=660, y=440)
-        const habImg = this.add.image(660, 440, "base-station");
-        habImg.setScale(0.65);
-        habImg.setDepth(10);
-
         const isGlass = this.baseMaterial === "glass";
+        let habImg: Phaser.GameObjects.Image;
+
         if (isGlass) {
-            // Glass Biosphere: cyan tint and dynamic animated bio-halo glow
+            // Glass Biosphere Dome
+            habImg = this.add.image(660, 440, "base-station");
+            habImg.setScale(0.65);
+            habImg.setDepth(10);
             habImg.setTint(0xD0F8FF);
+
             const domeGlow = this.add.ellipse(660, 428, 230, 145, 0x00E5FF, 0.18);
             domeGlow.setDepth(9);
             this.tweens.add({
@@ -328,18 +331,51 @@ export class MarsWorldScene extends Phaser.Scene {
                 ease: "Sine.easeInOut"
             });
         } else {
-            // Sand Regolith Vault: terracotta ochre tint and heavy interlocking basalt sand foundation
-            habImg.setTint(0xE0936C);
-            const sandFoundation = this.add.ellipse(660, 475, 275, 78, 0xC46B42, 0.45);
-            sandFoundation.setStrokeStyle(2, 0xFFD600, 0.55);
-            sandFoundation.setDepth(9);
+            // Sintered Sand Base Station: monolithic architecture made out of Martian sand and covered in dunes
+            const sandKey = this.textures.exists("sand-base-station") ? "sand-base-station" : "base-station";
+            habImg = this.add.image(660, 440, sandKey);
+            habImg.setScale(sandKey === "sand-base-station" ? 0.42 : 0.65);
+            habImg.setDepth(10);
+            if (sandKey !== "sand-base-station") {
+                habImg.setTint(0xE0936C);
+            }
+
+            // Realistic Martian sand dunes banked up against the foundation
+            const duneBack = this.add.ellipse(660, 470, 390, 105, 0x98411D, 0.55);
+            duneBack.setDepth(9);
+
+            const duneFront = this.add.ellipse(660, 486, 335, 72, 0xC46B42, 0.65);
+            duneFront.setStrokeStyle(2, 0xE89363, 0.6);
+            duneFront.setDepth(9);
+
+            // Fine windblown sand dust particles drifting around the sand station
+            for (let i = 0; i < 16; i++) {
+                const sandMote = this.add.circle(
+                    660 + Phaser.Math.Between(-180, 180),
+                    440 + Phaser.Math.Between(-80, 80),
+                    Phaser.Math.FloatBetween(1.0, 2.2),
+                    0xE0936C,
+                    Phaser.Math.FloatBetween(0.25, 0.65)
+                );
+                sandMote.setDepth(11);
+                this.tweens.add({
+                    targets: sandMote,
+                    x: sandMote.x + Phaser.Math.Between(25, 55),
+                    y: sandMote.y + Phaser.Math.Between(-12, 12),
+                    alpha: 0.1,
+                    duration: Phaser.Math.Between(3000, 5000),
+                    yoyo: true,
+                    repeat: -1,
+                    ease: "Sine.easeInOut"
+                });
+            }
         }
 
-        const habName = isGlass ? "OUTPOST SOL GLASS BIOSPHERE DOME" : "OUTPOST SOL SINTERED REGOLITH VAULT";
+        const habName = isGlass ? "OUTPOST SOL GLASS BIOSPHERE DOME" : "OUTPOST SOL SINTERED SAND VAULT";
         this.modules.push({
             id: "hab",
             name: habName,
-            icon: isGlass ? "🌐" : "🏛️",
+            icon: isGlass ? "🌐" : "🏜️",
             x: 660,
             y: 440,
             sprite: habImg,
@@ -436,7 +472,7 @@ export class MarsWorldScene extends Phaser.Scene {
             y: 590,
             sprite: this.rover,
             interactRadius: 110,
-            actionMessage: "Press [ E ] to Board / Exit Rover",
+            actionMessage: "Press [ E ] to Board Mars Rover",
             onInteract: () => this.toggleRoverDriving()
         });
     }
@@ -484,7 +520,10 @@ export class MarsWorldScene extends Phaser.Scene {
 
         // Interact on E
         this.keys.E.on("down", () => {
-            if (this.nearbyModule) {
+            if (this.isDriving) {
+                // If driving, pressing E dismounts and jumps out of the rover
+                this.dismountRoverWithJump();
+            } else if (this.nearbyModule) {
                 this.nearbyModule.onInteract();
             }
         });
@@ -684,10 +723,10 @@ export class MarsWorldScene extends Phaser.Scene {
         const isGlass = this.baseMaterial === "glass";
         this.warningSystem.show({
             type: "INFO",
-            title: isGlass ? "GLASS BIOSPHERE INSPECTION" : "REGOLITH VAULT INSPECTION",
+            title: isGlass ? "GLASS BIOSPHERE INSPECTION" : "SINTERED SAND VAULT INSPECTION",
             message: isGlass
                 ? "Fused silica dome: 92% daylight transmission. Atmospheric scrubbers nominal at 1.0 ATM."
-                : "Sintered basalt vault: +55% passive cosmic ray defense active. Structural regolith shell integrity 100%.",
+                : "Monolithic sand structure: 100% sintered regolith walls banked in Martian sand dunes. Cosmic ray defense active (+55%).",
             durationMs: 4500
         });
     }
@@ -727,25 +766,153 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     private toggleRoverDriving() {
-        this.isDriving = !this.isDriving;
-
         if (this.isDriving) {
-            this.astronaut.setVisible(false);
-            if (this.callsignBadge) this.callsignBadge.setVisible(false);
-            this.markObjectiveDone("rover");
-            this.warningSystem.show({
-                type: "INFO",
-                title: "ROVER ENGAGED",
-                message: "You are now driving the exploration rover across Jezero Crater! Move with WASD.",
-                durationMs: 4000
-            });
-        } else {
-            this.astronaut.setVisible(true);
-            this.astronaut.setPosition(this.rover.x + 35, this.rover.y);
-            if (this.callsignBadge) {
-                this.callsignBadge.setVisible(true);
-                this.callsignBadge.setPosition(this.astronaut.x, this.astronaut.y - 84);
+            this.dismountRoverWithJump();
+            return;
+        }
+
+        // Boarding the rover
+        this.isDriving = true;
+        SoundFX.playClick();
+
+        // Animate hopping smoothly into the rover seat
+        this.tweens.add({
+            targets: this.astronaut,
+            x: this.rover.x,
+            y: this.rover.y - 12,
+            scale: 0.20,
+            duration: 200,
+            ease: "Quad.easeOut",
+            onComplete: () => {
+                this.astronaut.setVisible(false);
+                if (this.callsignBadge) this.callsignBadge.setVisible(false);
             }
+        });
+
+        this.markObjectiveDone("rover");
+        this.warningSystem.show({
+            type: "INFO",
+            title: "ROVER ENGAGED",
+            message: "You are now driving the exploration rover across Jezero Crater! Move with WASD. Press [ E ] to Jump Out.",
+            durationMs: 4000
+        });
+    }
+
+    private dismountRoverWithJump() {
+        if (!this.isDriving) return;
+
+        this.isDriving = false;
+
+        // Keep the rover interaction hotspot synced to current rover coordinates
+        const roverMod = this.modules.find(m => m.id === "rover");
+        if (roverMod) {
+            roverMod.x = this.rover.x;
+            roverMod.y = this.rover.y;
+        }
+
+        // Determine landing position (to the side of the rover, clamped safely on the Martian surface)
+        const dir = this.rover.flipX ? -1 : 1;
+        const targetX = Phaser.Math.Clamp(this.rover.x + dir * 68, 90, this.W - 90);
+        const targetY = Phaser.Math.Clamp(this.rover.y + 12, 380, this.H - 65);
+
+        // Position astronaut at rover seat, visible and angled for the leap
+        this.astronaut.setPosition(this.rover.x, this.rover.y - 14);
+        this.astronaut.setVisible(true);
+        this.astronaut.setDepth(26);
+        this.astronaut.setScale(0.26);
+        this.astronaut.angle = dir * -22;
+
+        SoundFX.playClick();
+
+        // 1. Horizontal Leap Tween
+        this.tweens.add({
+            targets: this.astronaut,
+            x: targetX,
+            duration: 440,
+            ease: "Sine.easeOut"
+        });
+
+        // 2. Parabolic Vertical Arc (High 0.38g Martian Leap & Landing)
+        this.tweens.add({
+            targets: this.astronaut,
+            y: this.rover.y - 58,
+            duration: 220,
+            ease: "Quad.easeOut",
+            onComplete: () => {
+                this.tweens.add({
+                    targets: this.astronaut,
+                    y: targetY,
+                    duration: 220,
+                    ease: "Quad.easeIn",
+                    onComplete: () => {
+                        // Impact Squash & Stretch on Landing
+                        this.tweens.add({
+                            targets: this.astronaut,
+                            scaleX: 0.33,
+                            scaleY: 0.22,
+                            duration: 90,
+                            yoyo: true,
+                            ease: "Quad.easeInOut",
+                            onComplete: () => {
+                                this.astronaut.setScale(0.28);
+                                this.astronaut.angle = 0;
+                            }
+                        });
+
+                        // Martian Sand Dust Puff on landing
+                        for (let i = 0; i < 12; i++) {
+                            const dust = this.add.circle(
+                                targetX + Phaser.Math.Between(-10, 10),
+                                targetY + 26,
+                                Phaser.Math.FloatBetween(2.0, 4.5),
+                                0xD48455,
+                                0.85
+                            ).setDepth(24);
+
+                            this.tweens.add({
+                                targets: dust,
+                                x: dust.x + Phaser.Math.Between(-40, 40),
+                                y: dust.y + Phaser.Math.Between(-16, 6),
+                                alpha: 0,
+                                scale: 0.2,
+                                duration: 420,
+                                ease: "Quad.easeOut",
+                                onComplete: () => dust.destroy()
+                            });
+                        }
+
+                        // Restore and anchor Callsign Badge above astronaut
+                        if (this.callsignBadge) {
+                            this.callsignBadge.setPosition(targetX, targetY - 84);
+                            this.callsignBadge.setVisible(true);
+                        }
+                    }
+                });
+            }
+        });
+
+        // 3. Aerial Rotation Stabilization
+        this.tweens.add({
+            targets: this.astronaut,
+            angle: 0,
+            duration: 440,
+            ease: "Sine.easeInOut"
+        });
+
+        // Notify Cadet
+        this.warningSystem.show({
+            type: "SUCCESS",
+            title: "CADET DISMOUNTED",
+            message: "Astronaut leaped out of the Mars Rover! Surface exploration resumed on foot.",
+            durationMs: 3500
+        });
+
+        // If dismounting near an interactive module, trigger its action
+        if (this.nearbyModule && this.nearbyModule.id !== "rover") {
+            const modToInteract = this.nearbyModule;
+            this.time.delayedCall(500, () => {
+                modToInteract.onInteract();
+            });
         }
     }
 
@@ -888,6 +1055,10 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     private triggerSolCompletion() {
+        if (this.isDriving) {
+            this.dismountRoverWithJump();
+        }
+
         const stats: SolResultsStats = {
             stars: 3,
             solLevel: this.solLevel,
@@ -1025,16 +1196,48 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     private checkModuleProximity() {
-        const playerX = this.isDriving ? this.rover.x : this.astronaut.x;
-        const playerY = this.isDriving ? this.rover.y : this.astronaut.y;
+        if (this.isDriving) {
+            // Keep rover module hotspot location synced with vehicle
+            const roverMod = this.modules.find(m => m.id === "rover");
+            if (roverMod) {
+                roverMod.x = this.rover.x;
+                roverMod.y = this.rover.y;
+            }
 
+            // Check if near any other module while driving
+            let closest: BaseModuleObject | null = null;
+            let minDist = Infinity;
+            for (const mod of this.modules) {
+                if (mod.id === "rover") continue;
+                const dist = Phaser.Math.Distance.Between(this.rover.x, this.rover.y, mod.x, mod.y);
+                if (dist < mod.interactRadius && dist < minDist) {
+                    minDist = dist;
+                    closest = mod;
+                }
+            }
+
+            this.nearbyModule = closest;
+            if (closest) {
+                this.promptText.setText(`PRESS [ E ] TO JUMP OUT & INSPECT ${closest.name}`);
+            } else {
+                this.promptText.setText("PRESS [ E ] TO JUMP OUT OF ROVER");
+            }
+
+            const textW = this.promptText.width + 36;
+            this.promptBg.clear();
+            this.promptBg.fillStyle(0x061122, 0.9);
+            this.promptBg.fillRoundedRect(this.W / 2 - textW / 2, this.H - 62, textW, 34, 8);
+            this.promptBg.lineStyle(1.5, UITheme.colors.solarGold, 1);
+            this.promptBg.strokeRoundedRect(this.W / 2 - textW / 2, this.H - 62, textW, 34, 8);
+            return;
+        }
+
+        const playerX = this.astronaut.x;
+        const playerY = this.astronaut.y;
         let closest: BaseModuleObject | null = null;
         let minDist = Infinity;
 
         for (const mod of this.modules) {
-            // Ignore rover proximity when driving it
-            if (this.isDriving && mod.id === "rover") continue;
-
             const dist = Phaser.Math.Distance.Between(playerX, playerY, mod.x, mod.y);
             if (dist < mod.interactRadius && dist < minDist) {
                 minDist = dist;

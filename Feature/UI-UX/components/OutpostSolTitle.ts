@@ -85,9 +85,19 @@ export class OutpostSolTitle {
 
     private createHabitatSilhouette(w: number, h: number) {
         // If textures exist in asset library, render Mars habitat structures
-        if (this.scene.textures.exists("mars-habitat")) {
+        const savedMaterial = this.scene.registry.get("baseConstructionMaterial") ||
+            (typeof window !== "undefined" && window.localStorage ? localStorage.getItem("astra_base_material") : null);
+
+        if (savedMaterial === "sand" && this.scene.textures.exists("sand-base-station")) {
+            const hab = this.scene.add.image(w * 0.78, h * 0.76, "sand-base-station");
+            hab.setScale(0.36);
+            this.container.add(hab);
+        } else if (this.scene.textures.exists("mars-habitat")) {
             const hab = this.scene.add.image(w * 0.78, h * 0.75, "mars-habitat");
             hab.setScale(0.55);
+            if (savedMaterial === "glass") {
+                hab.setTint(0xD0F8FF);
+            }
             this.container.add(hab);
         }
 
