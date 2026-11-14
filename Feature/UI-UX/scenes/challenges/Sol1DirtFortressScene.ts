@@ -159,7 +159,6 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         hG.strokeRoundedRect(barX, cy - barH / 2, barW, barH, 4);
 
         this.taskProgressBarFill = this.add.graphics().setDepth(15);
-        this.updateTaskProgressBar(0);
 
         this.taskProgressLabel = this.add.text(cx + 20, cy, "TASK: IRRIGATE GREENHOUSE PODS (0%)", {
             fontFamily: UITheme.fonts.heading,
@@ -177,6 +176,8 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             yoyo: true,
             repeat: -1
         });
+
+        this.updateTaskProgressBar(0);
 
         this.add.text(cx + w / 2 - 45, cy, "FLOW:", {
             fontFamily: UITheme.fonts.heading,
@@ -633,7 +634,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         if (pathCompletesToGarden) {
             this.isWaterFlowingToGarden = true;
             this.updateTaskProgressBar(1.0);
-            this.taskStatusLed.setFillStyle(UITheme.colors.bioGreen);
+            if (this.taskStatusLed) this.taskStatusLed.setFillStyle(UITheme.colors.bioGreen);
 
             if (playEffects && !this.isCompleted) {
                 this.celebrateTomatoSprout();
@@ -648,7 +649,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             }
             const partialPct = Math.min(0.85, (poweredCount / 6) * 0.85);
             this.updateTaskProgressBar(partialPct);
-            this.taskStatusLed.setFillStyle(UITheme.colors.emergencyRed);
+            if (this.taskStatusLed) this.taskStatusLed.setFillStyle(UITheme.colors.emergencyRed);
             this.updateVisorProgress(Math.round(partialPct * 100), 100, "%");
         }
     }
@@ -662,17 +663,21 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         const barX = 640 - barW / 2 + 20;
         const barY = 365 - 250 + 35 - barH / 2;
 
-        this.taskProgressBarFill.clear();
-        this.taskProgressBarFill.fillStyle(pct >= 1.0 ? 0x00E676 : 0x00E5FF, 1);
-        this.taskProgressBarFill.fillRoundedRect(barX + 2, barY + 2, Math.max(6, (barW - 4) * pct), barH - 4, 3);
+        if (this.taskProgressBarFill) {
+            this.taskProgressBarFill.clear();
+            this.taskProgressBarFill.fillStyle(pct >= 1.0 ? 0x00E676 : 0x00E5FF, 1);
+            this.taskProgressBarFill.fillRoundedRect(barX + 2, barY + 2, Math.max(6, (barW - 4) * pct), barH - 4, 3);
+        }
 
         const pctInt = Math.round(pct * 100);
-        if (pct >= 1.0) {
-            this.taskProgressLabel.setText("✔ TASK COMPLETED: WATER FLOW 100%");
-            this.taskProgressLabel.setColor("#00E676");
-        } else {
-            this.taskProgressLabel.setText(`TASK: IRRIGATE GREENHOUSE PODS (${pctInt}%)`);
-            this.taskProgressLabel.setColor("#FFFFFF");
+        if (this.taskProgressLabel) {
+            if (pct >= 1.0) {
+                this.taskProgressLabel.setText("✔ TASK COMPLETED: WATER FLOW 100%");
+                this.taskProgressLabel.setColor("#00E676");
+            } else {
+                this.taskProgressLabel.setText(`TASK: IRRIGATE GREENHOUSE PODS (${pctInt}%)`);
+                this.taskProgressLabel.setColor("#FFFFFF");
+            }
         }
     }
 

@@ -217,6 +217,8 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
         // TOP VISOR: Mission Directive & Live Objective Progress
         // Width: 1020 (ends at x = 1040, completely clear of #fullscreen-btn)
         // -------------------------------------------------------------
+        if (!this.progressText || !this.statusBadge || !this.progressFill) return;
+
         const visorW = 1020;
         this.visorBg = this.add.graphics();
         this.visorBg.fillStyle(0x050C1B, 0.92);
@@ -353,6 +355,8 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
             // Cumulative mission (e.g. Sol 1, 3, 4, 5, 6)
             pct = target > 0 ? Math.max(0, Math.min(1.0, current / target)) : 0;
         }
+
+        if (!this.progressText || !this.statusBadge || !this.progressFill) return;
 
         const visorW = 1020;
         const gaugeW = 220;
