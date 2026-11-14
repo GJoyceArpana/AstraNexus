@@ -300,64 +300,6 @@ export class OutpostSolTitle {
             accentColor: 0x4FC3F7,
             onClick: () => this.callbacks.onHowToPlay()
         });
-<<<<<<< HEAD
-        this.container.add(howToBtn);
-
-        this.menuButtons = [launchBtn, roleBtn, siteBtn, customBtn, telemetryBtn, howToBtn];
-        this.menuActions = [
-            this.callbacks.onStartMission,
-            this.callbacks.onSelectRole,
-            this.callbacks.onSelectLandingSite,
-            this.callbacks.onCustomization,
-            this.callbacks.onOpenTelemetry,
-            this.callbacks.onHowToPlay
-        ];
-
-        this.keyboardFocusRing = this.scene.add.graphics();
-        this.container.add(this.keyboardFocusRing);
-        this.scene.input.keyboard?.on("keydown", this.handleMenuKeyboard, this);
-
-        const keyboardHint = this.scene.add.text(menuX, startY + spacing * 5 + 40, "↑ / ↓  NAVIGATE     ENTER  SELECT", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
-            color: "#4A2B26",
-            fontStyle: "bold",
-            letterSpacing: 0.6
-        }).setOrigin(0.5);
-        this.container.add(keyboardHint);
-    }
-
-    private handleMenuKeyboard(event: KeyboardEvent) {
-        if (!this.menuButtons.length) return;
-
-        const key = event.key.toLowerCase();
-        if (key === "arrowdown" || key === "s" || key === "tab") {
-            event.preventDefault();
-            this.keyboardMenuActive = true;
-            this.menuFocusIndex = (this.menuFocusIndex + 1) % this.menuButtons.length;
-            this.drawKeyboardFocus();
-        } else if (key === "arrowup" || key === "w") {
-            event.preventDefault();
-            this.keyboardMenuActive = true;
-            this.menuFocusIndex = (this.menuFocusIndex - 1 + this.menuButtons.length) % this.menuButtons.length;
-            this.drawKeyboardFocus();
-        } else if (key === "enter" || key === " ") {
-            event.preventDefault();
-            this.menuActions[this.menuFocusIndex]?.();
-        }
-    }
-
-    private drawKeyboardFocus() {
-        const ring = this.keyboardFocusRing;
-        if (!ring) return;
-        ring.clear();
-        if (!this.keyboardMenuActive) return;
-
-        const button = this.menuButtons[this.menuFocusIndex];
-        const buttonHeight = this.menuFocusIndex === 0 ? 52 : 50;
-        ring.lineStyle(2, 0xE8FCFF, 0.95);
-        ring.strokeRoundedRect(button.x - 194, button.y - buttonHeight / 2 - 5, 388, buttonHeight + 10, 15);
-=======
         terminal.add(guideBtn);
 
         // Console Bottom Status Pill inside terminal
@@ -370,7 +312,6 @@ export class OutpostSolTitle {
         terminal.add(termStatus);
 
         this.container.add(terminal);
->>>>>>> origin/main
     }
 
     // =========================================================
