@@ -11,6 +11,7 @@ export class Sol5ResourceManager {
     private state: Sol5ResourceState;
     private callbacks: ResourceManagerCallbacks;
     private isEnded = false;
+    private isStarted = false;
     private startTime = 0;
     private repairsCount = 0;
 
@@ -42,6 +43,12 @@ export class Sol5ResourceManager {
         return { ...this.state };
     }
 
+    public start() {
+        if (this.isStarted) return;
+        this.isStarted = true;
+        this.startTime = Date.now();
+    }
+
     public isRepaired(id: SubsystemId): boolean {
         return this.repairedSystems[id];
     }
@@ -51,7 +58,7 @@ export class Sol5ResourceManager {
     }
 
     public update(deltaMs: number) {
-        if (this.isEnded) return;
+        if (this.isEnded || !this.isStarted) return;
 
         const deltaSec = deltaMs / 1000;
 
