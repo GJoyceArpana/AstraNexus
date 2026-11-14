@@ -37,8 +37,6 @@ export class MissionChallengesModal {
         3: { currentVal: 0, completed: false },    // 0 = solar uncleaned / kilopower offline
         4: { currentVal: 1, completed: false },    // ISRU systems active
         5: { currentVal: 2, completed: false },    // 2 commands queued
-        6: { currentVal: 4, completed: false },    // 4 modules balanced
-        7: { currentVal: 150, completed: false },  // 150 kg samples
     };
 
     private contentContainer!: Phaser.GameObjects.Container;
@@ -124,45 +122,13 @@ export class MissionChallengesModal {
             unit: "Slots",
             actionButtonText: "🤖 EXECUTE PRE-PROGRAMMED BUFFER",
             secondaryActionText: "🛡️ MOVE CREW TO STORM BUNKER"
-        },
-        6: {
-            solNumber: 6,
-            title: "SOL 6: COLONY GRIDLOCK",
-            codename: "TOTAL SYSTEM INTEGRATION",
-            icon: "⚡",
-            hazardBadge: "CONTINUOUS MAXIMUM ELECTRICAL LOAD",
-            briefing: "A sub-zero thermal cold front (-110°C) tests every engineering system simultaneously under peak load. Power Life Support, Heaters, MOXIE, and Water Extractor while keeping grid surplus positive.",
-            nasaFact: "NASA Moon-to-Mars architecture tests Total System Integration: verifying ECLSS, nuclear power, rovers, and habitats operate harmoniously under extreme stress.",
-            primaryTarget: "Maintain 4 active modules simultaneously with 0 breaker trips.",
-            progressMetric: "Modules Powered",
-            currentVal: 4,
-            targetVal: 4,
-            unit: "Mods",
-            actionButtonText: "⚡ AUTO-BALANCE SWITCHBOARD LOAD",
-            secondaryActionText: "📊 INSPECT ALL 5 BASE STRUCTURES"
-        },
-        7: {
-            solNumber: 7,
-            title: "SOL 7: JOURNEY HOME",
-            codename: "RETURN CAPSULE MASS BUDGET",
-            icon: "🚀",
-            hazardBadge: "STRICT 15,000 kg TAKEOFF MASS LIMIT",
-            briefing: "The Mars Ascent Vehicle (MAV) is on the launchpad. The rocket equation is unforgiving: total takeoff weight cannot exceed 15,000 kg! Balance rocket propellant, crew mass, and collected geological samples to launch safely.",
-            nasaFact: "The Tsiolkovsky Rocket Equation dictates that every extra kilogram on Mars requires 10+ kilograms of propellant to reach Mars orbit. Overweight rockets fail to achieve escape velocity.",
-            primaryTarget: "Ensure total capsule mass <= 15,000 kg and ignite ascent engine.",
-            progressMetric: "Takeoff Payload Mass",
-            currentVal: 14850,
-            targetVal: 15000,
-            unit: "kg",
-            actionButtonText: "🚀 IGNITE MARS ASCENT VEHICLE (MAV)",
-            secondaryActionText: "⚖️ JETTISON SURPLUS SAMPLE WEIGHT"
         }
     };
 
     constructor(scene: Phaser.Scene, callbacks: MissionChallengeCallbacks, initialSol: number = 1) {
         this.scene = scene;
         this.callbacks = callbacks;
-        this.currentSolTab = Math.max(1, Math.min(7, initialSol));
+        this.currentSolTab = Math.max(1, Math.min(5, initialSol));
         this.container = this.scene.add.container(0, 0);
         this.container.setDepth(210); // Highest priority modal overlay
         this.init();
@@ -207,7 +173,7 @@ export class MissionChallengesModal {
         this.container.add(frameBg);
 
         // Header Title
-        const headerTitle = this.scene.add.text(frameX + 24, frameY + 16, "✦ OUTPOST SOL: 7-SOL MISSION CHALLENGES ✦", {
+        const headerTitle = this.scene.add.text(frameX + 24, frameY + 16, "✦ OUTPOST SOL: 5-SOL MISSION CHALLENGES ✦", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "18px",
             color: UITheme.colors.primaryCyanStr,
@@ -234,7 +200,7 @@ export class MissionChallengesModal {
         });
         this.container.add(closeBtn);
 
-        // 3. Sol Navigation Carousel Tabs (Sols 1 - 7)
+        // 3. Sol Navigation Carousel Tabs (Sols 1 - 5)
         this.createSolTabs(frameX + 20, frameY + 70, frameW - 40);
 
         // 4. Dynamic Content Container (re-drawn when switching Sols)
@@ -246,10 +212,10 @@ export class MissionChallengesModal {
     }
 
     /**
-     * Renders Sol 1 - Sol 7 interactive navigation buttons
+     * Renders Sol 1 - Sol 5 interactive navigation buttons
      */
     private createSolTabs(startX: number, y: number, totalWidth: number) {
-        const tabCount = 7;
+        const tabCount = 5;
         const tabSpacing = 8;
         const tabW = (totalWidth - (tabSpacing * (tabCount - 1))) / tabCount;
         const tabH = 40;
@@ -621,8 +587,6 @@ export class MissionChallengesModal {
             case 3: return "Sol3RedGaleScene";
             case 4: return "Sol4ISRUProductionScene";
             case 5: return "Sol5SilenceCommsLagScene";
-            case 6: return "Sol6ColonyGridlockScene";
-            case 7: return "Sol7JourneyHomeMAVScene";
             default: return "Sol1DirtFortressScene";
         }
     }
@@ -632,7 +596,6 @@ export class MissionChallengesModal {
      */
     private handlePrimaryAction(sol: number) {
         const stateRecord = this.activeSolData[sol];
-        const data = this.challenges[sol];
 
         switch (sol) {
             case 1:
@@ -655,14 +618,6 @@ export class MissionChallengesModal {
             case 5:
                 // Execute command buffer
                 stateRecord.currentVal = 3;
-                break;
-            case 6:
-                // Auto-balance grid
-                stateRecord.currentVal = 4;
-                break;
-            case 7:
-                // MAV Rocket Launch
-                stateRecord.completed = stateRecord.currentVal <= data.targetVal;
                 break;
         }
 
@@ -694,11 +649,6 @@ export class MissionChallengesModal {
                 stateRecord.currentVal = Math.min(10, stateRecord.currentVal + 2);
                 this.renderSolChallenge(sol);
                 break;
-            case 7:
-                // Jettison 50kg samples
-                stateRecord.currentVal = Math.max(0, stateRecord.currentVal - 50);
-                this.renderSolChallenge(sol);
-                break;
         }
 
         if (this.callbacks.onChallengeAction) {
@@ -714,7 +664,7 @@ export class MissionChallengesModal {
             this.callbacks.onAdvanceSol(sol + 1);
         }
 
-        if (sol < 7) {
+        if (sol < 5) {
             this.selectSolTab(sol + 1);
         } else {
             this.close();
@@ -736,9 +686,7 @@ export class MissionChallengesModal {
             "Sol2PerchlorateBarrierScene",
             "Sol3RedGaleScene",
             "Sol4ISRUProductionScene",
-            "Sol5SilenceCommsLagScene",
-            "Sol6ColonyGridlockScene",
-            "Sol7JourneyHomeMAVScene"
+            "Sol5SilenceCommsLagScene"
         ];
 
         for (const key of allSolKeys) {
