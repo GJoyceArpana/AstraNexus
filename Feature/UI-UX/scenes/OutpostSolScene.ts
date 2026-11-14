@@ -73,7 +73,7 @@ export class OutpostSolScene extends Phaser.Scene {
     }
 
     create() {
-        this.cameras.main.setBackgroundColor(UITheme.colors.spaceDark);
+        this.cameras.main.setBackgroundColor(UITheme.colors.marsSky);
         this.showTitleScreen();
     }
 

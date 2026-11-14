@@ -44,6 +44,7 @@ export class MarsWorldScene extends Phaser.Scene {
         E: Phaser.Input.Keyboard.Key;
         P: Phaser.Input.Keyboard.Key;
         M: Phaser.Input.Keyboard.Key;
+        F: Phaser.Input.Keyboard.Key;
         ESC: Phaser.Input.Keyboard.Key;
     };
 
@@ -397,8 +398,18 @@ export class MarsWorldScene extends Phaser.Scene {
             E: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E),
             P: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.P),
             M: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.M),
+            F: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F),
             ESC: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
         };
+
+        // Toggle Fullscreen on F
+        this.keys.F.on("down", () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        });
 
         // Open Power Switchboard on P
         this.keys.P.on("down", () => {

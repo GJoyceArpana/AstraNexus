@@ -25,6 +25,64 @@ await Promise.all([
 ]);
 
 // =============================================
+// GLOBAL FULLSCREEN SYSTEM (Hotkeys F & F11 + Button)
+// =============================================
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        const el = document.documentElement;
+        if (el.requestFullscreen) {
+            el.requestFullscreen().catch(() => {});
+        } else if ((el as any).webkitRequestFullscreen) {
+            (el as any).webkitRequestFullscreen();
+        } else if ((el as any).msRequestFullscreen) {
+            (el as any).msRequestFullscreen();
+        }
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+        } else if ((document as any).webkitExitFullscreen) {
+            (document as any).webkitExitFullscreen();
+        } else if ((document as any).msExitFullscreen) {
+            (document as any).msExitFullscreen();
+        }
+    }
+}
+
+function updateFullscreenVisuals() {
+    const fsBtn = document.getElementById("fullscreen-btn");
+    const fsIcon = document.getElementById("fs-icon");
+    const fsText = document.getElementById("fs-text");
+
+    const isFs = Boolean(document.fullscreenElement);
+    if (fsIcon) fsIcon.textContent = isFs ? "🗗" : "⛶";
+    if (fsText) fsText.textContent = isFs ? "EXIT FULLSCREEN [F]" : "FULLSCREEN [F]";
+    if (fsBtn) {
+        fsBtn.style.borderColor = isFs ? "#FFD600" : "#00E5FF";
+        fsBtn.style.color = isFs ? "#FFD600" : "#00E5FF";
+        fsBtn.style.boxShadow = isFs ? "0 0 16px rgba(255, 214, 0, 0.4)" : "0 0 16px rgba(0, 229, 255, 0.35)";
+    }
+}
+
+const fsBtn = document.getElementById("fullscreen-btn");
+if (fsBtn) {
+    fsBtn.addEventListener("click", () => {
+        toggleFullscreen();
+    });
+}
+
+document.addEventListener("fullscreenchange", updateFullscreenVisuals);
+document.addEventListener("webkitfullscreenchange", updateFullscreenVisuals);
+
+window.addEventListener("keydown", (e) => {
+    if ((e.key === "f" || e.key === "F") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const active = document.activeElement;
+        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+        toggleFullscreen();
+    }
+});
+
+// =============================================
 // GLOBAL PAGE STYLING
 // =============================================
 
@@ -42,7 +100,7 @@ document.body.style.cssText = `
     width: 100%;
     min-height: 100vh;
     overflow: hidden;
-    background: #080D1C;
+    background: #15172D;
     font-family: "Nunito", sans-serif;
 `;
 
@@ -57,7 +115,7 @@ if (app) {
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
-        background: "#080D1C",
+        background: "#15172D",
         position: "relative"
     });
 }
@@ -74,7 +132,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
 
-    backgroundColor: "#080D1C",
+    backgroundColor: "#15172D",
 
     render: {
         antialias: true,
@@ -89,6 +147,8 @@ const config: Phaser.Types.Core.GameConfig = {
         autoCenter: Phaser.Scale.CENTER_BOTH,
         width: GAME_WIDTH,
         height: GAME_HEIGHT,
+        fullscreenTarget: "app",
+        expandParent: true,
         min: {
             width: 320,
             height: 180
