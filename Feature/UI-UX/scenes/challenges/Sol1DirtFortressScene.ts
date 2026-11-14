@@ -18,7 +18,10 @@ interface PipeTileData {
 }
 
 export class Sol1DirtFortressScene extends SolChallengeBaseScene {
-    // 3x3 Irrigation Grid
+    // Game States: 1. Intro Animation -> 2. Astronaut Entry -> 3. Protocol Decision -> 4. Pipe Puzzle
+    private gameState: "INTRO_DROUGHT" | "ASTRONAUT_ENTRY" | "PROTOCOL_QUESTION" | "PUZZLE_ACTIVE" = "INTRO_DROUGHT";
+
+    // 3x3 Irrigation Grid Constants
     private readonly GRID_COLS = 3;
     private readonly GRID_ROWS = 3;
     private readonly TILE_SIZE = 84;
@@ -27,6 +30,14 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
     private grid: PipeTileData[][] = [];
     private isWaterFlowingToGarden = false;
     private isRotating = false;
+
+    // Visual Containers & Panels
+    private introAlertBanner!: Phaser.GameObjects.Container;
+    private steamVentGraphic!: Phaser.GameObjects.Graphics;
+    private astronautContainer!: Phaser.GameObjects.Container;
+    private equipmentPanelContainer!: Phaser.GameObjects.Container;
+    private protocolModalContainer!: Phaser.GameObjects.Container;
+    private taskConsoleContainer!: Phaser.GameObjects.Container;
 
     // Among Us style Task Console UI elements
     private taskProgressBarFill!: Phaser.GameObjects.Graphics;
@@ -40,19 +51,32 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
     private tomatoSprites: Phaser.GameObjects.Container[] = [];
     private taskCompleteStamp!: Phaser.GameObjects.Container;
 
+    // Equipment State
+    private hasEquipments = false;
+
     constructor() {
         super("Sol1DirtFortressScene", {
             solNumber: 1,
             title: "SOL 1: SPACE-TOMATO GREENHOUSE",
             codename: "CRYO-WATER IRRIGATION PUZZLE",
             hazardBadge: "HYDROPONIC CROP STARVATION RISK",
-            briefing: "Astronauts need fresh food! Underground glacial ice has been melted, but the greenhouse irrigation pipes are disconnected. Snap and rotate the pipe tiles to channel the melted water directly into the empty plant pods to sprout giant Martian space-tomatoes.",
-            nasaFact: "NASA’s Veggie and Advanced Plant Habitat (APH) aboard the ISS have grown fresh salads and dwarf tomatoes in microgravity using capillary water delivery.",
-            primaryTarget: "Connect irrigation grid and deliver melted ice water to hydroponic plant pods.",
+            briefing: "Astronauts need fresh food! Underground glacial ice has been melted, but the greenhouse irrigation pipes are disconnected. Resolve the NASA fluid protocol to unlock your tools, then rotate the pipe grid to route water into the plant pods and sprout giant Martian space-tomatoes.",
+            nasaFact: "At Mars' surface pressure of 610 Pa (0.6% of Earth), liquid water boils at 0.01°C. NASA habitats use closed pressurized conduits to deliver water without explosive boiling.",
+            primaryTarget: "Unlock plumbing equipment and deliver melted water to space-tomato pods.",
             unit: "%",
             targetVal: 100,
             initialVal: 0
         });
+    }
+
+    preload() {
+        super.preload();
+        if (!this.textures.exists("boy-astronaut")) {
+            this.load.image("boy-astronaut", "/assets/game/characters/boy-astronaut.png");
+        }
+        if (!this.textures.exists("girl-astronaut")) {
+            this.load.image("girl-astronaut", "/assets/game/characters/girl-astronaut.png");
+        }
     }
 
     protected createChallengeContent() {
@@ -72,18 +96,564 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             domeG.lineBetween(x, 260, x, 520);
         }
 
-        // -----------------------------------------------------------------
-        // AMONG US STYLE INDUSTRIAL TASK CONSOLE
-        // Centered at (640, 365), width: 920, height: 500
-        // -----------------------------------------------------------------
+        // 1. Top Equipment Panel (Spans across the top below Visor HUD)
+        this.createTopEquipmentPanel();
+
+        // 2. Build Among Us Industrial Task Console (Centered at 640, 385)
+        this.createTaskConsole();
+
+        // 3. Stage 1: Main Concept Drought Animation & Warning
+        this.startDroughtIntroAnimation();
+    }
+
+    // =========================================================================
+    // STAGE 1: INTRO DROUGHT ANIMATION (Problem Visuals & Steam Venting)
+    // =========================================================================
+    private startDroughtIntroAnimation() {
+        this.gameState = "INTRO_DROUGHT";
+
+        // Steam venting from disconnected pipe junction
+        this.steamVentGraphic = this.add.graphics().setDepth(28);
+
+        // Disconnected pipe burst steam particles
+        const ventTimer = this.time.addEvent({
+            delay: 100,
+            callback: () => {
+                if (this.gameState === "PUZZLE_ACTIVE" || this.hasEquipments) {
+                    ventTimer.remove();
+                    this.steamVentGraphic.clear();
+                    return;
+                }
+                const p = this.add.circle(440 + Phaser.Math.Between(-15, 15), 380, Phaser.Math.Between(4, 9), 0xCFD8DC, 0.7).setDepth(29);
+                this.tweens.add({
+                    targets: p,
+                    y: p.y - 70,
+                    x: p.x + Phaser.Math.Between(-30, 30),
+                    alpha: 0,
+                    scale: 2,
+                    duration: 900,
+                    onComplete: () => p.destroy()
+                });
+            },
+            loop: true
+        });
+
+        // Dramatic Pulsing Drought Warning Banner across the center
+        this.introAlertBanner = this.add.container(640, 220).setDepth(50);
+
+        const bannerW = 620;
+        const bannerH = 74;
+        const bG = this.add.graphics();
+        bG.fillStyle(0x1F0A0E, 0.95);
+        bG.fillRoundedRect(-bannerW / 2, -bannerH / 2, bannerW, bannerH, 12);
+        bG.lineStyle(2.5, UITheme.colors.emergencyRed, 1);
+        bG.strokeRoundedRect(-bannerW / 2, -bannerH / 2, bannerW, bannerH, 12);
+        this.introAlertBanner.add(bG);
+
+        const alertTitle = this.add.text(0, -14, "⚠ CRITICAL ALERT: GREENHOUSE CROPS WILTING!", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "14px",
+            color: UITheme.colors.emergencyRedStr,
+            fontStyle: "bold",
+            letterSpacing: 1.5
+        }).setOrigin(0.5);
+
+        const alertSub = this.add.text(0, 14, "Melted underground ice cannot reach dry plant pods due to pipe disconnects.", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10.5px",
+            color: "#FFFFFF",
+            fontStyle: "bold"
+        }).setOrigin(0.5);
+
+        this.introAlertBanner.add([alertTitle, alertSub]);
+
+        // Banner Pulse
+        this.tweens.add({
+            targets: this.introAlertBanner,
+            scaleX: 1.03,
+            scaleY: 1.03,
+            duration: 600,
+            yoyo: true,
+            repeat: -1
+        });
+
+        // After 2.5 seconds of dramatic problem demonstration, trigger Astronaut Entrance
+        this.time.delayedCall(2500, () => {
+            if (this.gameState === "INTRO_DROUGHT") {
+                this.triggerAstronautEntry();
+            }
+        });
+    }
+
+    // =========================================================================
+    // STAGE 2: PLAYER ASTRONAUT ENTRANCE & PROBLEM CALLOUT
+    // =========================================================================
+    private triggerAstronautEntry() {
+        this.gameState = "ASTRONAUT_ENTRY";
+
+        // Smoothly fade out the initial drought alert banner
+        if (this.introAlertBanner) {
+            this.tweens.add({
+                targets: this.introAlertBanner,
+                alpha: 0,
+                duration: 400,
+                onComplete: () => this.introAlertBanner.destroy()
+            });
+        }
+
+        // Astronaut Container
+        this.astronautContainer = this.add.container(-60, 520).setDepth(45);
+
+        const custom = this.registry.get("astronautCustomization") as any;
+        const avatarKey = custom?.gender === "girl" ? "girl-astronaut" : "boy-astronaut";
+        const suitImg = this.add.image(0, 0, this.textures.exists(avatarKey) ? avatarKey : "base-station");
+        suitImg.setScale(0.52);
+        this.astronautContainer.add(suitImg);
+
+        // Walking entry tween from off-screen left into the greenhouse
+        this.tweens.add({
+            targets: this.astronautContainer,
+            x: 150,
+            duration: 1200,
+            ease: "Quad.easeOut",
+            onComplete: () => {
+                // Astronaut bobbing idle breathing
+                this.tweens.add({
+                    targets: this.astronautContainer,
+                    y: 524,
+                    duration: 800,
+                    yoyo: true,
+                    repeat: -1
+                });
+
+                // Dialogue Speech Bubble
+                this.showAstronautSpeech();
+            }
+        });
+    }
+
+    private showAstronautSpeech() {
+        const speechC = this.add.container(260, 440).setDepth(55);
+
+        const bubbleW = 320;
+        const bubbleH = 80;
+
+        const bg = this.add.graphics();
+        bg.fillStyle(0x061122, 0.95);
+        bg.fillRoundedRect(0, -bubbleH / 2, bubbleW, bubbleH, 10);
+        bg.lineStyle(2, UITheme.colors.primaryCyan, 0.9);
+        bg.strokeRoundedRect(0, -bubbleH / 2, bubbleW, bubbleH, 10);
+
+        // Speech pointer arrow
+        bg.fillTriangle(0, 0, -12, 10, 0, 16);
+        speechC.add(bg);
+
+        const dialogue = this.add.text(16, -22, "CADET! Our Space-Tomatoes are drying out!\nWe must configure the correct scientific protocol\nto unlock our plumbing equipment and restore water.", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10px",
+            color: "#FFFFFF",
+            lineSpacing: 4
+        });
+        speechC.add(dialogue);
+
+        // "SELECT REPAIR PROTOCOL" button
+        const btnBg = this.add.graphics();
+        btnBg.fillStyle(UITheme.colors.solarGold, 1);
+        btnBg.fillRoundedRect(16, 12, 180, 24, 4);
+        speechC.add(btnBg);
+
+        const btnText = this.add.text(106, 24, "▶ CHOOSE PROTOCOL", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10px",
+            color: "#050C1A",
+            fontStyle: "bold"
+        }).setOrigin(0.5);
+        speechC.add(btnText);
+
+        const hit = this.add.rectangle(106, 24, 180, 24, 0x000000, 0.001);
+        hit.setInteractive({ useHandCursor: true });
+        speechC.add(hit);
+
+        hit.on("pointerdown", () => {
+            SoundFX.playClick();
+            this.tweens.add({
+                targets: speechC,
+                alpha: 0,
+                duration: 250,
+                onComplete: () => {
+                    speechC.destroy();
+                    this.showScientificProtocolModal();
+                }
+            });
+        });
+    }
+
+    // =========================================================================
+    // STAGE 3: SCIENTIFIC DECISION PROTOCOL (Two Options + Warning Panel)
+    // =========================================================================
+    private showScientificProtocolModal() {
+        this.gameState = "PROTOCOL_QUESTION";
+        this.protocolModalContainer = this.add.container(640, 365).setDepth(60);
+
+        const modalW = 760;
+        const modalH = 420;
+
+        const bg = this.add.graphics();
+        // Dark backdrop tint
+        const shade = this.add.rectangle(0, 0, this.W * 2, this.H * 2, 0x000000, 0.75);
+        this.protocolModalContainer.add(shade);
+
+        // Main Dialog Plate
+        bg.fillStyle(0x131826, 0.98);
+        bg.fillRoundedRect(-modalW / 2, -modalH / 2, modalW, modalH, 14);
+        bg.lineStyle(2.5, UITheme.colors.primaryCyan, 1);
+        bg.strokeRoundedRect(-modalW / 2, -modalH / 2, modalW, modalH, 14);
+        this.protocolModalContainer.add(bg);
+
+        // Title Header
+        const title = this.add.text(0, -modalH / 2 + 28, "🔬 NASA FLUID ENGINEERING PROTOCOL", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "15px",
+            color: UITheme.colors.primaryCyanStr,
+            fontStyle: "bold",
+            letterSpacing: 1.5
+        }).setOrigin(0.5);
+
+        const question = this.add.text(
+            0,
+            -modalH / 2 + 65,
+            "Martian surface pressure is only 610 Pascals (0.6% of Earth's atmosphere).\nHow must melted cryogenic ice be routed to the greenhouse to prevent catastrophic loss?",
+            {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "11.5px",
+                color: "#FFFFFF",
+                align: "center",
+                lineSpacing: 5
+            }
+        ).setOrigin(0.5);
+
+        this.protocolModalContainer.add([title, question]);
+
+        // OPTION 1: APT / SCIENTIFICALLY CORRECT SOLUTION
+        this.createOptionCard(
+            -modalW / 4 - 10,
+            30,
+            modalW / 2 - 30,
+            190,
+            "OPTION A: CLOSED PRESSURIZED PIPING",
+            "Transport melted ice through sealed, insulated titanium conduits pressurized to 1.2 atm with heating elements to maintain liquid phase flow.",
+            true
+        );
+
+        // OPTION 2: SCIENTIFIC ERROR / TRAP OPTION
+        this.createOptionCard(
+            modalW / 4 + 10,
+            30,
+            modalW / 2 - 30,
+            190,
+            "OPTION B: OPEN SURFACE GRAVITY DITCHES",
+            "Dig unsealed surface trenches to allow natural capillary flow, cooling the water via direct exposure to the cold ambient Martian atmosphere.",
+            false
+        );
+    }
+
+    private createOptionCard(
+        x: number,
+        y: number,
+        w: number,
+        h: number,
+        title: string,
+        desc: string,
+        isCorrect: boolean
+    ) {
+        const c = this.add.container(x, y);
+        this.protocolModalContainer.add(c);
+
+        const cardBg = this.add.graphics();
+        cardBg.fillStyle(0x1B2335, 1);
+        cardBg.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
+        cardBg.lineStyle(1.5, UITheme.colors.panelBorder, 1);
+        cardBg.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
+        c.add(cardBg);
+
+        const optTitle = this.add.text(0, -h / 2 + 24, title, {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "11px",
+            color: UITheme.colors.solarGoldStr,
+            fontStyle: "bold",
+            align: "center",
+            wordWrap: { width: w - 24 }
+        }).setOrigin(0.5);
+
+        const optDesc = this.add.text(0, 10, desc, {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10.5px",
+            color: "#CFD8DC",
+            align: "center",
+            wordWrap: { width: w - 28 },
+            lineSpacing: 4
+        }).setOrigin(0.5);
+
+        // Select CTA Pill Button
+        const btn = this.add.graphics();
+        btn.fillStyle(UITheme.colors.cardHover, 1);
+        btn.fillRoundedRect(-70, h / 2 - 36, 140, 26, 6);
+        btn.lineStyle(1, UITheme.colors.primaryCyan, 0.9);
+        btn.strokeRoundedRect(-70, h / 2 - 36, 140, 26, 6);
+
+        const btnLabel = this.add.text(0, h / 2 - 23, "SELECT PROTOCOL", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "9.5px",
+            color: "#FFFFFF",
+            fontStyle: "bold"
+        }).setOrigin(0.5);
+
+        c.add([optTitle, optDesc, btn, btnLabel]);
+
+        const hit = this.add.rectangle(0, 0, w, h, 0x000000, 0.001);
+        hit.setInteractive({ useHandCursor: true });
+        c.add(hit);
+
+        hit.on("pointerover", () => {
+            this.tweens.add({ targets: c, scale: 1.02, duration: 120 });
+            cardBg.clear();
+            cardBg.fillStyle(0x222E45, 1);
+            cardBg.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
+            cardBg.lineStyle(2, UITheme.colors.primaryCyan, 1);
+            cardBg.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
+        });
+
+        hit.on("pointerout", () => {
+            this.tweens.add({ targets: c, scale: 1.0, duration: 120 });
+            cardBg.clear();
+            cardBg.fillStyle(0x1B2335, 1);
+            cardBg.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
+            cardBg.lineStyle(1.5, UITheme.colors.panelBorder, 1);
+            cardBg.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
+        });
+
+        hit.on("pointerdown", () => {
+            SoundFX.playClick();
+            if (isCorrect) {
+                this.handleCorrectProtocolSelected();
+            } else {
+                this.showScientificFailureWarning();
+            }
+        });
+    }
+
+    /**
+     * WRONG OPTION SELECTED: Shows Warning Panel with NASA Scientific Reason
+     */
+    private showScientificFailureWarning() {
+        SoundFX.playAlert();
+
+        const warnC = this.add.container(0, 0).setDepth(80);
+        this.protocolModalContainer.add(warnC);
+
+        const w = 640;
+        const h = 300;
+
+        const bg = this.add.graphics();
+        bg.fillStyle(0x1A0A0E, 0.98);
+        bg.fillRoundedRect(-w / 2, -h / 2, w, h, 14);
+        bg.lineStyle(3, UITheme.colors.emergencyRed, 1);
+        bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 14);
+        warnC.add(bg);
+
+        const header = this.add.text(0, -h / 2 + 30, "⚠ SCIENTIFIC PROTOCOL ERROR: FLASH SUBLIMATION", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "13.5px",
+            color: UITheme.colors.emergencyRedStr,
+            fontStyle: "bold",
+            letterSpacing: 1
+        }).setOrigin(0.5);
+
+        const explanation = this.add.text(
+            0,
+            -10,
+            "NASA Phase Diagram Physics Violation:\n\n" +
+            "At Martian atmospheric pressure of 610 Pa (6.1 mbar), water hits its thermodynamic triple point!\n" +
+            "In an open trench, liquid water boils at only 0.01°C. Direct exposure to the near-vacuum\n" +
+            "causes instantaneous FLASH EVAPORATION (sublimation): 100% of the water boils into vapor\n" +
+            "and escapes into space, leaving the greenhouse completely dry and destroying the crop seeds!",
+            {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "10.5px",
+                color: "#FFFFFF",
+                align: "center",
+                lineSpacing: 4
+            }
+        ).setOrigin(0.5);
+
+        // Try Again Button
+        const retryBtn = this.add.graphics();
+        retryBtn.fillStyle(UITheme.colors.emergencyRed, 1);
+        retryBtn.fillRoundedRect(-90, h / 2 - 46, 180, 32, 6);
+
+        const retryLabel = this.add.text(0, h / 2 - 30, "RE-EVALUATE PROTOCOL", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "11px",
+            color: "#FFFFFF",
+            fontStyle: "bold"
+        }).setOrigin(0.5);
+
+        warnC.add([header, explanation, retryBtn, retryLabel]);
+
+        const retryHit = this.add.rectangle(0, h / 2 - 30, 180, 32, 0x000000, 0.001);
+        retryHit.setInteractive({ useHandCursor: true });
+        warnC.add(retryHit);
+
+        retryHit.on("pointerdown", () => {
+            SoundFX.playClick();
+            warnC.destroy();
+        });
+    }
+
+    /**
+     * CORRECT OPTION SELECTED: Unlocks Equipment Panel & Enters Puzzle Stage
+     */
+    private handleCorrectProtocolSelected() {
+        SoundFX.playToggle(true);
+        this.hasEquipments = true;
+
+        // Dismiss Modal with Success animation
+        this.tweens.add({
+            targets: this.protocolModalContainer,
+            scale: 0.9,
+            alpha: 0,
+            duration: 300,
+            onComplete: () => {
+                this.protocolModalContainer.destroy();
+
+                // Unlock the Top Equipment Panel with glowing animation
+                this.unlockTopEquipments();
+
+                // Shift to Pipe Puzzle stage
+                this.gameState = "PUZZLE_ACTIVE";
+                this.setActionFeedback("✔ EQUIPMENT UNLOCKED! ROTATE TILES TO CONNECT WATER PIPELINE.", true);
+            }
+        });
+    }
+
+    // =========================================================================
+    // TOP EQUIPMENT PANEL (Displaying Required Tools)
+    // =========================================================================
+    private createTopEquipmentPanel() {
+        this.equipmentPanelContainer = this.add.container(640, 85).setDepth(25);
+
+        const panelW = 920;
+        const panelH = 34;
+
+        const bg = this.add.graphics();
+        bg.fillStyle(0x0C121D, 0.95);
+        bg.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 6);
+        bg.lineStyle(1.5, 0x223048, 1);
+        bg.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 6);
+        this.equipmentPanelContainer.add(bg);
+
+        // Label
+        const title = this.add.text(-panelW / 2 + 16, 0, "TOOLKIT:", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10px",
+            color: UITheme.colors.solarGoldStr,
+            fontStyle: "bold"
+        }).setOrigin(0, 0.5);
+        this.equipmentPanelContainer.add(title);
+
+        // 3 Equipment Slots
+        this.drawEquipmentSlots(false);
+    }
+
+    private drawEquipmentSlots(isUnlocked: boolean) {
+        const slotData = [
+            { icon: "🔧", name: "TITANIUM PIPE WRENCH" },
+            { icon: "🧲", name: "CRYO-PRESSURE SEALS" },
+            { icon: "📡", name: "FLUID LOGIC KEY" }
+        ];
+
+        const panelW = 920;
+        const startX = -panelW / 2 + 110;
+        const spacing = 260;
+
+        for (let i = 0; i < 3; i++) {
+            const sx = startX + i * spacing;
+            const item = slotData[i];
+
+            const slotG = this.add.graphics();
+            slotG.fillStyle(isUnlocked ? 0x142B36 : 0x121622, 1);
+            slotG.fillRoundedRect(sx, -13, 240, 26, 4);
+            slotG.lineStyle(1, isUnlocked ? UITheme.colors.primaryCyan : 0x2B3548, 1);
+            slotG.strokeRoundedRect(sx, -13, 240, 26, 4);
+            this.equipmentPanelContainer.add(slotG);
+
+            const status = isUnlocked ? "✔ EQUIPPED" : "🔒 LOCKED";
+            const statusColor = isUnlocked ? UITheme.colors.bioGreenStr : UITheme.colors.textSecondary;
+
+            const text = this.add.text(sx + 10, 0, `${item.icon} ${item.name}`, {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "9px",
+                color: isUnlocked ? "#FFFFFF" : UITheme.colors.textSecondary,
+                fontStyle: "bold"
+            }).setOrigin(0, 0.5);
+
+            const tag = this.add.text(sx + 230, 0, status, {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "8.5px",
+                color: statusColor,
+                fontStyle: "bold"
+            }).setOrigin(1, 0.5);
+
+            this.equipmentPanelContainer.add([text, tag]);
+        }
+    }
+
+    private unlockTopEquipments() {
+        this.equipmentPanelContainer.removeAll(true);
+
+        const panelW = 920;
+        const panelH = 34;
+
+        const bg = this.add.graphics();
+        bg.fillStyle(0x0C1C29, 0.98);
+        bg.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 6);
+        bg.lineStyle(2, UITheme.colors.primaryCyan, 1);
+        bg.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 6);
+        this.equipmentPanelContainer.add(bg);
+
+        const title = this.add.text(-panelW / 2 + 16, 0, "TOOLKIT:", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10px",
+            color: UITheme.colors.bioGreenStr,
+            fontStyle: "bold"
+        }).setOrigin(0, 0.5);
+        this.equipmentPanelContainer.add(title);
+
+        this.drawEquipmentSlots(true);
+
+        // Flash tween
+        this.tweens.add({
+            targets: this.equipmentPanelContainer,
+            scaleY: 1.15,
+            duration: 180,
+            yoyo: true
+        });
+    }
+
+    // =========================================================================
+    // STAGE 4: AMONG US PIPE TASK CONSOLE (The Rotating Grid Puzzle)
+    // =========================================================================
+    private createTaskConsole() {
         const consoleX = 640;
-        const consoleY = 365;
+        const consoleY = 385;
         const consoleW = 920;
-        const consoleH = 500;
+        const consoleH = 480;
 
-        const consoleG = this.add.graphics().setDepth(10);
+        this.taskConsoleContainer = this.add.container(0, 0).setDepth(10);
 
-        // 1. Heavy Outer Slate Bezel with Among Us style black outline
+        const consoleG = this.add.graphics();
+
+        // Heavy Outer Slate Bezel with Among Us style black outline
         consoleG.fillStyle(0x1B1F2A, 1);
         consoleG.fillRoundedRect(consoleX - consoleW / 2, consoleY - consoleH / 2, consoleW, consoleH, 16);
         consoleG.lineStyle(5, 0x0E1118, 1);
@@ -93,7 +663,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         consoleG.lineStyle(2, 0x364056, 1);
         consoleG.strokeRoundedRect(consoleX - consoleW / 2 + 6, consoleY - consoleH / 2 + 6, consoleW - 12, consoleH - 12, 12);
 
-        // Heavy industrial corner bolts
+        // Industrial corner bolts
         const boltOffsets = [
             [-consoleW / 2 + 18, -consoleH / 2 + 18],
             [consoleW / 2 - 18, -consoleH / 2 + 18],
@@ -106,30 +676,28 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             consoleG.lineStyle(1.5, 0x1A212E, 1);
             consoleG.lineBetween(consoleX + bx - 4, consoleY + by, consoleX + bx + 4, consoleY + by);
         }
+        this.taskConsoleContainer.add(consoleG);
 
-        // 2. Top Task Header Bar (Among Us Yellow/Green task banner)
+        // Header Bar
         this.createConsoleHeader(consoleX, consoleY - consoleH / 2 + 35, consoleW - 40);
 
-        // 3. Left Section: Subterranean Melted Ice Tank (x = 280, y = 385)
-        this.createWaterTank(280, 385);
+        // Left Section: Subterranean Melted Ice Tank
+        this.createWaterTank(280, 405);
 
-        // 4. Center Section: 3x3 Pipe Grid (x = 580, y = 385)
-        this.createPipeGrid(580, 385);
+        // Center Section: 3x3 Pipe Grid
+        this.createPipeGrid(580, 405);
 
-        // 5. Right Section: Hydroponic Space-Tomato Pods (x = 880, y = 385)
-        this.createTomatoPods(880, 385);
+        // Right Section: Hydroponic Space-Tomato Pods
+        this.createTomatoPods(880, 405);
 
-        // 6. Connecting Inflow & Outflow Gantry Tubes
+        // Connecting Gantry Tubes
         this.gardenTubesGraphic = this.add.graphics().setDepth(12);
         this.drawManifoldTubes(false);
 
-        // 7. Initial Water Flow Evaluation
+        // Initial Water Flow check
         this.evaluateWaterFlow(false);
     }
 
-    /**
-     * Among Us Style Top Task Header & Progress Bar
-     */
     private createConsoleHeader(cx: number, cy: number, w: number) {
         const hG = this.add.graphics().setDepth(14);
 
@@ -139,7 +707,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         hG.lineStyle(1.5, 0x2A3345, 1);
         hG.strokeRoundedRect(cx - w / 2, cy - 22, w, 44, 8);
 
-        // Left Tag: Sector Label
+        // Left Tag
         this.add.text(cx - w / 2 + 18, cy, "HYDRO-BAY // SECTOR 01", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
@@ -148,7 +716,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             letterSpacing: 1
         }).setOrigin(0, 0.5).setDepth(15);
 
-        // Center Task Progress Bar (Iconic Among Us Green/Grey Task Meter)
+        // Center Task Progress Bar (Among Us Green/Grey Task Meter)
         const barW = 340;
         const barH = 18;
         const barX = cx - barW / 2 + 20;
@@ -177,34 +745,28 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             repeat: -1
         });
 
-        this.updateTaskProgressBar(0);
-
         this.add.text(cx + w / 2 - 45, cy, "FLOW:", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "10px",
             color: UITheme.colors.textSecondary,
             fontStyle: "bold"
         }).setOrigin(1, 0.5).setDepth(15);
+
+        this.updateTaskProgressBar(0);
     }
 
-    /**
-     * Left Section: Melted Ice Cryo-Water Tank with Bubbles & Dial
-     */
     private createWaterTank(x: number, y: number) {
         const c = this.add.container(x, y).setDepth(13);
 
         const tankW = 120;
-        const tankH = 300;
+        const tankH = 290;
 
         const g = this.add.graphics();
-
-        // Tank Frame & Glass Cylinder
         g.fillStyle(0x0C121D, 0.95);
         g.fillRoundedRect(-tankW / 2, -tankH / 2, tankW, tankH, 12);
         g.lineStyle(3, 0x243248, 1);
         g.strokeRoundedRect(-tankW / 2, -tankH / 2, tankW, tankH, 12);
 
-        // Water Fluid Fill (Electric Cyan Water)
         this.tankWaterLevel = this.add.graphics();
         this.tankWaterLevel.fillStyle(0x00B0FF, 0.7);
         this.tankWaterLevel.fillRoundedRect(-tankW / 2 + 8, -tankH / 2 + 30, tankW - 16, tankH - 60, 8);
@@ -212,7 +774,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         this.tankWaterLevel.strokeRoundedRect(-tankW / 2 + 8, -tankH / 2 + 30, tankW - 16, tankH - 60, 8);
         c.add(this.tankWaterLevel);
 
-        // Rising Ambient Water Bubbles
+        // Rising Bubbles
         for (let i = 0; i < 6; i++) {
             const b = this.add.circle(
                 Phaser.Math.Between(-tankW / 2 + 20, tankW / 2 - 20),
@@ -232,7 +794,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             });
         }
 
-        // Top & Bottom Reinforced Metal Collars
+        // Metal Collars
         g.fillStyle(0x2A364C, 1);
         g.fillRoundedRect(-tankW / 2 - 6, -tankH / 2 - 8, tankW + 12, 28, 6);
         g.fillRoundedRect(-tankW / 2 - 6, tankH / 2 - 20, tankW + 12, 28, 6);
@@ -243,13 +805,11 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         g.lineStyle(2, 0x00E5FF, 1);
         g.strokeCircle(0, -tankH / 2 + 65, 22);
 
-        // Pressure needle pointing to green sector
         g.lineStyle(2, 0x00E676, 1);
         g.lineBetween(0, -tankH / 2 + 65, 12, -tankH / 2 + 55);
 
         c.add(g);
 
-        // Labels
         const lbl1 = this.add.text(0, -tankH / 2 + 105, "MELTED ICE", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "10px",
@@ -264,7 +824,6 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             fontStyle: "bold"
         }).setOrigin(0.5);
 
-        // Outlet Nozzle on Right edge of tank feeding into Grid Row 1
         const nozzle = this.add.graphics();
         nozzle.fillStyle(0x3B4A63, 1);
         nozzle.fillRoundedRect(tankW / 2 - 2, -12, 24, 24, 4);
@@ -272,7 +831,6 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         nozzle.strokeRoundedRect(tankW / 2 - 2, -12, 24, 24, 4);
         c.add([lbl1, lbl2, nozzle]);
 
-        // Outlet Flow Arrow
         const arrow = this.add.text(tankW / 2 + 8, 0, "▶", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
@@ -289,27 +847,22 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         });
     }
 
-    /**
-     * Center Section: 3x3 Interactive Pipe Grid
-     */
     private createPipeGrid(startX: number, startY: number) {
-        // Preset scrambled configuration with guaranteed solutions
-        // Input is at (col: 0, row: 1). Output is at (col: 2, row: 1).
         const initialSetup: { type: PipeType; rot: number }[][] = [
             [
-                { type: "CORNER", rot: 1 },     // (0, 0): Corner
-                { type: "STRAIGHT", rot: 1 },   // (1, 0): Vertical straight
-                { type: "CORNER", rot: 0 }      // (2, 0): Corner
+                { type: "CORNER", rot: 1 },
+                { type: "STRAIGHT", rot: 1 },
+                { type: "CORNER", rot: 0 }
             ],
             [
-                { type: "T_JUNCTION", rot: 3 }, // (0, 1): Entrance (pointing Down/Left initially)
-                { type: "T_JUNCTION", rot: 1 }, // (1, 1): Crossways T
-                { type: "T_JUNCTION", rot: 2 }  // (2, 1): Exit (pointing Down/Left initially)
+                { type: "T_JUNCTION", rot: 3 },
+                { type: "T_JUNCTION", rot: 1 },
+                { type: "T_JUNCTION", rot: 2 }
             ],
             [
-                { type: "CORNER", rot: 0 },     // (0, 2): Corner
-                { type: "STRAIGHT", rot: 1 },   // (1, 2): Straight
-                { type: "CORNER", rot: 3 }      // (2, 2): Corner
+                { type: "CORNER", rot: 0 },
+                { type: "STRAIGHT", rot: 1 },
+                { type: "CORNER", rot: 3 }
             ]
         ];
 
@@ -324,7 +877,6 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
 
                 const container = this.add.container(cellX, cellY).setDepth(15);
 
-                // Base Socket Tray with heavy industrial bevel
                 const tray = this.add.graphics();
                 tray.fillStyle(0x131722, 1);
                 tray.fillRoundedRect(-this.TILE_SIZE / 2, -this.TILE_SIZE / 2, this.TILE_SIZE, this.TILE_SIZE, 8);
@@ -332,32 +884,27 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
                 tray.strokeRoundedRect(-this.TILE_SIZE / 2, -this.TILE_SIZE / 2, this.TILE_SIZE, this.TILE_SIZE, 8);
                 container.add(tray);
 
-                // Outer socket ports (visual notches where pipes connect)
                 const notches = this.add.graphics();
                 notches.fillStyle(0x0C0E14, 1);
-                notches.fillRect(-8, -this.TILE_SIZE / 2 - 2, 16, 4); // Up
-                notches.fillRect(this.TILE_SIZE / 2 - 2, -8, 4, 16);  // Right
-                notches.fillRect(-8, this.TILE_SIZE / 2 - 2, 16, 4);  // Down
-                notches.fillRect(-this.TILE_SIZE / 2 - 2, -8, 4, 16); // Left
+                notches.fillRect(-8, -this.TILE_SIZE / 2 - 2, 16, 4);
+                notches.fillRect(this.TILE_SIZE / 2 - 2, -8, 4, 16);
+                notches.fillRect(-8, this.TILE_SIZE / 2 - 2, 16, 4);
+                notches.fillRect(-this.TILE_SIZE / 2 - 2, -8, 4, 16);
                 container.add(notches);
 
-                // Hover / Click Glow ring
                 const glowGraphic = this.add.graphics();
                 glowGraphic.lineStyle(2.5, UITheme.colors.primaryCyan, 0);
                 glowGraphic.strokeRoundedRect(-this.TILE_SIZE / 2 - 2, -this.TILE_SIZE / 2 - 2, this.TILE_SIZE + 4, this.TILE_SIZE + 4, 10);
                 container.add(glowGraphic);
 
-                // Rotating Pipe Graphic Container
                 const pipeRotateContainer = this.add.container(0, 0);
                 pipeRotateContainer.setAngle(setup.rot * 90);
                 container.add(pipeRotateContainer);
 
-                // Pipe graphics inside rotating container
                 const pipeGraphics = this.add.graphics();
                 const waterGraphics = this.add.graphics();
                 pipeRotateContainer.add([pipeGraphics, waterGraphics]);
 
-                // Interactive Hit Zone
                 const hitZone = this.add.rectangle(0, 0, this.TILE_SIZE, this.TILE_SIZE, 0x000000, 0.001);
                 hitZone.setInteractive({ useHandCursor: true });
                 container.add(hitZone);
@@ -374,34 +921,26 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
                     glowGraphic: glowGraphic
                 };
 
-                // Draw base static metal pipe casing
                 this.drawPipeBody(tileData);
 
-                // Hover Effects
                 hitZone.on("pointerover", () => {
-                    this.tweens.add({
-                        targets: container,
-                        scaleX: 1.05,
-                        scaleY: 1.05,
-                        duration: 120
-                    });
+                    this.tweens.add({ targets: container, scale: 1.05, duration: 120 });
                     glowGraphic.clear();
                     glowGraphic.lineStyle(2.5, UITheme.colors.primaryCyan, 0.9);
                     glowGraphic.strokeRoundedRect(-this.TILE_SIZE / 2 - 2, -this.TILE_SIZE / 2 - 2, this.TILE_SIZE + 4, this.TILE_SIZE + 4, 10);
                 });
 
                 hitZone.on("pointerout", () => {
-                    this.tweens.add({
-                        targets: container,
-                        scaleX: 1.0,
-                        scaleY: 1.0,
-                        duration: 120
-                    });
+                    this.tweens.add({ targets: container, scale: 1.0, duration: 120 });
                     glowGraphic.clear();
                 });
 
-                // Click to Rotate 90° Clockwise
                 hitZone.on("pointerdown", () => {
+                    if (!this.hasEquipments) {
+                        SoundFX.playAlert();
+                        this.setActionFeedback("⚠ UNLOCK PLUMBING EQUIPMENT FIRST IN PROTOCOL SELECTION!", false);
+                        return;
+                    }
                     this.rotateTile(tileData);
                 });
 
@@ -410,9 +949,6 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         }
     }
 
-    /**
-     * Draws the mechanical Among Us pipe casing and fluid channel
-     */
     private drawPipeBody(tile: PipeTileData) {
         const pG = tile.pipeGraphics;
         const wG = tile.waterGraphics;
@@ -423,26 +959,21 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         pG.clear();
         wG.clear();
 
-        // Colors
         const casingColor = 0x2A374C;
         const casingStroke = 0x0D121B;
         const waterColor = tile.isPowered ? 0x00E5FF : 0x161C26;
         const waterCore = tile.isPowered ? 0xE0F7FA : 0x0D121B;
 
-        // Draw based on canonical rotation 0:
         if (tile.type === "STRAIGHT") {
-            // Horizontal pipe: Left (-half) to Right (+half)
             pG.fillStyle(casingColor, 1);
             pG.fillRoundedRect(-half, -outerW / 2, this.TILE_SIZE, outerW, 4);
             pG.lineStyle(2.5, casingStroke, 1);
             pG.strokeRoundedRect(-half, -outerW / 2, this.TILE_SIZE, outerW, 4);
 
-            // Flange rings at edges
             pG.fillStyle(0x455A75, 1);
             pG.fillRect(-half, -outerW / 2 - 2, 6, outerW + 4);
             pG.fillRect(half - 6, -outerW / 2 - 2, 6, outerW + 4);
 
-            // Inner Fluid Channel
             wG.fillStyle(waterColor, 1);
             wG.fillRect(-half, -innerW / 2, this.TILE_SIZE, innerW);
             if (tile.isPowered) {
@@ -450,23 +981,20 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
                 wG.fillRect(-half, -2, this.TILE_SIZE, 4);
             }
         } else if (tile.type === "CORNER") {
-            // Corner connects UP (0, -half) to RIGHT (+half, 0)
             pG.fillStyle(casingColor, 1);
-            pG.fillRect(-outerW / 2, -half, outerW, half); // Up vertical leg
-            pG.fillRect(0, -outerW / 2, half, outerW);     // Right horizontal leg
-            pG.fillCircle(0, 0, outerW / 2);              // Joint elbow
+            pG.fillRect(-outerW / 2, -half, outerW, half);
+            pG.fillRect(0, -outerW / 2, half, outerW);
+            pG.fillCircle(0, 0, outerW / 2);
 
             pG.lineStyle(2.5, casingStroke, 1);
             pG.strokeRect(-outerW / 2, -half, outerW, half);
             pG.strokeRect(0, -outerW / 2, half, outerW);
             pG.strokeCircle(0, 0, outerW / 2);
 
-            // Flange rings
             pG.fillStyle(0x455A75, 1);
             pG.fillRect(-outerW / 2 - 2, -half, outerW + 4, 6);
             pG.fillRect(half - 6, -outerW / 2 - 2, 6, outerW + 4);
 
-            // Inner Fluid Channel
             wG.fillStyle(waterColor, 1);
             wG.fillRect(-innerW / 2, -half, innerW, half);
             wG.fillRect(0, -innerW / 2, half, innerW);
@@ -478,23 +1006,20 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
                 wG.fillRect(0, -2, half, 4);
             }
         } else if (tile.type === "T_JUNCTION") {
-            // T-junction connects LEFT (-half), UP (-half), and RIGHT (+half)
             pG.fillStyle(casingColor, 1);
-            pG.fillRect(-half, -outerW / 2, this.TILE_SIZE, outerW); // Horizontal main trunk
-            pG.fillRect(-outerW / 2, -half, outerW, half);          // Up vertical branch
+            pG.fillRect(-half, -outerW / 2, this.TILE_SIZE, outerW);
+            pG.fillRect(-outerW / 2, -half, outerW, half);
             pG.fillCircle(0, 0, outerW / 2);
 
             pG.lineStyle(2.5, casingStroke, 1);
             pG.strokeRect(-half, -outerW / 2, this.TILE_SIZE, outerW);
             pG.strokeRect(-outerW / 2, -half, outerW, half);
 
-            // Flange rings
             pG.fillStyle(0x455A75, 1);
             pG.fillRect(-half, -outerW / 2 - 2, 6, outerW + 4);
             pG.fillRect(half - 6, -outerW / 2 - 2, 6, outerW + 4);
             pG.fillRect(-outerW / 2 - 2, -half, outerW + 4, 6);
 
-            // Inner Fluid Channel
             wG.fillStyle(waterColor, 1);
             wG.fillRect(-half, -innerW / 2, this.TILE_SIZE, innerW);
             wG.fillRect(-innerW / 2, -half, innerW, half);
@@ -508,9 +1033,6 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         }
     }
 
-    /**
-     * Rotates a pipe tile 90° clockwise with snappy tween and sound effect
-     */
     private rotateTile(tile: PipeTileData) {
         if (this.isRotating || this.isCompleted) return;
         this.isRotating = true;
@@ -532,34 +1054,25 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         });
     }
 
-    /**
-     * Returns the 4 connected directions for a tile at its current rotation.
-     * Directions: 0 = UP, 1 = RIGHT, 2 = DOWN, 3 = LEFT.
-     */
     private getTileConnections(tile: PipeTileData): number[] {
         let base: number[] = [];
         if (tile.type === "STRAIGHT") {
-            base = [3, 1]; // LEFT and RIGHT
+            base = [3, 1];
         } else if (tile.type === "CORNER") {
-            base = [0, 1]; // UP and RIGHT
+            base = [0, 1];
         } else if (tile.type === "T_JUNCTION") {
-            base = [3, 0, 1]; // LEFT, UP, RIGHT
+            base = [3, 0, 1];
         }
         return base.map(d => (d + tile.rot) % 4);
     }
 
-    /**
-     * Evaluates continuous water flow from the water tank across the grid using BFS
-     */
     private evaluateWaterFlow(playEffects = false) {
-        // Reset all powered states
         for (let r = 0; r < this.GRID_ROWS; r++) {
             for (let c = 0; c < this.GRID_COLS; c++) {
                 this.grid[r][c].isPowered = false;
             }
         }
 
-        // Entrance is at (col: 0, row: 1) from the LEFT (direction 3)
         const startTile = this.grid[1][0];
         const startConnections = this.getTileConnections(startTile);
 
@@ -571,14 +1084,11 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
 
         let pathCompletesToGarden = false;
 
-        // Check if start tile connects to the Left entrance
         if (startConnections.includes(3)) {
             startTile.isPowered = true;
             visited[1][0] = true;
 
-            const queue: [number, number][] = [[0, 1]]; // [col, row]
-
-            // Opposite direction mapping: UP <-> DOWN, RIGHT <-> LEFT
+            const queue: [number, number][] = [[0, 1]];
             const opposite = (dir: number) => (dir + 2) % 4;
 
             while (queue.length > 0) {
@@ -586,30 +1096,26 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
                 const curTile = this.grid[curR][curC];
                 const curDirs = this.getTileConnections(curTile);
 
-                // Direction offsets: 0 = UP, 1 = RIGHT, 2 = DOWN, 3 = LEFT
                 const deltas: [number, number][] = [
-                    [0, -1], // UP
-                    [1, 0],  // RIGHT
-                    [0, 1],  // DOWN
-                    [-1, 0]  // LEFT
+                    [0, -1],
+                    [1, 0],
+                    [0, 1],
+                    [-1, 0]
                 ];
 
                 for (const d of curDirs) {
                     const nextC = curC + deltas[d][0];
                     const nextR = curR + deltas[d][1];
 
-                    // Check if exiting to the Garden from (col: 2, row: 1) to the RIGHT (d === 1)
                     if (curC === 2 && curR === 1 && d === 1) {
                         pathCompletesToGarden = true;
                     }
 
-                    // Within grid bounds
                     if (nextC >= 0 && nextC < this.GRID_COLS && nextR >= 0 && nextR < this.GRID_ROWS) {
                         if (!visited[nextR][nextC]) {
                             const nextTile = this.grid[nextR][nextC];
                             const nextDirs = this.getTileConnections(nextTile);
 
-                            // Neighbor must have a matching port in opposite direction
                             if (nextDirs.includes(opposite(d))) {
                                 nextTile.isPowered = true;
                                 visited[nextR][nextC] = true;
@@ -621,14 +1127,12 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             }
         }
 
-        // Redraw all tiles with updated water glow
         for (let r = 0; r < this.GRID_ROWS; r++) {
             for (let c = 0; c < this.GRID_COLS; c++) {
                 this.drawPipeBody(this.grid[r][c]);
             }
         }
 
-        // Update Manifold Tubes & Pods
         this.drawManifoldTubes(pathCompletesToGarden);
 
         if (pathCompletesToGarden) {
@@ -640,7 +1144,6 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
                 this.celebrateTomatoSprout();
             }
         } else {
-            // Count connected tiles for partial progress
             let poweredCount = 0;
             for (let r = 0; r < this.GRID_ROWS; r++) {
                 for (let c = 0; c < this.GRID_COLS; c++) {
@@ -654,14 +1157,11 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         }
     }
 
-    /**
-     * Updates the Among Us green task bar fill and label
-     */
     private updateTaskProgressBar(pct: number) {
         const barW = 340;
         const barH = 18;
         const barX = 640 - barW / 2 + 20;
-        const barY = 365 - 250 + 35 - barH / 2;
+        const barY = 385 - 240 + 35 - barH / 2;
 
         if (this.taskProgressBarFill) {
             this.taskProgressBarFill.clear();
@@ -681,38 +1181,29 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         }
     }
 
-    /**
-     * Right Section: Hydroponic Space-Tomato Pods
-     */
     private createTomatoPods(x: number, y: number) {
         this.tomatoPods = [];
         this.tomatoSprites = [];
 
-        const podYs = [-100, 0, 100]; // 3 Pods: Top, Middle, Bottom
+        const podYs = [-95, 0, 95];
 
         for (let i = 0; i < 3; i++) {
             const py = y + podYs[i];
             const podC = this.add.container(x, py).setDepth(13);
 
             const podG = this.add.graphics();
-
-            // Glass Bio-Incubator Dome
             podG.fillStyle(0x0C1924, 0.95);
             podG.fillRoundedRect(-55, -42, 110, 84, 10);
             podG.lineStyle(2.5, 0x2A3E56, 1);
             podG.strokeRoundedRect(-55, -42, 110, 84, 10);
 
-            // Rich Mars Hydroponic Soil Base
             podG.fillStyle(0x3E1C12, 1);
             podG.fillRoundedRect(-48, 16, 96, 20, 6);
 
-            // Subtle Glass Specular highlight
             podG.lineStyle(1.5, 0x80D8FF, 0.4);
             podG.lineBetween(-44, -32, -18, -32);
-
             podC.add(podG);
 
-            // Tomato Sprout Container (Initially small seed/sprout)
             const tomatoC = this.add.container(0, 15).setDepth(14);
             this.drawSpaceTomato(tomatoC, false);
             podC.add(tomatoC);
@@ -721,8 +1212,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             this.tomatoSprites.push(tomatoC);
         }
 
-        // Header label above pods
-        this.add.text(x, y - 165, "🌱 MARTIAN HYDROPONIC BEDS", {
+        this.add.text(x, y - 160, "🌱 MARTIAN HYDROPONIC BEDS", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "10.5px",
             color: UITheme.colors.bioGreenStr,
@@ -730,15 +1220,11 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         }).setOrigin(0.5).setDepth(14);
     }
 
-    /**
-     * Procedurally draws a vibrant, adorable Alien Space-Tomato
-     */
     private drawSpaceTomato(c: Phaser.GameObjects.Container, isSprouted: boolean) {
         c.removeAll(true);
         const g = this.add.graphics();
 
         if (!isSprouted) {
-            // Dormant tiny seed sprout
             g.fillStyle(0x3B6846, 1);
             g.fillCircle(0, 0, 5);
             g.lineStyle(1.5, 0x00E676, 0.8);
@@ -747,78 +1233,61 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             return;
         }
 
-        // -------------------------------------------------------------
-        // GIANT ALIEN SPACE-TOMATO SPROUTED!
-        // -------------------------------------------------------------
-        // Lush Leafy Vines coiling up from soil
         g.fillStyle(0x00C853, 1);
         g.fillEllipse(-18, -2, 18, 8);
         g.fillEllipse(18, -2, 18, 8);
 
-        // Giant Plump Ruby-Crimson Alien Tomato Body
         g.fillStyle(0xE52538, 1);
         g.fillEllipse(0, -18, 52, 46);
 
-        // Cartoon Glossy White Light Reflection Arc (Among Us Style)
         g.fillStyle(0xFFFFFF, 0.75);
         g.fillEllipse(-12, -26, 14, 8);
         g.fillCircle(-16, -20, 3);
 
-        // Glowing Bioluminescent Alien Speckles
         g.fillStyle(0x00E5FF, 0.9);
         g.fillCircle(12, -14, 3.5);
         g.fillCircle(16, -24, 2.5);
         g.fillCircle(-8, -8, 2.5);
 
-        // Big Cute Cartoon Expressive Eyes
         g.fillStyle(0x111622, 1);
         g.fillEllipse(-8, -18, 8, 11);
         g.fillEllipse(8, -18, 8, 11);
 
-        // Eye Specular Sparkles
         g.fillStyle(0xFFFFFF, 1);
         g.fillCircle(-9, -20, 2.5);
         g.fillCircle(7, -20, 2.5);
 
-        // Cheerful Blushing Pink Cheeks
         g.fillStyle(0xFF6B8B, 0.7);
         g.fillCircle(-14, -11, 4);
         g.fillCircle(14, -11, 4);
 
-        // Happy Smiling Mouth
         g.lineStyle(2, 0x111622, 1);
         g.beginPath();
         g.arc(0, -13, 5, 0.2, Math.PI - 0.2, false);
         g.strokePath();
 
-        // Alien Calyx & Curly Antenna Vine on top
         g.fillStyle(0x00E676, 1);
         g.fillTriangle(0, -42, -14, -36, 14, -36);
         g.fillTriangle(-12, -38, -22, -30, -6, -34);
         g.fillTriangle(12, -38, 22, -30, 6, -34);
 
-        // Little Glowing Golden Star Flower on antenna tip
         g.fillStyle(0xFFD600, 1);
         g.fillCircle(0, -45, 5);
 
         c.add(g);
     }
 
-    /**
-     * Draws Manifold Tubes connecting Grid Exit (col 2, row 1) to the 3 Garden Pods
-     */
     private drawManifoldTubes(isFlowing: boolean) {
         this.gardenTubesGraphic.clear();
 
-        const exitX = 580 + (this.TILE_SIZE + this.TILE_GAP); // Col 2 center is at 676
-        const exitEdgeX = exitX + this.TILE_SIZE / 2;         // 676 + 42 = 718
-        const gardenX = 880 - 55;                              // 825
-        const midY = 385;
+        const exitX = 580 + (this.TILE_SIZE + this.TILE_GAP);
+        const exitEdgeX = exitX + this.TILE_SIZE / 2;
+        const gardenX = 880 - 55;
+        const midY = 405;
 
         const color = isFlowing ? 0x00E5FF : 0x2A374C;
         const core = isFlowing ? 0xE0F7FA : 0x141A24;
 
-        // Main Horizontal Feed Pipe from grid exit (718, 385) to distributor trunk (775, 385)
         this.gardenTubesGraphic.lineStyle(16, 0x18202D, 1);
         this.gardenTubesGraphic.lineBetween(exitEdgeX, midY, 775, midY);
 
@@ -830,15 +1299,13 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             this.gardenTubesGraphic.lineBetween(exitEdgeX, midY, 775, midY);
         }
 
-        // Vertical Manifold Trunk at x = 775 (branching to y = 285, 385, 485)
         this.gardenTubesGraphic.lineStyle(14, 0x18202D, 1);
-        this.gardenTubesGraphic.lineBetween(775, 285, 775, 485);
+        this.gardenTubesGraphic.lineBetween(775, 310, 775, 500);
 
         this.gardenTubesGraphic.lineStyle(7, color, 1);
-        this.gardenTubesGraphic.lineBetween(775, 285, 775, 485);
+        this.gardenTubesGraphic.lineBetween(775, 310, 775, 500);
 
-        // 3 Branch tubes into each pod
-        const podYs = [285, 385, 485];
+        const podYs = [310, 405, 500];
         for (const py of podYs) {
             this.gardenTubesGraphic.lineStyle(12, 0x18202D, 1);
             this.gardenTubesGraphic.lineBetween(775, py, gardenX, py);
@@ -853,17 +1320,13 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         }
     }
 
-    /**
-     * Rewarding Sprouting Celebration when water reaches the Garden!
-     */
     private celebrateTomatoSprout() {
         SoundFX.playToggle(true);
 
-        // Water Surge Particles rushing through pipes into pods
         for (let i = 0; i < 20; i++) {
             const p = this.add.circle(
                 720 + Phaser.Math.Between(0, 100),
-                385 + Phaser.Math.Between(-100, 100),
+                405 + Phaser.Math.Between(-100, 100),
                 Phaser.Math.Between(3, 7),
                 0x00E5FF,
                 0.9
@@ -878,7 +1341,6 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             });
         }
 
-        // Instant Rewarding Tomato Sprout Animations with bouncy squash-and-stretch!
         this.tomatoSprites.forEach((tomatoC, idx) => {
             this.time.delayedCall(idx * 160, () => {
                 this.drawSpaceTomato(tomatoC, true);
@@ -905,7 +1367,6 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
                     }
                 });
 
-                // Sparkle bio-luminescent particles popping from each tomato
                 for (let s = 0; s < 8; s++) {
                     const spark = this.add.text(
                         880 + Phaser.Math.Between(-30, 30),
@@ -927,21 +1388,16 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
             });
         });
 
-        // Update Top Visor Progress HUD
         this.updateVisorProgress(100, 100, "%");
         this.showSurfaceFloatingText(880, 240, "🍅 SPACE-TOMATOES SPROUTED! +100% FRESH FOOD AUTONOMY!", UITheme.colors.bioGreenStr);
 
-        // Slams down the iconic Among Us "TASK COMPLETED!" Green Stamp!
         this.time.delayedCall(450, () => {
             this.createTaskCompletedStamp();
         });
     }
 
-    /**
-     * Bold Among Us "TASK COMPLETED!" Stamp
-     */
     private createTaskCompletedStamp() {
-        this.taskCompleteStamp = this.add.container(640, 365).setDepth(40);
+        this.taskCompleteStamp = this.add.container(640, 385).setDepth(40);
         this.taskCompleteStamp.setScale(2.5);
         this.taskCompleteStamp.setAlpha(0);
 
@@ -954,11 +1410,9 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         stampG.lineStyle(4, 0xFFFFFF, 1);
         stampG.strokeRoundedRect(-stampW / 2, -stampH / 2, stampW, stampH, 12);
 
-        // Diagonal industrial stripes on corners
         stampG.fillStyle(0x00B248, 1);
         stampG.fillRect(-stampW / 2 + 10, -stampH / 2 + 6, 20, stampH - 12);
         stampG.fillRect(stampW / 2 - 30, -stampH / 2 + 6, 20, stampH - 12);
-
         this.taskCompleteStamp.add(stampG);
 
         const stampTitle = this.add.text(0, -12, "✔ TASK COMPLETED!", {
@@ -978,7 +1432,6 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
 
         this.taskCompleteStamp.add([stampTitle, stampSub]);
 
-        // Stamp Slam Down Tween
         this.tweens.add({
             targets: this.taskCompleteStamp,
             scaleX: 1.0,
@@ -994,7 +1447,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
     }
 
     protected isTargetMet(): boolean {
-        return this.isWaterFlowingToGarden;
+        return this.isWaterFlowingToGarden && this.hasEquipments;
     }
 }
 
