@@ -60,6 +60,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     private astronautSprite!: Phaser.GameObjects.Image;
     private astronautSpeed = 220;
     private isMoving = false;
+    private isEnteringScene = false;
     private targetX: number | null = null;
     private targetY: number | null = null;
     private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -686,8 +687,8 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     // PLAYER CADET CREATION (BELOW THE GRID: y = 570, NO ROTATION!)
     // =========================================================================
     private createPlayerAstronaut() {
-        // Starts at x = 110, y = 570 - strictly BELOW the solar arrays (y = 390)
-        this.astronautContainer = this.add.container(110, 570).setDepth(30);
+        // Starts offscreen on the left at x = -60, y = 570 - strictly BELOW the solar arrays (y = 390)
+        this.astronautContainer = this.add.container(-60, 570).setDepth(30);
 
         const custom = this.registry.get("astronautCustomization") as any;
         const avatarKey = custom?.gender === "girl" ? "girl-astronaut" : "boy-astronaut";
@@ -726,7 +727,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
 
         // Pointer click to move cadet along the walking path below the grids
         this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-            if (this.gameState === "ACTION_GAMEPLAY" && !this.isPuzzleModalOpen && pointer.y >= 460) {
+            if (this.gameState === "ACTION_GAMEPLAY" && !this.isEnteringScene && !this.isPuzzleModalOpen && pointer.y >= 460) {
                 this.targetX = pointer.x;
                 this.targetY = pointer.y;
             }
@@ -734,11 +735,26 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     }
 
     // =========================================================================
-    // DIRECT GAMEPLAY START (No annoying pop-ups blocking the screen!)
+    // DIRECT GAMEPLAY START: CADET ENTERS THE SCENE FIRST!
     // =========================================================================
     private startDirectActionGameplay() {
         this.gameState = "ACTION_GAMEPLAY";
-        this.setActionFeedback("🏃 WALK TO SOLAR ARRAY 01 TO SOLVE ITS SCIENCE PUZZLE & RESTORE POWER!", true);
+        this.isEnteringScene = true;
+        this.isMoving = true;
+
+        // Smoothly walk the cadet into the scene from the left to x = 70
+        this.tweens.add({
+            targets: this.astronautContainer,
+            x: 70,
+            duration: 1100,
+            ease: "Quad.easeOut",
+            onComplete: () => {
+                this.isEnteringScene = false;
+                this.isMoving = false;
+                this.setActionFeedback("🏃 MOVE RIGHT TOWARDS SOLAR ARRAY 01 TO SOLVE ITS SCIENCE PUZZLE!", true);
+                this.showSurfaceFloatingText(70, 520, "👉 MOVE RIGHT TOWARDS SOLAR ARRAY 01!", UITheme.colors.solarGoldStr);
+            }
+        });
 
         // Clean guidance pill banner at top
         const banner = this.add.container(640, 128).setDepth(35);
@@ -1592,7 +1608,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     // GAME LOOP: UPDATE (Movement, Proximity Check, No Rotation!)
     // =========================================================================
     update(_time: number, delta: number) {
-        if (this.gameState !== "ACTION_GAMEPLAY") return;
+        if (this.gameState !== "ACTION_GAMEPLAY" || this.isEnteringScene) return;
 
         const dt = delta / 1000;
 
@@ -1652,13 +1668,13 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         this.astronautContainer.x = Phaser.Math.Clamp(this.astronautContainer.x, 60, this.W - 60);
         this.astronautContainer.y = Phaser.Math.Clamp(this.astronautContainer.y, 520, 640);
 
-        // 2. Proximity Check: As cadet goes near an unsolved grid, the problem pops up!
-        if (!this.isPuzzleModalOpen) {
+        // 2. Proximity Check: ONLY as cadet is made to walk near an unsolved grid (distH < 75), the problem pops up!
+        if (!this.isEnteringScene && !this.isPuzzleModalOpen) {
             for (let idx = 0; idx < this.solarStations.length; idx++) {
                 const st = this.solarStations[idx];
                 if (!st.questionSolved && !st.isCleaned) {
                     const distH = Math.abs(this.astronautContainer.x - st.x);
-                    if (distH < 140) {
+                    if (distH < 75) {
                         this.openArrayPuzzleModal(idx);
                         break;
                     }
