@@ -83,6 +83,15 @@ export class OutpostSolScene extends Phaser.Scene {
         if (!this.registry.has("playerRole")) {
             this.registry.set("playerRole", "cadet");
         }
+        // Ensure default base construction material is always glass
+        this.registry.set("baseConstructionMaterial", "glass");
+        if (typeof window !== "undefined" && window.localStorage) {
+            try {
+                if (localStorage.getItem("astra_base_material") === "sand") {
+                    localStorage.setItem("astra_base_material", "glass");
+                }
+            } catch {}
+        }
         this.showTitleScreen();
     }
 

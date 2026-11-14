@@ -76,9 +76,6 @@ export class OutpostSolTitle {
     private createBaseStationScene(w: number, h: number) {
         const baseGroup = this.scene.add.container(0, 0);
 
-        const savedMaterial = this.scene.registry.get("baseConstructionMaterial") ||
-            (typeof window !== "undefined" && window.localStorage ? localStorage.getItem("astra_base_material") : null);
-
         // 1. Solar Panels Array: Cleanly spaced well to the left (x = 760)
         // Completely clear of the habitat's stairs and platform with ~250px breathing room!
         if (this.scene.textures.exists("solar-panels")) {
@@ -87,18 +84,14 @@ export class OutpostSolTitle {
             baseGroup.add(solar);
         }
 
-        // 2. Habitat Dome: Proud centerpiece at x = 1000, y = 520
+        // 2. Glass Base Habitat Dome: Iconic centerpiece with transparent observation glass dome
         const habX = w * 0.79;
         const habY = h * 0.73;
 
         let hab: Phaser.GameObjects.Image | null = null;
-        if (savedMaterial === "sand" && this.scene.textures.exists("sand-base-station")) {
-            hab = this.scene.add.image(habX, habY, "sand-base-station");
-            hab.setScale(0.36);
-        } else if (this.scene.textures.exists("mars-habitat")) {
+        if (this.scene.textures.exists("mars-habitat")) {
             hab = this.scene.add.image(habX, habY, "mars-habitat");
             hab.setScale(0.55);
-            if (savedMaterial === "glass") hab.setTint(0xD0F8FF);
         } else if (this.scene.textures.exists("base-station")) {
             hab = this.scene.add.image(habX, habY, "base-station");
             hab.setScale(0.66);
