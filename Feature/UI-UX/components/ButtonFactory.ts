@@ -199,26 +199,26 @@ export class ButtonFactory {
 
         // Icon
         const hasIcon = Boolean(iconKey || icon);
-        const iconOffset = -width / 2 + 28;
+        const iconOffset = -width / 2 + 24;
 
         if (iconKey && scene.textures.exists(iconKey)) {
             const iconImg = scene.add.image(iconOffset, 0, iconKey);
             iconImg.setScale(iconScale);
             visuals.add(iconImg);
         } else if (icon) {
-            const iconCircle = scene.add.circle(iconOffset, 0, 16, 0x050F1E, 0.85);
+            const iconCircle = scene.add.circle(iconOffset, 0, 14, 0x050F1E, 0.85);
             iconCircle.setStrokeStyle(1.5, primaryColor, 0.9);
             visuals.add(iconCircle);
 
             const iconText = scene.add.text(iconOffset, 0, icon, {
-                fontSize: "16px",
+                fontSize: "14px",
                 fontFamily: UITheme.fonts.body
             }).setOrigin(0.5);
             visuals.add(iconText);
         }
 
         // Label Text
-        const labelX = hasIcon ? -width / 2 + 56 : 0;
+        const labelX = hasIcon ? -width / 2 + 46 : 0;
         const labelOriginX = hasIcon ? 0 : 0.5;
 
         const label = scene.add.text(labelX, 0, text.toUpperCase(), {
@@ -227,6 +227,13 @@ export class ButtonFactory {
             color: textColor,
             fontStyle: "bold"
         }).setOrigin(labelOriginX, 0.5);
+
+        // Enforce boundary containment: label must NEVER overflow button borders
+        const maxTextW = hasIcon ? (width - 46 - 12) : (width - 24);
+        if (label.width > maxTextW && maxTextW > 0) {
+            label.setScale(Math.min(1, maxTextW / label.width));
+        }
+
         visuals.add(label);
 
         const hoverTextColor = (primaryColor === UITheme.colors.marsAmber || primaryColor === UITheme.colors.solarGold)

@@ -69,7 +69,7 @@
         }
 
         body {
-            background: #080D1C;
+            background: #15172D;
             font-family: "Nunito", sans-serif;
             color: #FFFFFF;
             -webkit-font-smoothing: antialiased;
@@ -88,14 +88,44 @@
             justify-content: center;
 
             overflow: hidden;
+            background: #15172D;
+        }
 
-            background:
-                radial-gradient(
-                    ellipse at 50% 45%,
-                    #1B2945 0%,
-                    #101A30 45%,
-                    #080D1C 100%
-                );
+        #fullscreen-btn {
+            position: fixed;
+            top: 14px;
+            right: 18px;
+            z-index: 99999;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(6, 21, 40, 0.92);
+            border: 1.5px solid #00E5FF;
+            border-radius: 8px;
+            color: #00E5FF;
+            font-family: "Orbitron", sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            box-shadow: 0 0 16px rgba(0, 229, 255, 0.35);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            user-select: none;
+        }
+
+        #fullscreen-btn:hover {
+            background: rgba(0, 229, 255, 0.24);
+            color: #FFFFFF;
+            border-color: #FFFFFF;
+            box-shadow: 0 0 24px rgba(0, 229, 255, 0.7);
+            transform: scale(1.04);
+        }
+
+        #fullscreen-btn:active {
+            transform: scale(0.96);
         }
 
         canvas {
@@ -123,6 +153,14 @@
 </head>
 
 <body>
+
+    <!-- ========================================= -->
+    <!-- GLOBAL FULLSCREEN TOGGLE BUTTON           -->
+    <!-- ========================================= -->
+    <button id="fullscreen-btn" type="button" aria-label="Toggle Fullscreen" title="Toggle Fullscreen (Hotkey: F)">
+        <span id="fs-icon">⛶</span>
+        <span id="fs-text">FULLSCREEN [F]</span>
+    </button>
 
     <!-- ========================================= -->
     <!-- MAIN GAME CONTAINER                      -->

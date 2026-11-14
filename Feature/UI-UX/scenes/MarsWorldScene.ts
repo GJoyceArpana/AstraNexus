@@ -5,6 +5,7 @@ import TelemetryPanel from "../components/TelemetryPanel.ts";
 import WarningNotification from "../components/WarningNotification.ts";
 import PowerSwitchboard from "../components/PowerSwitchboard.ts";
 import MissionModals, { type SolResultsStats } from "../components/MissionModals.ts";
+import MissionChallengesModal from "../components/MissionChallengesModal.ts";
 import ButtonFactory from "../components/ButtonFactory.ts";
 import type { CustomizationData } from "../components/AstronautCustomizer.ts";
 import type { GameRole } from "../components/RoleSelector.ts";
@@ -42,6 +43,8 @@ export class MarsWorldScene extends Phaser.Scene {
         D: Phaser.Input.Keyboard.Key;
         E: Phaser.Input.Keyboard.Key;
         P: Phaser.Input.Keyboard.Key;
+        M: Phaser.Input.Keyboard.Key;
+        F: Phaser.Input.Keyboard.Key;
         ESC: Phaser.Input.Keyboard.Key;
     };
 
@@ -50,6 +53,7 @@ export class MarsWorldScene extends Phaser.Scene {
     private telemetryPanel!: TelemetryPanel;
     private warningSystem!: WarningNotification;
     private switchboardModal?: PowerSwitchboard;
+    private missionChallengesModal?: MissionChallengesModal;
     private pauseModal?: Phaser.GameObjects.Container;
     private resultsModal?: Phaser.GameObjects.Container;
 
@@ -58,6 +62,7 @@ export class MarsWorldScene extends Phaser.Scene {
 
     // Sol Level & Persistent Customization (Suits in next levels)
     private solLevel = 1;
+    private baseMaterial: "glass" | "sand" = "glass";
     private equippedGender: "boy" | "girl" = "boy";
     private equippedSuitName = "ALPHA RECON EVA";
     private equippedSuitFrame = 1;
@@ -92,6 +97,7 @@ export class MarsWorldScene extends Phaser.Scene {
 
         // Mars base assets
         this.load.image("base-station", "/assets/game/base/base-station.png");
+        this.load.image("sand-base-station", "/assets/game/base/sand-base-station.png");
         this.load.image("greenhouse", "/assets/game/base/greenhouse.png");
         this.load.image("solar-panels", "/assets/game/base/solar-panels.png");
         this.load.image("dish-antenna", "/assets/game/base/dish-antenna.png");
@@ -124,11 +130,27 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     create() {
+        // Reset active tracking arrays
+        this.modules = [];
+        this.objectiveListTexts = [];
+
         // Read configuration from registry
         this.playerRole = (this.registry.get("playerRole") as GameRole) || "cadet";
         this.landingSite = (this.registry.get("landingSite") as LandingSiteId) || "jezero";
         this.drainRate = this.playerRole === "cadet" ? 0.65 : 1.15;
         this.solLevel = (this.registry.get("solLevel") as number) || 1;
+
+        // Listen for Sol progression updates from challenge scenes
+        this.events.off("solLevelUpdated");
+        this.events.on("solLevelUpdated", (newSol: number) => {
+            this.solLevel = newSol;
+            this.warningSystem.show({
+                type: "INFO",
+                title: `SOL 0${this.solLevel} UNLOCKED · MISSION ADVANCED`,
+                message: `Congratulations! Mission engineering milestone Sol 0${this.solLevel - 1} validated by NASA flight controllers.`,
+                durationMs: 5000
+            });
+        });
 
         // Load persistent suit customization (from registry or localStorage)
         let custom = this.registry.get("astronautCustomization") as CustomizationData | undefined;
@@ -148,6 +170,19 @@ export class MarsWorldScene extends Phaser.Scene {
             this.equippedCallsign = custom.callsign || "Cadet Orion";
             this.equippedToolId = custom.toolId || "drill";
         }
+
+        // Load base construction material (Glass Biosphere vs Sintered Sand Vault)
+        const regMaterial = this.registry.get("baseConstructionMaterial") as "glass" | "sand" | undefined;
+        let savedMaterial: "glass" | "sand" | null = null;
+        if (typeof window !== "undefined" && window.localStorage) {
+            try {
+                const item = localStorage.getItem("astra_base_material");
+                if (item === "glass" || item === "sand") savedMaterial = item;
+            } catch {
+                // Ignore storage errors
+            }
+        }
+        this.baseMaterial = regMaterial || savedMaterial || "glass";
 
         // Initialize Level Objectives based on Sol Level
         if (this.solLevel === 1) {
@@ -273,13 +308,74 @@ export class MarsWorldScene extends Phaser.Scene {
         });
 
         // Module 2: Mars Habitat Dome (Center: x=660, y=440)
-        const habImg = this.add.image(660, 440, "base-station");
-        habImg.setScale(0.65);
-        habImg.setDepth(10);
+        const isGlass = this.baseMaterial === "glass";
+        let habImg: Phaser.GameObjects.Image;
+
+        if (isGlass) {
+            // Glass Biosphere Dome
+            habImg = this.add.image(660, 440, "base-station");
+            habImg.setScale(0.65);
+            habImg.setDepth(10);
+            habImg.setTint(0xD0F8FF);
+
+            const domeGlow = this.add.ellipse(660, 428, 230, 145, 0x00E5FF, 0.18);
+            domeGlow.setDepth(9);
+            this.tweens.add({
+                targets: domeGlow,
+                alpha: 0.32,
+                scaleX: 1.05,
+                scaleY: 1.05,
+                duration: 2500,
+                yoyo: true,
+                repeat: -1,
+                ease: "Sine.easeInOut"
+            });
+        } else {
+            // Sintered Sand Base Station: monolithic architecture made out of Martian sand and covered in dunes
+            const sandKey = this.textures.exists("sand-base-station") ? "sand-base-station" : "base-station";
+            habImg = this.add.image(660, 440, sandKey);
+            habImg.setScale(sandKey === "sand-base-station" ? 0.42 : 0.65);
+            habImg.setDepth(10);
+            if (sandKey !== "sand-base-station") {
+                habImg.setTint(0xE0936C);
+            }
+
+            // Realistic Martian sand dunes banked up against the foundation
+            const duneBack = this.add.ellipse(660, 470, 390, 105, 0x98411D, 0.55);
+            duneBack.setDepth(9);
+
+            const duneFront = this.add.ellipse(660, 486, 335, 72, 0xC46B42, 0.65);
+            duneFront.setStrokeStyle(2, 0xE89363, 0.6);
+            duneFront.setDepth(9);
+
+            // Fine windblown sand dust particles drifting around the sand station
+            for (let i = 0; i < 16; i++) {
+                const sandMote = this.add.circle(
+                    660 + Phaser.Math.Between(-180, 180),
+                    440 + Phaser.Math.Between(-80, 80),
+                    Phaser.Math.FloatBetween(1.0, 2.2),
+                    0xE0936C,
+                    Phaser.Math.FloatBetween(0.25, 0.65)
+                );
+                sandMote.setDepth(11);
+                this.tweens.add({
+                    targets: sandMote,
+                    x: sandMote.x + Phaser.Math.Between(25, 55),
+                    y: sandMote.y + Phaser.Math.Between(-12, 12),
+                    alpha: 0.1,
+                    duration: Phaser.Math.Between(3000, 5000),
+                    yoyo: true,
+                    repeat: -1,
+                    ease: "Sine.easeInOut"
+                });
+            }
+        }
+
+        const habName = isGlass ? "OUTPOST SOL GLASS BIOSPHERE DOME" : "OUTPOST SOL SINTERED SAND VAULT";
         this.modules.push({
             id: "hab",
-            name: "OUTPOST SOL HABITAT DOME",
-            icon: "🏠",
+            name: habName,
+            icon: isGlass ? "🌐" : "🏜️",
             x: 660,
             y: 440,
             sprite: habImg,
@@ -393,12 +489,28 @@ export class MarsWorldScene extends Phaser.Scene {
             D: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D),
             E: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E),
             P: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.P),
+            M: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.M),
+            F: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F),
             ESC: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
         };
+
+        // Toggle Fullscreen on F
+        this.keys.F.on("down", () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        });
 
         // Open Power Switchboard on P
         this.keys.P.on("down", () => {
             this.openSwitchboard();
+        });
+
+        // Open 7-Sol Mission Challenges on M
+        this.keys.M.on("down", () => {
+            this.toggleMissionChallenges();
         });
 
         // Pause Menu on ESC
@@ -437,10 +549,27 @@ export class MarsWorldScene extends Phaser.Scene {
         // Top-Center: Warning System (Task 7)
         this.warningSystem = new WarningNotification(this);
 
-        // Pause Button (Top Center-Right)
+        // Top-Right Symmetrical HUD Navigation Controls
+        const hudChallengesBtn = ButtonFactory.createButton({
+            scene: this,
+            x: 760,
+            y: 38,
+            width: 210,
+            height: 38,
+            fontSize: "11px",
+            text: "7 SOL CHALLENGES [M]",
+            primaryColor: UITheme.colors.primaryCyan,
+            secondaryColor: 0x061528,
+            textColor: UITheme.colors.primaryCyanStr,
+            icon: "🎯",
+            onClick: () => this.toggleMissionChallenges()
+        });
+        hudChallengesBtn.setDepth(110);
+
+        // Pause Button (Symmetrically spaced next to Challenges button)
         const pauseBtn = ButtonFactory.createIconButton(
             this,
-            this.W - 380,
+            895,
             38,
             "⏸",
             18,
@@ -448,23 +577,6 @@ export class MarsWorldScene extends Phaser.Scene {
             () => this.togglePauseMenu()
         );
         pauseBtn.setDepth(110);
-
-        // Prominent HUD Switchboard Quick-Action Button
-        const hudSwitchboardBtn = ButtonFactory.createButton({
-            scene: this,
-            x: this.W - 485,
-            y: 38,
-            width: 170,
-            height: 38,
-            fontSize: "12px",
-            text: "SWITCHBOARD [P]",
-            primaryColor: UITheme.colors.solarGold,
-            secondaryColor: 0x1A1204,
-            textColor: UITheme.colors.solarGoldStr,
-            icon: "⚡",
-            onClick: () => this.openSwitchboard()
-        });
-        hudSwitchboardBtn.setDepth(110);
     }
 
     // =========================================================
@@ -472,7 +584,7 @@ export class MarsWorldScene extends Phaser.Scene {
     // =========================================================
     private createObjectivesCard() {
         const cardW = 340;
-        const cardH = 175;
+        const cardH = 205;
         const cardX = 24;
         const cardY = 190;
 
@@ -497,7 +609,8 @@ export class MarsWorldScene extends Phaser.Scene {
             const line = this.add.text(14, 32 + idx * 24, obj.text, {
                 fontFamily: UITheme.fonts.body,
                 fontSize: "12px",
-                color: obj.done ? UITheme.colors.bioGreenStr : "#FFFFFF"
+                color: obj.done ? UITheme.colors.bioGreenStr : "#FFFFFF",
+                wordWrap: { width: cardW - 28 }
             });
 
             // Make Switchboard objective directly clickable
@@ -518,12 +631,26 @@ export class MarsWorldScene extends Phaser.Scene {
             container.add(line);
         });
 
-        // Equipped suit model & callsign badge at bottom of objectives card
-        const suitTag = this.add.text(14, 148, `✦ ACTIVE SUIT: ${this.equippedSuitName.replace("ASTRONAUT ", "")} ✦`, {
+        // 7-Sol Mission Challenges link
+        const challengesLink = this.add.text(14, 146, "✦ VIEW 7-SOL CHALLENGES [M] ✦", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
+            fontSize: "11px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
+        });
+        challengesLink.setInteractive({ useHandCursor: true });
+        challengesLink.on("pointerover", () => challengesLink.setColor("#FFFFFF"));
+        challengesLink.on("pointerout", () => challengesLink.setColor(UITheme.colors.primaryCyanStr));
+        challengesLink.on("pointerdown", () => this.toggleMissionChallenges());
+        container.add(challengesLink);
+
+        // Equipped suit model & callsign badge at bottom of objectives card
+        const suitTag = this.add.text(14, 176, `✦ ACTIVE SUIT: ${this.equippedSuitName.replace("ASTRONAUT ", "")} ✦`, {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10px",
+            color: UITheme.colors.solarGoldStr,
+            fontStyle: "bold",
+            wordWrap: { width: cardW - 28 }
         });
         container.add(suitTag);
     }
@@ -590,10 +717,13 @@ export class MarsWorldScene extends Phaser.Scene {
         const currentLife = this.resourceMeters.getMeterValue("lifeSupport");
         this.resourceMeters.setMeterValue("lifeSupport", currentLife + 8);
 
+        const isGlass = this.baseMaterial === "glass";
         this.warningSystem.show({
             type: "INFO",
-            title: "HABITAT INSPECTION",
-            message: "Atmospheric scrubbers nominal. Pressure: 1.0 ATM. Oxygen mix balanced.",
+            title: isGlass ? "GLASS BIOSPHERE INSPECTION" : "SINTERED SAND VAULT INSPECTION",
+            message: isGlass
+                ? "Fused silica dome: 92% daylight transmission. Atmospheric scrubbers nominal at 1.0 ATM."
+                : "Monolithic sand structure: 100% sintered regolith walls banked in Martian sand dunes. Cosmic ray defense active (+55%).",
             durationMs: 4500
         });
     }
@@ -712,6 +842,45 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     // =========================================================
+    // 9B. 7-SOL MISSION CHALLENGES OVERLAY
+    // =========================================================
+    public toggleMissionChallenges() {
+        if (this.missionChallengesModal) {
+            this.missionChallengesModal.close();
+            this.missionChallengesModal = undefined;
+            return;
+        }
+
+        this.missionChallengesModal = new MissionChallengesModal(
+            this,
+            {
+                onClose: () => {
+                    this.missionChallengesModal = undefined;
+                },
+                onChallengeAction: (actionId: string, _payload?: any) => {
+                    this.warningSystem.show({
+                        type: "INFO",
+                        title: "CHALLENGE DIRECTIVE EXECUTED",
+                        message: `Action recorded: ${actionId.toUpperCase()}`,
+                        durationMs: 3500
+                    });
+                },
+                onAdvanceSol: (nextSol: number) => {
+                    this.solLevel = Math.min(7, nextSol);
+                    this.registry.set("solLevel", this.solLevel);
+                    this.warningSystem.show({
+                        type: "SUCCESS",
+                        title: `ADVANCING TO SOL 0${this.solLevel}`,
+                        message: `NASA Mission Operations: Flight directive updated for Sol 0${this.solLevel}.`,
+                        durationMs: 5000
+                    });
+                }
+            },
+            this.solLevel
+        );
+    }
+
+    // =========================================================
     // 10. SPACE WEATHER SIMULATION (Task 7)
     // =========================================================
     private setupDONKIWeatherEvents() {
@@ -809,7 +978,7 @@ export class MarsWorldScene extends Phaser.Scene {
     // 12. GAME LOOP (Update)
     // =========================================================
     override update(_time: number, delta: number) {
-        if (this.pauseModal || this.resultsModal) return;
+        if (this.pauseModal || this.resultsModal || this.missionChallengesModal) return;
 
         // Player Movement
         this.handleMovement(delta);
