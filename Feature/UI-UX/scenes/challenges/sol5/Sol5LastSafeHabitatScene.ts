@@ -139,6 +139,18 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
     create() {
         this.cameras.main.setBackgroundColor("#050914");
 
+        // Scene.restart() reuses the scene instance. Clear all transient
+        // references so a closed results modal cannot keep blocking input.
+        this.activePuzzle = undefined;
+        this.resultsModal = undefined;
+        this.pauseModal = undefined;
+        this.guideModal = undefined;
+        this.stations = [];
+        this.crates = [];
+        this.nearbyStation = null;
+        this.nearbyCrate = null;
+        this.missionEnded = false;
+
         // 1. Read player's persistent suit customization
         this.loadPersistentCustomization();
 
