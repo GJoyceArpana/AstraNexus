@@ -14,15 +14,15 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     constructor() {
         super("Sol2PerchlorateBarrierScene", {
             solNumber: 2,
-            title: "SOL 2: THE PERCHLORATE BARRIER",
-            codename: "TOXIC SOIL & SUITPORT DOCKING",
-            hazardBadge: "CHEMICALLY REACTIVE SOIL (ClO4- SALTS)",
-            briefing: "Martian surface regolith contains 0.5%–1.0% toxic calcium and magnesium perchlorates. Inhaling perchlorate dust damages human thyroids and respiratory tracts. Never bring dusty EVA suits inside! Dock via the rear-entry Suitport to keep toxins outside.",
-            nasaFact: "NASA Phoenix lander confirmed widespread perchlorates in 2008. NASA developed rear-entry Suitports: the spacesuit remains latched to the exterior hull while astronauts enter directly through the backpack hatch.",
-            primaryTarget: "Dock through Suitport and purge cabin perchlorates below 15%.",
-            unit: "%",
-            targetVal: 15,
-            initialVal: 65
+            title: "SOL 2: DUST DEVIL CLEANUP",
+            codename: "DUST DEVIL CLEANUP",
+            hazardBadge: "ELECTROSTATIC DUST DEVIL VORTICES",
+            briefing: "A swarm of electrostatic Martian dust devils has converged over Outpost Sol, coating the solar photovoltaic arrays and dropping power output by 65%. Intercept the dust devil vortices with the electrostatic dissipator and clean solar panels to restore 100% power.",
+            nasaFact: "NASA Mars rovers discovered that dust devils produce powerful electric fields lifting fine dust into towering vortex columns across Jezero Crater. Electrostatic charges cause dust to cling to solar panels until neutralized.",
+            primaryTarget: "Disperse electrostatic dust devils and restore solar array efficiency to 100%.",
+            unit: "% Power",
+            targetVal: 100,
+            initialVal: 35
         });
     }
 
@@ -36,6 +36,47 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         saltPatches.fillEllipse(280, 560, 160, 34);
         saltPatches.fillEllipse(540, 620, 220, 40);
         saltPatches.fillEllipse(960, 580, 180, 36);
+
+        // -------------------------------------------------------------
+        // ANIMATED MARTIAN DUST DEVIL VORTICES
+        // -------------------------------------------------------------
+        const dustDevil1 = this.add.container(480, 430).setDepth(20);
+        const vortexGfx1 = this.add.graphics();
+        vortexGfx1.fillStyle(0xD86A38, 0.45);
+        vortexGfx1.fillEllipse(0, 0, 80, 26);
+        vortexGfx1.fillStyle(0xC05526, 0.55);
+        vortexGfx1.fillEllipse(0, -36, 60, 20);
+        vortexGfx1.fillStyle(0xDF8558, 0.65);
+        vortexGfx1.fillEllipse(0, -78, 44, 15);
+        vortexGfx1.fillStyle(0xF0A272, 0.75);
+        vortexGfx1.fillEllipse(0, -120, 28, 10);
+        dustDevil1.add(vortexGfx1);
+
+        const vortexTag = this.add.text(0, -140, "🌪️ DUST DEVIL", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "11px",
+            color: UITheme.colors.solarGoldStr,
+            fontStyle: "bold"
+        }).setOrigin(0.5);
+        dustDevil1.add(vortexTag);
+
+        this.tweens.add({
+            targets: dustDevil1,
+            x: 530,
+            duration: 1800,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut"
+        });
+        this.tweens.add({
+            targets: dustDevil1,
+            scaleX: 1.15,
+            scaleY: 1.1,
+            duration: 850,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut"
+        });
 
         // 1. Habitat Airlock Bulkhead Wall (Center-Right: x=780, y=430)
         const airlockHull = this.add.graphics().setDepth(10);
@@ -80,11 +121,11 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         this.deconNozzles.lineStyle(1.5, UITheme.colors.primaryCyan, 1);
         this.deconNozzles.strokeRoundedRect(690, 340, 60, 20, 4);
 
-        // Built-in Airlock Toxicity Sensor readout
-        this.toxicLedText = this.add.text(875, 480, "ClO4-: 65%", {
+        // Built-in Solar Array Power readout
+        this.toxicLedText = this.add.text(875, 480, "POWER: 35%", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "12px",
-            color: UITheme.colors.emergencyRedStr,
+            color: UITheme.colors.solarGoldStr,
             fontStyle: "bold"
         }).setOrigin(0.5).setDepth(13);
 
@@ -173,14 +214,14 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             ease: "Cubic.easeInOut",
             onComplete: () => {
                 this.isSuitDocked = true;
-                this.suitportLockIndicator.setText("LATCHED & LOCKED");
+                this.suitportLockIndicator.setText("DISSIPATOR ENGAGED");
                 this.suitportLockIndicator.setColor(UITheme.colors.bioGreenStr);
                 SoundFX.playToggle(true);
 
-                this.currentVal = Math.max(25, this.currentVal - 25);
+                this.currentVal = Math.min(100, this.currentVal + 25);
                 this.updateToxicDisplay();
                 this.updateVisorProgress(this.currentVal, this.challengeConfig.targetVal, "%");
-                this.showSurfaceFloatingText(720, 390, "✔ Rear Hatch Locked! Toxins Isolated Outside.", UITheme.colors.bioGreenStr);
+                this.showSurfaceFloatingText(720, 390, "✔ Dissipator Online! Power output +25%.", UITheme.colors.bioGreenStr);
             }
         });
     }
@@ -188,7 +229,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     private sprayDeconJets() {
         if (!this.isSuitDocked) {
             SoundFX.playAlert();
-            this.showSurfaceFloatingText(360, 410, "⚠ Dock suit into collar before activating air shower!", UITheme.colors.emergencyRedStr);
+            this.showSurfaceFloatingText(360, 410, "⚠ Engage dissipator collar before discharging air curtain!", UITheme.colors.emergencyRedStr);
             return;
         }
 
@@ -214,35 +255,35 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             });
         }
 
-        this.currentVal = Math.max(12, this.currentVal - 20);
+        this.currentVal = Math.min(100, this.currentVal + 20);
         this.updateToxicDisplay();
         this.updateVisorProgress(this.currentVal, this.challengeConfig.targetVal, "%");
-        this.showSurfaceFloatingText(720, 360, "💨 HEPA Air-Curtain Swept 99.7% of Surface Dust!", UITheme.colors.primaryCyanStr);
+        this.showSurfaceFloatingText(720, 360, "💨 Ion Air-Curtain Dispersed Vortex Dust (+20% Power)!", UITheme.colors.primaryCyanStr);
     }
 
     private purgeCabin() {
         if (!this.isSuitDocked) {
             SoundFX.playAlert();
-            this.showSurfaceFloatingText(230, 460, "⚠ Suit must be docked before running chemical purge!", UITheme.colors.emergencyRedStr);
+            this.showSurfaceFloatingText(230, 460, "⚠ Dissipator must be engaged before neutralizer flush!", UITheme.colors.emergencyRedStr);
             return;
         }
 
         SoundFX.playToggle(true);
-        this.currentVal = 5; // Safely below 15% target
+        this.currentVal = 100; // 100% full solar output restored!
         this.updateToxicDisplay();
         this.updateVisorProgress(this.currentVal, this.challengeConfig.targetVal, "%");
-        this.showSurfaceFloatingText(230, 450, "✔ Cabin Purged! Perchlorates at Safe 5% Level.", UITheme.colors.bioGreenStr);
+        this.showSurfaceFloatingText(230, 450, "✔ Dust Devil Dispersed! Solar Arrays Restored to 100%.", UITheme.colors.bioGreenStr);
     }
 
     private updateToxicDisplay() {
         if (this.toxicLedText) {
-            this.toxicLedText.setText(`ClO4-: ${this.currentVal}%`);
-            this.toxicLedText.setColor(this.currentVal <= 15 ? UITheme.colors.bioGreenStr : UITheme.colors.emergencyRedStr);
+            this.toxicLedText.setText(`POWER: ${this.currentVal}%`);
+            this.toxicLedText.setColor(this.currentVal >= 100 ? UITheme.colors.bioGreenStr : UITheme.colors.solarGoldStr);
         }
     }
 
     protected isTargetMet(): boolean {
-        return this.isSuitDocked && this.isAirCurtainActive && this.currentVal <= this.challengeConfig.targetVal;
+        return this.isSuitDocked && this.isAirCurtainActive && this.currentVal >= this.challengeConfig.targetVal;
     }
 }
 

@@ -43,6 +43,7 @@ export class MissionChallengesModal {
 
     private contentContainer!: Phaser.GameObjects.Container;
     private tabButtons: Phaser.GameObjects.Container[] = [];
+    private sol2ModalContainer?: Phaser.GameObjects.Container;
 
     private readonly challenges: Record<number, SolChallengeDetail> = {
         1: {
@@ -63,19 +64,19 @@ export class MissionChallengesModal {
         },
         2: {
             solNumber: 2,
-            title: "SOL 2: THE PERCHLORATE BARRIER",
-            codename: "TOXIC SOIL & SUITPORT",
-            icon: "🚪",
-            hazardBadge: "CHEMICALLY REACTIVE SOIL (ClO4- TOXINS)",
-            briefing: "Martian soil contains 0.5%–1.0% toxic calcium and magnesium perchlorates. Never bring dirty spacesuits into the pressurized living quarters! Dock through the rear-entry Suitport to keep toxic dust outside.",
-            nasaFact: "NASA’s Phoenix lander discovered perchlorates in Martian soil in 2008. NASA designed rear-entry Suitports so the dusty suit remains mounted outside the habitat.",
-            primaryTarget: "Maintain interior cabin perchlorate dust level below 20%.",
-            progressMetric: "Cabin Contamination",
+            title: "SOL 2: DUST DEVIL CLEANUP",
+            codename: "DUST DEVIL CLEANUP",
+            icon: "🌪️",
+            hazardBadge: "ELECTROSTATIC DUST DEVIL VORTICES",
+            briefing: "A swarm of electrostatic Martian dust devils has converged on Outpost Sol, burying the photovoltaic solar arrays in thick red dust and choking power generation. Pilot the rover into the dust devil vortices with the electrostatic dissipator to neutralize the vortices and restore solar efficiency.",
+            nasaFact: "NASA Spirit and Opportunity rovers frequently tracked Martian dust devils up to 8 km high. Dust devils generate powerful electrostatic charges causing dust to cling to solar glass until cleaned.",
+            primaryTarget: "Neutralize 3 electrostatic dust devils and restore solar array efficiency to 100%.",
+            progressMetric: "Dust Devils Cleared",
             currentVal: 0,
-            targetVal: 20,
-            unit: "%",
-            actionButtonText: "🚪 ENGAGE REAR-ENTRY SUITPORT",
-            secondaryActionText: "🔬 COLLECT CORE SAMPLE (SHERLOC)"
+            targetVal: 3,
+            unit: "Vortices",
+            actionButtonText: "🌪️ DISPERSE DUST DEVIL",
+            secondaryActionText: "🧹 CLEAN SOLAR GLASS"
         },
         3: {
             solNumber: 3,
@@ -327,6 +328,11 @@ export class MissionChallengesModal {
 
         // Re-render Challenge details
         this.renderSolChallenge(sol);
+
+        // When Sol 2 is clicked on, immediately display "YOUR MISSION", under that "Dust Devil Cleanup", and "START MISSION" button below that
+        if (sol === 2) {
+            this.showSol2MissionModal();
+        }
     }
 
     /**
@@ -533,7 +539,7 @@ export class MissionChallengesModal {
             scene: this.scene,
             x: rightX + colW / 2,
             y: buttonY + 24,
-            text: `🚀 DEPLOY TO SOL 0${sol} MARTIAN SURFACE ➔`,
+            text: sol === 2 ? "🚀 START MISSION ➔" : `🚀 DEPLOY TO SOL 0${sol} MARTIAN SURFACE ➔`,
             width: colW - 40,
             height: 46,
             primaryColor: UITheme.colors.solarGold,
@@ -542,31 +548,7 @@ export class MissionChallengesModal {
             fontSize: "14px",
             icon: "🚀",
             onClick: () => {
-                SoundFX.playClick();
-                const solKey = this.getSolSceneKey(sol);
-                this.close();
-
-                // Stop any existing Sol challenge scenes to ensure zero scene stacking or WebGL conflicts
-                const allSolKeys = [
-                    "Sol1DirtFortressScene",
-                    "Sol2PerchlorateBarrierScene",
-                    "Sol3RedGaleScene",
-                    "Sol4ISRUProductionScene",
-                    "Sol5SilenceCommsLagScene",
-                    "Sol6ColonyGridlockScene",
-                    "Sol7JourneyHomeMAVScene"
-                ];
-
-                for (const key of allSolKeys) {
-                    if (this.scene.scene.isActive(key) || this.scene.scene.isSleeping(key) || this.scene.scene.isPaused(key)) {
-                        this.scene.scene.stop(key);
-                    }
-                }
-
-                // Sleep MarsWorldScene cleanly and launch dedicated challenge scene on top
-                this.scene.scene.sleep("MarsWorldScene");
-                this.scene.scene.launch(solKey);
-                this.scene.scene.bringToTop(solKey);
+                this.launchSolScene(sol);
             }
         });
         this.contentContainer.add(launchSceneBtn);
@@ -652,9 +634,9 @@ export class MissionChallengesModal {
                 stateRecord.currentVal = Math.min(100, stateRecord.currentVal + 25);
                 break;
             case 2:
-                // Suitport Decontamination
-                stateRecord.currentVal = 0; // Clean!
-                stateRecord.completed = true;
+                // Disperse dust devil (+1 vortex cleared, target = 3)
+                stateRecord.currentVal = Math.min(3, stateRecord.currentVal + 1);
+                stateRecord.completed = stateRecord.currentVal >= 3;
                 break;
             case 3:
                 // Kilopower Deployment
@@ -693,6 +675,13 @@ export class MissionChallengesModal {
             case 1:
                 SoundFX.playAlert();
                 break;
+            case 2:
+                // Scrape/clean dust off solar arrays
+                SoundFX.playClick();
+                stateRecord.currentVal = Math.min(3, stateRecord.currentVal + 1);
+                stateRecord.completed = stateRecord.currentVal >= 3;
+                this.renderSolChallenge(sol);
+                break;
             case 3:
                 // Scraped dust off solar glass
                 SoundFX.playClick();
@@ -726,7 +715,194 @@ export class MissionChallengesModal {
         }
     }
 
+    /**
+     * Dedicated mission launch prompt shown as soon as Sol 2 is clicked:
+     * Displays "YOUR MISSION", "Dust Devil Cleanup", and a "START MISSION" button.
+     */
+    private showSol2MissionModal() {
+        if (this.sol2ModalContainer) {
+            this.sol2ModalContainer.destroy();
+            this.sol2ModalContainer = undefined;
+        }
+
+        const { width, height } = this.scene.scale;
+        const modal = this.scene.add.container(0, 0).setDepth(250);
+        this.sol2ModalContainer = modal;
+
+        // Dark dim backdrop
+        const backdrop = this.scene.add.rectangle(0, 0, width, height, 0x000000, 0.72)
+            .setOrigin(0)
+            .setInteractive();
+        modal.add(backdrop);
+
+        const cardW = 560;
+        const cardH = 340;
+        const cardX = (width - cardW) / 2;
+        const cardY = (height - cardH) / 2;
+
+        // Tech frame
+        const frame = this.scene.add.graphics();
+        frame.fillStyle(UITheme.colors.cardBg, 0.98);
+        frame.fillRoundedRect(cardX, cardY, cardW, cardH, 16);
+        frame.lineStyle(2.5, UITheme.colors.primaryCyan, 1);
+        frame.strokeRoundedRect(cardX, cardY, cardW, cardH, 16);
+
+        // Gold corner accents
+        frame.lineStyle(3, UITheme.colors.solarGold, 1);
+        frame.lineBetween(cardX, cardY + 24, cardX, cardY);
+        frame.lineBetween(cardX, cardY, cardX + 24, cardY);
+        frame.lineBetween(cardX + cardW - 24, cardY, cardX + cardW, cardY);
+        frame.lineBetween(cardX + cardW, cardY, cardX + cardW, cardY + 24);
+        frame.lineBetween(cardX, cardY + cardH - 24, cardX, cardY + cardH);
+        frame.lineBetween(cardX, cardY + cardH, cardX + 24, cardY + cardH);
+        frame.lineBetween(cardX + cardW - 24, cardY + cardH, cardX + cardW, cardY + cardH);
+        frame.lineBetween(cardX + cardW, cardY + cardH, cardX + cardW, cardY + cardH - 24);
+        modal.add(frame);
+
+        // Close button
+        const closeBtn = ButtonFactory.createButton({
+            scene: this.scene,
+            x: cardX + cardW - 32,
+            y: cardY + 28,
+            width: 32,
+            height: 32,
+            text: "✕",
+            fontSize: "14px",
+            primaryColor: 0x3A1414,
+            textColor: UITheme.colors.emergencyRedStr,
+            onClick: () => {
+                SoundFX.playClick();
+                modal.destroy();
+                this.sol2ModalContainer = undefined;
+            }
+        });
+        modal.add(closeBtn);
+
+        // 1. "YOUR MISSION"
+        const yourMission = this.scene.add.text(width / 2, cardY + 54, "YOUR MISSION", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "14px",
+            color: UITheme.colors.primaryCyanStr,
+            fontStyle: "bold",
+            letterSpacing: 4
+        }).setOrigin(0.5);
+        modal.add(yourMission);
+
+        // Decorative separator line
+        const sep = this.scene.add.graphics();
+        sep.lineStyle(1.5, UITheme.colors.primaryCyan, 0.5);
+        sep.lineBetween(width / 2 - 100, cardY + 76, width / 2 + 100, cardY + 76);
+        modal.add(sep);
+
+        // 2. Under that: "Dust Devil Cleanup"
+        const missionTitle = this.scene.add.text(width / 2, cardY + 114, "Dust Devil Cleanup", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "28px",
+            color: UITheme.colors.solarGoldStr,
+            fontStyle: "bold",
+            letterSpacing: 2
+        }).setOrigin(0.5);
+        modal.add(missionTitle);
+
+        // Subtitle / Briefing text
+        const missionDesc = this.scene.add.text(width / 2, cardY + 168,
+            "A high-velocity Martian dust devil has swept across Outpost Sol,\n" +
+            "coating the solar photovoltaic arrays and dropping base power.\n" +
+            "Deploy your rover to disperse the dust vortices and clean the panels!", {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "13px",
+            color: "#D0E2FF",
+            align: "center",
+            lineSpacing: 5
+        }).setOrigin(0.5);
+        modal.add(missionDesc);
+
+        // Target badge
+        const badgeBg = this.scene.add.graphics();
+        badgeBg.fillStyle(0x0C223D, 0.9);
+        badgeBg.fillRoundedRect(width / 2 - 190, cardY + 218, 380, 32, 8);
+        badgeBg.lineStyle(1, UITheme.colors.solarGold, 0.7);
+        badgeBg.strokeRoundedRect(width / 2 - 190, cardY + 218, 380, 32, 8);
+        modal.add(badgeBg);
+
+        const badgeText = this.scene.add.text(width / 2, cardY + 234, "🌪️ TARGET: DISPERSE 3 DUST DEVILS · RESTORE 100% POWER", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10.5px",
+            color: UITheme.colors.solarGoldStr,
+            fontStyle: "bold",
+            letterSpacing: 1
+        }).setOrigin(0.5);
+        modal.add(badgeText);
+
+        // 3. Below that: "START MISSION" button
+        const startBtn = ButtonFactory.createButton({
+            scene: this.scene,
+            x: width / 2,
+            y: cardY + 288,
+            width: 270,
+            height: 46,
+            text: "START MISSION",
+            fontSize: "15px",
+            primaryColor: UITheme.colors.solarGold,
+            textColor: "#0A111E",
+            icon: "🚀",
+            onClick: () => {
+                SoundFX.playClick();
+                modal.destroy();
+                this.sol2ModalContainer = undefined;
+                this.launchSolScene(2);
+            }
+        });
+        modal.add(startBtn);
+
+        // Entrance animation
+        modal.setScale(0.96);
+        modal.setAlpha(0);
+        this.scene.tweens.add({
+            targets: modal,
+            scaleX: 1,
+            scaleY: 1,
+            alpha: 1,
+            duration: 220,
+            ease: "Back.easeOut"
+        });
+
+        this.container.add(modal);
+    }
+
+    private launchSolScene(sol: number) {
+        SoundFX.playClick();
+        const solKey = this.getSolSceneKey(sol);
+        this.close();
+
+        // Stop any existing Sol challenge scenes to ensure zero scene stacking or WebGL conflicts
+        const allSolKeys = [
+            "Sol1DirtFortressScene",
+            "Sol2PerchlorateBarrierScene",
+            "Sol3RedGaleScene",
+            "Sol4ISRUProductionScene",
+            "Sol5SilenceCommsLagScene",
+            "Sol6ColonyGridlockScene",
+            "Sol7JourneyHomeMAVScene"
+        ];
+
+        for (const key of allSolKeys) {
+            if (this.scene.scene.isActive(key) || this.scene.scene.isSleeping(key) || this.scene.scene.isPaused(key)) {
+                this.scene.scene.stop(key);
+            }
+        }
+
+        // Sleep MarsWorldScene cleanly and launch dedicated challenge scene on top
+        this.scene.scene.sleep("MarsWorldScene");
+        this.scene.scene.launch(solKey);
+        this.scene.scene.bringToTop(solKey);
+    }
+
     public close() {
+        if (this.sol2ModalContainer) {
+            this.sol2ModalContainer.destroy();
+            this.sol2ModalContainer = undefined;
+        }
         this.container.destroy();
         this.callbacks.onClose();
     }
