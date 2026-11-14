@@ -6,7 +6,7 @@ import WarningNotification from "../components/WarningNotification.ts";
 import PowerSwitchboard from "../components/PowerSwitchboard.ts";
 import MissionModals, { type SolResultsStats } from "../components/MissionModals.ts";
 import MissionChallengesModal from "../components/MissionChallengesModal.ts";
-import ButtonFactory from "../components/ButtonFactory.ts";
+import ButtonFactory, { SoundFX } from "../components/ButtonFactory.ts";
 import type { CustomizationData } from "../components/AstronautCustomizer.ts";
 import type { GameRole } from "../components/RoleSelector.ts";
 import type { LandingSiteId } from "../components/LandingSiteSelector.ts";
@@ -472,7 +472,7 @@ export class MarsWorldScene extends Phaser.Scene {
             y: 590,
             sprite: this.rover,
             interactRadius: 110,
-            actionMessage: "Press [ E ] to Board / Exit Rover",
+            actionMessage: "Press [ E ] to Board Mars Rover",
             onInteract: () => this.toggleRoverDriving()
         });
     }
@@ -520,7 +520,10 @@ export class MarsWorldScene extends Phaser.Scene {
 
         // Interact on E
         this.keys.E.on("down", () => {
-            if (this.nearbyModule) {
+            if (this.isDriving) {
+                // If driving, pressing E dismounts and jumps out of the rover
+                this.dismountRoverWithJump();
+            } else if (this.nearbyModule) {
                 this.nearbyModule.onInteract();
             }
         });
@@ -763,25 +766,153 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     private toggleRoverDriving() {
-        this.isDriving = !this.isDriving;
-
         if (this.isDriving) {
-            this.astronaut.setVisible(false);
-            if (this.callsignBadge) this.callsignBadge.setVisible(false);
-            this.markObjectiveDone("rover");
-            this.warningSystem.show({
-                type: "INFO",
-                title: "ROVER ENGAGED",
-                message: "You are now driving the exploration rover across Jezero Crater! Move with WASD.",
-                durationMs: 4000
-            });
-        } else {
-            this.astronaut.setVisible(true);
-            this.astronaut.setPosition(this.rover.x + 35, this.rover.y);
-            if (this.callsignBadge) {
-                this.callsignBadge.setVisible(true);
-                this.callsignBadge.setPosition(this.astronaut.x, this.astronaut.y - 84);
+            this.dismountRoverWithJump();
+            return;
+        }
+
+        // Boarding the rover
+        this.isDriving = true;
+        SoundFX.playClick();
+
+        // Animate hopping smoothly into the rover seat
+        this.tweens.add({
+            targets: this.astronaut,
+            x: this.rover.x,
+            y: this.rover.y - 12,
+            scale: 0.20,
+            duration: 200,
+            ease: "Quad.easeOut",
+            onComplete: () => {
+                this.astronaut.setVisible(false);
+                if (this.callsignBadge) this.callsignBadge.setVisible(false);
             }
+        });
+
+        this.markObjectiveDone("rover");
+        this.warningSystem.show({
+            type: "INFO",
+            title: "ROVER ENGAGED",
+            message: "You are now driving the exploration rover across Jezero Crater! Move with WASD. Press [ E ] to Jump Out.",
+            durationMs: 4000
+        });
+    }
+
+    private dismountRoverWithJump() {
+        if (!this.isDriving) return;
+
+        this.isDriving = false;
+
+        // Keep the rover interaction hotspot synced to current rover coordinates
+        const roverMod = this.modules.find(m => m.id === "rover");
+        if (roverMod) {
+            roverMod.x = this.rover.x;
+            roverMod.y = this.rover.y;
+        }
+
+        // Determine landing position (to the side of the rover, clamped safely on the Martian surface)
+        const dir = this.rover.flipX ? -1 : 1;
+        const targetX = Phaser.Math.Clamp(this.rover.x + dir * 68, 90, this.W - 90);
+        const targetY = Phaser.Math.Clamp(this.rover.y + 12, 380, this.H - 65);
+
+        // Position astronaut at rover seat, visible and angled for the leap
+        this.astronaut.setPosition(this.rover.x, this.rover.y - 14);
+        this.astronaut.setVisible(true);
+        this.astronaut.setDepth(26);
+        this.astronaut.setScale(0.26);
+        this.astronaut.angle = dir * -22;
+
+        SoundFX.playClick();
+
+        // 1. Horizontal Leap Tween
+        this.tweens.add({
+            targets: this.astronaut,
+            x: targetX,
+            duration: 440,
+            ease: "Sine.easeOut"
+        });
+
+        // 2. Parabolic Vertical Arc (High 0.38g Martian Leap & Landing)
+        this.tweens.add({
+            targets: this.astronaut,
+            y: this.rover.y - 58,
+            duration: 220,
+            ease: "Quad.easeOut",
+            onComplete: () => {
+                this.tweens.add({
+                    targets: this.astronaut,
+                    y: targetY,
+                    duration: 220,
+                    ease: "Quad.easeIn",
+                    onComplete: () => {
+                        // Impact Squash & Stretch on Landing
+                        this.tweens.add({
+                            targets: this.astronaut,
+                            scaleX: 0.33,
+                            scaleY: 0.22,
+                            duration: 90,
+                            yoyo: true,
+                            ease: "Quad.easeInOut",
+                            onComplete: () => {
+                                this.astronaut.setScale(0.28);
+                                this.astronaut.angle = 0;
+                            }
+                        });
+
+                        // Martian Sand Dust Puff on landing
+                        for (let i = 0; i < 12; i++) {
+                            const dust = this.add.circle(
+                                targetX + Phaser.Math.Between(-10, 10),
+                                targetY + 26,
+                                Phaser.Math.FloatBetween(2.0, 4.5),
+                                0xD48455,
+                                0.85
+                            ).setDepth(24);
+
+                            this.tweens.add({
+                                targets: dust,
+                                x: dust.x + Phaser.Math.Between(-40, 40),
+                                y: dust.y + Phaser.Math.Between(-16, 6),
+                                alpha: 0,
+                                scale: 0.2,
+                                duration: 420,
+                                ease: "Quad.easeOut",
+                                onComplete: () => dust.destroy()
+                            });
+                        }
+
+                        // Restore and anchor Callsign Badge above astronaut
+                        if (this.callsignBadge) {
+                            this.callsignBadge.setPosition(targetX, targetY - 84);
+                            this.callsignBadge.setVisible(true);
+                        }
+                    }
+                });
+            }
+        });
+
+        // 3. Aerial Rotation Stabilization
+        this.tweens.add({
+            targets: this.astronaut,
+            angle: 0,
+            duration: 440,
+            ease: "Sine.easeInOut"
+        });
+
+        // Notify Cadet
+        this.warningSystem.show({
+            type: "SUCCESS",
+            title: "CADET DISMOUNTED",
+            message: "Astronaut leaped out of the Mars Rover! Surface exploration resumed on foot.",
+            durationMs: 3500
+        });
+
+        // If dismounting near an interactive module, trigger its action
+        if (this.nearbyModule && this.nearbyModule.id !== "rover") {
+            const modToInteract = this.nearbyModule;
+            this.time.delayedCall(500, () => {
+                modToInteract.onInteract();
+            });
         }
     }
 
@@ -924,6 +1055,10 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     private triggerSolCompletion() {
+        if (this.isDriving) {
+            this.dismountRoverWithJump();
+        }
+
         const stats: SolResultsStats = {
             stars: 3,
             solLevel: this.solLevel,
@@ -1061,16 +1196,48 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     private checkModuleProximity() {
-        const playerX = this.isDriving ? this.rover.x : this.astronaut.x;
-        const playerY = this.isDriving ? this.rover.y : this.astronaut.y;
+        if (this.isDriving) {
+            // Keep rover module hotspot location synced with vehicle
+            const roverMod = this.modules.find(m => m.id === "rover");
+            if (roverMod) {
+                roverMod.x = this.rover.x;
+                roverMod.y = this.rover.y;
+            }
 
+            // Check if near any other module while driving
+            let closest: BaseModuleObject | null = null;
+            let minDist = Infinity;
+            for (const mod of this.modules) {
+                if (mod.id === "rover") continue;
+                const dist = Phaser.Math.Distance.Between(this.rover.x, this.rover.y, mod.x, mod.y);
+                if (dist < mod.interactRadius && dist < minDist) {
+                    minDist = dist;
+                    closest = mod;
+                }
+            }
+
+            this.nearbyModule = closest;
+            if (closest) {
+                this.promptText.setText(`PRESS [ E ] TO JUMP OUT & INSPECT ${closest.name}`);
+            } else {
+                this.promptText.setText("PRESS [ E ] TO JUMP OUT OF ROVER");
+            }
+
+            const textW = this.promptText.width + 36;
+            this.promptBg.clear();
+            this.promptBg.fillStyle(0x061122, 0.9);
+            this.promptBg.fillRoundedRect(this.W / 2 - textW / 2, this.H - 62, textW, 34, 8);
+            this.promptBg.lineStyle(1.5, UITheme.colors.solarGold, 1);
+            this.promptBg.strokeRoundedRect(this.W / 2 - textW / 2, this.H - 62, textW, 34, 8);
+            return;
+        }
+
+        const playerX = this.astronaut.x;
+        const playerY = this.astronaut.y;
         let closest: BaseModuleObject | null = null;
         let minDist = Infinity;
 
         for (const mod of this.modules) {
-            // Ignore rover proximity when driving it
-            if (this.isDriving && mod.id === "rover") continue;
-
             const dist = Phaser.Math.Distance.Between(playerX, playerY, mod.x, mod.y);
             if (dist < mod.interactRadius && dist < minDist) {
                 minDist = dist;
