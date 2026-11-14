@@ -104,22 +104,7 @@ export class OutpostSolScene extends Phaser.Scene {
     }
 
     /**
-     * STATE 2: Jezero Crater vs Arcadia Planitia Landing Site
-     */
-    private showLandingSiteSelector() {
-        this.clearActiveComponents();
-        this.currentState = "SITE";
-
-        this.siteComponent = new LandingSiteSelector(this, {
-            onSiteSelected: (_site: LandingSiteId) => {
-                this.showCustomizer();
-            },
-            onBack: () => this.showTitleScreen()
-        });
-    }
-
-    /**
-     * STATE 4: Astronaut Suit & Tool Customizer
+     * STATE 2: Astronaut Suit & Tool Customizer (Directly after INITIALIZE)
      */
     private showCustomizer() {
         this.clearActiveComponents();
@@ -127,14 +112,29 @@ export class OutpostSolScene extends Phaser.Scene {
 
         this.customizerComponent = new AstronautCustomizer(this, {
             onComplete: (_data: CustomizationData) => {
-                this.showBaseMaterialSelector();
+                this.showLandingSiteSelector();
             },
             onBack: () => this.showTitleScreen()
         });
     }
 
     /**
-     * STATE 4.5: Mars Base Construction Material Selector (Glass Biosphere vs Sand Regolith Vault)
+     * STATE 3: Jezero Crater vs Arcadia Planitia Landing Site (Selection of Craters Scene)
+     */
+    private showLandingSiteSelector() {
+        this.clearActiveComponents();
+        this.currentState = "SITE";
+
+        this.siteComponent = new LandingSiteSelector(this, {
+            onSiteSelected: (_site: LandingSiteId) => {
+                this.showBaseMaterialSelector();
+            },
+            onBack: () => this.showCustomizer()
+        });
+    }
+
+    /**
+     * STATE 4: Mars Base Construction Material Selector (Glass Biosphere vs Sand Regolith Vault)
      */
     private showBaseMaterialSelector() {
         this.clearActiveComponents();
@@ -144,7 +144,7 @@ export class OutpostSolScene extends Phaser.Scene {
             onMaterialSelected: (_mat: BaseMaterialType) => {
                 this.showMissionBriefing();
             },
-            onBack: () => this.showCustomizer()
+            onBack: () => this.showLandingSiteSelector()
         });
     }
 
