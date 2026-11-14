@@ -10,7 +10,6 @@ export interface LandingSiteInfo {
     coordinates: string;
     terrainType: string;
     targetFocus: string;
-    imageKey: string;
     elevation: string;
     iceDepth: string;
     solarPower: string;
@@ -44,7 +43,6 @@ export class LandingSiteSelector {
             coordinates: "18.38° N, 77.58° E",
             terrainType: "Ancient River Delta & Lakebed Sediments",
             targetFocus: "Astrobiology & Organic Biosignatures Search",
-            imageKey: "jezero-mosaic",
             elevation: "-2.5 km (Below Datum)",
             iceDepth: "Deep / Mineral Hydrates",
             solarPower: "590 W/m² (Optimal)",
@@ -58,7 +56,6 @@ export class LandingSiteSelector {
             coordinates: "39.30° N, 188.0° E",
             terrainType: "Smooth Volcanic Lowland Plains",
             targetFocus: "In-Situ Water Ice Extraction & Base Expansion",
-            imageKey: "jezero-mosaic", // Fallback/radar representation
             elevation: "-4.0 km (Atmospheric Shielding)",
             iceDepth: "1.0 - 2.5 meters (Shallow Sheet Ice)",
             solarPower: "470 W/m² (Moderate)",
@@ -75,6 +72,7 @@ export class LandingSiteSelector {
 
         this.selectedSite = (this.scene.registry.get("landingSite") as LandingSiteId) || "jezero";
         this.init();
+        this.scene.input.keyboard?.on("keydown", this.handleKeyboard, this);
     }
 
     public getContainer(): Phaser.GameObjects.Container {
@@ -97,7 +95,7 @@ export class LandingSiteSelector {
         }).setOrigin(0.5);
         this.container.add(header);
 
-        const sub = this.scene.add.text(width / 2, 90, "Select Outpost Sol deployment zone based on NASA CTX telemetry data", {
+        const sub = this.scene.add.text(width / 2, 90, "Select a deployment zone using mission telemetry and available terrain data", {
             fontFamily: UITheme.fonts.body,
             fontSize: "15px",
             color: UITheme.colors.textSecondary
@@ -136,12 +134,42 @@ export class LandingSiteSelector {
             primaryColor: UITheme.colors.marsAmber,
             textColor: UITheme.colors.solarGoldStr,
             icon: "📍",
-            onClick: () => {
-                this.scene.registry.set("landingSite", this.selectedSite);
-                this.callbacks.onSiteSelected(this.selectedSite);
-            }
+            onClick: () => this.confirmSelection()
         });
         this.container.add(confirmBtn);
+
+        const keyboardHint = this.scene.add.text(width / 2, height - 10, "← / →  CHOOSE SITE     ENTER  CONFIRM     ESC  BACK", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "9px",
+            color: "#9FB0BD",
+            fontStyle: "bold"
+        }).setOrigin(0.5, 1);
+        this.container.add(keyboardHint);
+    }
+
+    private handleKeyboard(event: KeyboardEvent) {
+        const key = event.key.toLowerCase();
+        if (["arrowleft", "arrowright", "arrowup", "arrowdown", "a", "d", "w", "s"].includes(key)) {
+            event.preventDefault();
+            const nextSite: LandingSiteId = this.selectedSite === "jezero" ? "arcadia" : "jezero";
+            if (nextSite !== this.selectedSite) {
+                this.selectedSite = nextSite;
+                SoundFX.playSelect();
+                this.updateSelectionVisuals();
+                this.renderTelemetryDetails();
+            }
+        } else if (key === "enter" || key === " ") {
+            event.preventDefault();
+            this.confirmSelection();
+        } else if (key === "escape" || key === "backspace") {
+            event.preventDefault();
+            this.callbacks.onBack();
+        }
+    }
+
+    private confirmSelection() {
+        this.scene.registry.set("landingSite", this.selectedSite);
+        this.callbacks.onSiteSelected(this.selectedSite);
     }
 
     private createSiteTab(id: LandingSiteId, x: number, y: number, w: number, h: number) {
@@ -369,17 +397,34 @@ export class LandingSiteSelector {
         mapFrame.strokeRoundedRect(mapX, mapY, mapW, mapH, 8);
         this.previewContainer.add(mapFrame);
 
-        if (this.scene.textures.exists("jezero-mosaic")) {
+        if (data.id === "jezero" && this.scene.textures.exists("jezero-mosaic")) {
             const img = this.scene.add.image(mapX + mapW / 2, mapY + mapH / 2, "jezero-mosaic");
             img.setDisplaySize(mapW - 8, mapH - 8);
             this.previewContainer.add(img);
         } else {
-            // High-tech scanning reticle
-            const radarText = this.scene.add.text(mapX + mapW / 2, mapY + mapH / 2, "🛰 CTX SATELLITE RADAR\nACTIVE SCAN", {
+            // Avoid presenting Jezero imagery as if it were a matching Arcadia map.
+            const radar = this.scene.add.graphics();
+            radar.lineStyle(1, UITheme.colors.primaryCyan, 0.18);
+            for (let gx = mapX + 24; gx < mapX + mapW; gx += 32) {
+                radar.lineBetween(gx, mapY + 6, gx, mapY + mapH - 6);
+            }
+            for (let gy = mapY + 18; gy < mapY + mapH; gy += 28) {
+                radar.lineBetween(mapX + 6, gy, mapX + mapW - 6, gy);
+            }
+            radar.lineStyle(1, UITheme.colors.primaryCyan, 0.28);
+            radar.strokeCircle(mapX + mapW / 2, mapY + mapH / 2, 30);
+            radar.strokeCircle(mapX + mapW / 2, mapY + mapH / 2, 62);
+            radar.strokeCircle(mapX + mapW / 2, mapY + mapH / 2, 92);
+            radar.fillStyle(UITheme.colors.primaryCyan, 0.85);
+            radar.fillCircle(mapX + mapW / 2, mapY + mapH / 2, 3);
+            this.previewContainer.add(radar);
+
+            const radarText = this.scene.add.text(mapX + mapW / 2, mapY + 18, "ORBITAL TELEMETRY · NO SURFACE IMAGE", {
                 fontFamily: UITheme.fonts.heading,
-                fontSize: "14px",
+                fontSize: "8px",
                 color: UITheme.colors.primaryCyanStr,
-                align: "center"
+                align: "center",
+                backgroundColor: "#050C18"
             }).setOrigin(0.5);
             this.previewContainer.add(radarText);
         }
@@ -509,6 +554,7 @@ export class LandingSiteSelector {
     }
 
     public destroy() {
+        this.scene.input.keyboard?.off("keydown", this.handleKeyboard, this);
         this.container.destroy();
     }
 }

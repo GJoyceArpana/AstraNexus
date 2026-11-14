@@ -199,6 +199,13 @@ export class MarsWorldScene extends Phaser.Scene {
                 { id: "greenhouse", text: "3. Harvest cold-tolerant crops in Greenhouse", done: false },
                 { id: "rover", text: "4. Pilot Rover to survey subterranean ice plains", done: false }
             ];
+        } else if (this.solLevel === 5) {
+            this.objectives = [
+                { id: "emergency_hab", text: "1. Enter The Last Safe Habitat (Press E / [M])", done: false },
+                { id: "air_distribution", text: "2. Repair air distribution pipe leak", done: false },
+                { id: "electrical_grid", text: "3. Restore power circuit to heaters & ECLSS", done: false },
+                { id: "oxygen_regulation", text: "4. Calibrate pressure valves (56-64 kPa)", done: false }
+            ];
         } else {
             this.objectives = [
                 { id: "solar", text: "1. Repair storm-damaged Solar Panels (Press E)", done: false },
@@ -725,6 +732,14 @@ export class MarsWorldScene extends Phaser.Scene {
     // 8. INTERACTIVE MODULE ACTIONS
     // =========================================================
     private handleHabitatInteraction() {
+        if (this.solLevel === 5) {
+            this.markObjectiveDone("emergency_hab");
+            this.scene.sleep("MarsWorldScene");
+            this.scene.launch("Sol5LastSafeHabitatScene");
+            this.scene.bringToTop("Sol5LastSafeHabitatScene");
+            return;
+        }
+
         this.markObjectiveDone("hab");
         const currentLife = this.resourceMeters.getMeterValue("lifeSupport");
         this.resourceMeters.setMeterValue("lifeSupport", currentLife + 8);
