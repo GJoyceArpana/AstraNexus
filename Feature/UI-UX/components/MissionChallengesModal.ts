@@ -63,7 +63,7 @@ export class MissionChallengesModal {
         },
         2: {
             solNumber: 2,
-            title: "DUST DEVIL CLEANUP",
+            title: "SOL 2: DUST DEVIL CLEANUP",
             codename: "DUST DEVIL CLEANUP",
             icon: "🌪️",
             hazardBadge: "BOUNCY DUST DEVILS",

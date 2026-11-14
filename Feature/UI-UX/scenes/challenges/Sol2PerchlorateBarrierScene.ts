@@ -179,7 +179,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     constructor() {
         super("Sol2PerchlorateBarrierScene", {
             solNumber: 2,
-            title: "DUST DEVIL CLEANUP",
+            title: "SOL 2: DUST DEVIL CLEANUP",
             codename: "DUST DEVIL CLEANUP",
             hazardBadge: "BOUNCY DUST DEVILS",
             briefing: "A bouncy Martian dust devil covered our solar panels in red dust! Use your wind-blower to clean all 4 panels and bring power back to the base.",
