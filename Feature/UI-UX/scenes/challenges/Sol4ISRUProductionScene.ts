@@ -11,7 +11,6 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
     private moxieSprite!: Phaser.GameObjects.Container;
     private drillSprite!: Phaser.GameObjects.Container;
     private greenSprite!: Phaser.GameObjects.Image;
-    private telemetryText!: Phaser.GameObjects.Text;
 
     constructor() {
         super("Sol4ISRUProductionScene", {
@@ -35,9 +34,9 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
         // Subsurface Glacial Ice Shelf exposed on the ground
         const iceShelf = this.add.graphics().setDepth(-18);
         iceShelf.fillStyle(0x7EB8D9, 0.4);
-        iceShelf.fillEllipse(640, 560, 360, 48);
+        iceShelf.fillEllipse(640, 530, 360, 48);
         iceShelf.lineStyle(2, 0xA3D9F8, 0.7);
-        iceShelf.strokeEllipse(640, 560, 360, 48);
+        iceShelf.strokeEllipse(640, 530, 360, 48);
 
         // 1. MOXIE Atmospheric CO2 Extraction Tower (Left: x=260, y=470)
         this.moxieSprite = this.add.container(260, 470).setDepth(12);
@@ -50,8 +49,8 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
         const o2Tank = this.add.image(28, 0, "oxygen-cylinder").setScale(0.38);
         this.moxieSprite.add([moxieBase, moxieExhaust, o2Tank]);
 
-        // 2. Heavy Subsurface Cryo-Well Drill Rig (Center: x=640, y=480)
-        this.drillSprite = this.add.container(640, 480).setDepth(13);
+        // 2. Heavy Subsurface Cryo-Well Drill Rig (Center: x=640, y=470)
+        this.drillSprite = this.add.container(640, 470).setDepth(13);
         const drillDerrick = this.add.graphics();
         drillDerrick.fillStyle(0x3B4A5C, 1);
         drillDerrick.fillTriangle(0, -90, -45, 40, 45, 40);
@@ -64,37 +63,16 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
         this.greenSprite = this.add.image(1020, 470, "greenhouse");
         this.greenSprite.setScale(0.55).setDepth(12);
 
-        // 4. ISRU Production Telemetry Card on ground
-        const statBox = this.add.graphics().setDepth(20);
-        statBox.fillStyle(0x050C1B, 0.9);
-        statBox.fillRoundedRect(360, 580, 560, 58, 8);
-        statBox.lineStyle(1.5, UITheme.colors.primaryCyan, 0.85);
-        statBox.strokeRoundedRect(360, 580, 560, 58, 8);
-
-        this.add.text(380, 592, "🌿 ISRU RESOURCE AUTONOMY TELEMETRY", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
-        }).setDepth(21);
-
-        this.telemetryText = this.add.text(380, 613, "", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "12px",
-            fontStyle: "bold"
-        }).setDepth(21);
-        this.updateTelemetry();
-
-        // 5. Interactive Surface Hotspots
+        // 4. Interactive Surface Hotspots
         // Hotspot 1: MOXIE Tower
         this.createSurfaceHotspot({
             x: 260,
-            y: 420,
-            width: 130,
-            height: 140,
+            y: 470,
+            width: 140,
+            height: 150,
             icon: "💨",
-            label: "MOXIE O2 TOWER",
-            actionHint: "CLICK TO EXTRACT OXYGEN",
+            label: "MOXIE O2 EXTRACTOR",
+            actionHint: "EXTRACT OXYGEN (+0.8 kg)",
             color: UITheme.colors.primaryCyan,
             onClick: () => this.extractOxygen()
         });
@@ -102,12 +80,12 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
         // Hotspot 2: Cryo-Ice Drill
         this.createSurfaceHotspot({
             x: 640,
-            y: 430,
-            width: 140,
-            height: 140,
+            y: 470,
+            width: 150,
+            height: 150,
             icon: "💧",
-            label: "CRYO-ICE DRILL",
-            actionHint: "CLICK TO HARVEST ICE",
+            label: "CRYO-ICE WELL",
+            actionHint: "HARVEST ICE (+10 L)",
             color: UITheme.colors.solarGold,
             onClick: () => this.drillGlacialIce()
         });
@@ -115,12 +93,12 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
         // Hotspot 3: Hydroponic Greenhouse
         this.createSurfaceHotspot({
             x: 1020,
-            y: 420,
-            width: 150,
-            height: 130,
+            y: 470,
+            width: 160,
+            height: 140,
             icon: "🥔",
             label: "LED GREENHOUSE",
-            actionHint: "CLICK TO HARVEST POTATOES",
+            actionHint: "HARVEST CROPS (+5 kg)",
             color: UITheme.colors.bioGreen,
             onClick: () => this.harvestPotatoes()
         });
@@ -160,7 +138,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
 
         this.moxieO2Kg = Math.min(2.5, Number((this.moxieO2Kg + 0.8).toFixed(1)));
         this.recalcPillars();
-        this.showSurfaceFloatingText(260, 390, `💨 +0.8 kg Pure O2 Generated at 800°C!`, UITheme.colors.primaryCyanStr);
+        this.showSurfaceFloatingText(260, 390, `💨 +0.8 kg Pure O2 Generated (MOXIE Pillar 1 Online)!`, UITheme.colors.primaryCyanStr);
     }
 
     private drillGlacialIce() {
@@ -169,7 +147,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
         // Drill bit downward push animation
         this.tweens.add({
             targets: this.drillSprite,
-            y: 495,
+            y: 485,
             duration: 250,
             yoyo: true,
             repeat: 2
@@ -179,7 +157,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
         for (let i = 0; i < 16; i++) {
             const p = this.add.circle(
                 640 + Phaser.Math.Between(-25, 25),
-                530,
+                510,
                 Phaser.Math.Between(2, 6),
                 0xA3D9F8,
                 0.95
@@ -188,7 +166,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
             this.tweens.add({
                 targets: p,
                 x: 640 + Phaser.Math.Between(-60, 60),
-                y: 510 + Phaser.Math.Between(-30, 10),
+                y: 490 + Phaser.Math.Between(-30, 10),
                 alpha: 0,
                 duration: 450,
                 onComplete: () => p.destroy()
@@ -197,7 +175,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
 
         this.iceWaterLiters = Math.min(30, this.iceWaterLiters + 10);
         this.recalcPillars();
-        this.showSurfaceFloatingText(640, 420, `💧 +10L Melted Glacial H2O Pumped to Storage!`, UITheme.colors.solarGoldStr);
+        this.showSurfaceFloatingText(640, 400, `💧 +10L Melted Glacial H2O (Ice Pillar 2 Online)!`, UITheme.colors.solarGoldStr);
     }
 
     private harvestPotatoes() {
@@ -214,7 +192,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
 
         this.cropsHarvestedKg = Math.min(15, this.cropsHarvestedKg + 5);
         this.recalcPillars();
-        this.showSurfaceFloatingText(1020, 410, `🥔 +5 kg Nutrient LED Hydroponic Potatoes Harvested!`, UITheme.colors.bioGreenStr);
+        this.showSurfaceFloatingText(1020, 400, `🥔 +5 kg Nutrient Crops (Food Pillar 3 Online)!`, UITheme.colors.bioGreenStr);
     }
 
     private recalcPillars() {
@@ -224,15 +202,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
         if (this.cropsHarvestedKg >= 5) count++;
 
         this.currentVal = count;
-        this.updateTelemetry();
         this.updateVisorProgress(this.currentVal, this.challengeConfig.targetVal, "Pillars");
-    }
-
-    private updateTelemetry() {
-        this.telemetryText.setText(
-            `O2: ${this.moxieO2Kg} kg (Pillar 1) | ICE H2O: ${this.iceWaterLiters} L (Pillar 2) | CROPS: ${this.cropsHarvestedKg} kg (Pillar 3)`
-        );
-        this.telemetryText.setColor(this.currentVal >= 3 ? UITheme.colors.bioGreenStr : UITheme.colors.solarGoldStr);
     }
 
     protected isTargetMet(): boolean {

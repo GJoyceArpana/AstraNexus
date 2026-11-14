@@ -10,8 +10,9 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
     private regolithMoundGraphics!: Phaser.GameObjects.Graphics;
     private domeSprite!: Phaser.GameObjects.Image;
     private roverSprite!: Phaser.GameObjects.Image;
-    private radTelemetryText!: Phaser.GameObjects.Text;
     private shovelGraphic!: Phaser.GameObjects.Graphics;
+    private dosimeterStation!: Phaser.GameObjects.Container;
+    private dosimeterLedText!: Phaser.GameObjects.Text;
 
     constructor() {
         super("Sol1DirtFortressScene", {
@@ -63,37 +64,19 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         this.shovelGraphic = this.add.graphics().setDepth(16);
         this.drawShovel(320 + 70, 500 + 20);
 
-        // 4. Live Dosimeter Scanner Display on the ground
-        const dosimeterBox = this.add.graphics().setDepth(20);
-        dosimeterBox.fillStyle(0x040B18, 0.88);
-        dosimeterBox.fillRoundedRect(560, 570, 260, 58, 8);
-        dosimeterBox.lineStyle(1.5, UITheme.colors.primaryCyan, 0.8);
-        dosimeterBox.strokeRoundedRect(560, 570, 260, 58, 8);
-
-        this.add.text(575, 582, "☢️ NASA DOSIMETER SENSOR", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10.5px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold"
-        }).setDepth(21);
-
-        this.radTelemetryText = this.add.text(575, 602, "", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "12px",
-            fontStyle: "bold"
-        }).setDepth(21);
-        this.updateDosimeterDisplay();
+        // 4. Physical NASA Radiation Dosimeter Sensor Station on ground (x=590, y=510)
+        this.createDosimeterStation(590, 510);
 
         // 5. Interactive Surface Hotspots on the Martian Ground
         // Hotspot 1: Excavation Rover (Click to scoop dirt)
         this.createSurfaceHotspot({
             x: 320,
-            y: 440,
+            y: 500,
             width: 170,
-            height: 90,
+            height: 100,
             icon: "🚜",
             label: "EXCAVATOR ROVER",
-            actionHint: "CLICK TO EXCAVATE SOIL",
+            actionHint: "SCOOP BASALT SOIL (+0.6m)",
             color: UITheme.colors.solarGold,
             onClick: () => this.excavateSoil()
         });
@@ -101,28 +84,57 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         // Hotspot 2: Habitat Shield Mound (Click to compact)
         this.createSurfaceHotspot({
             x: 820,
-            y: 380,
+            y: 430,
             width: 240,
-            height: 120,
+            height: 140,
             icon: "🔨",
-            label: "HABITAT REGOLITH SHIELD",
-            actionHint: "CLICK TO COMPACT SOIL",
+            label: "HABITAT SHIELD",
+            actionHint: "COMPACT SOIL DENSITY",
             color: UITheme.colors.marsAmber,
             onClick: () => this.compactSoil()
         });
 
-        // Hotspot 3: Dosimeter Instrument
+        // Hotspot 3: Dosimeter Station
         this.createSurfaceHotspot({
-            x: 690,
-            y: 600,
-            width: 260,
-            height: 60,
-            icon: "🔬",
+            x: 590,
+            y: 510,
+            width: 110,
+            height: 100,
+            icon: "☢️",
             label: "RAD DOSIMETER",
-            actionHint: "CLICK TO SCAN ATTENUATION",
+            actionHint: "SCAN GCR ATTENUATION",
             color: UITheme.colors.bioGreen,
             onClick: () => this.scanRadiation()
         });
+    }
+
+    private createDosimeterStation(x: number, y: number) {
+        this.dosimeterStation = this.add.container(x, y).setDepth(14);
+
+        const tripod = this.add.graphics();
+        tripod.lineStyle(3, 0x4B5866, 1);
+        tripod.lineBetween(0, 0, -25, 40);
+        tripod.lineBetween(0, 0, 25, 40);
+        tripod.lineBetween(0, 0, 0, 42);
+        tripod.lineStyle(2, UITheme.colors.primaryCyan, 0.9);
+        tripod.lineBetween(0, 0, 0, -35); // Antenna mast
+        this.dosimeterStation.add(tripod);
+
+        const housing = this.add.graphics();
+        housing.fillStyle(0x1B2A3D, 1);
+        housing.fillRoundedRect(-22, -18, 44, 26, 4);
+        housing.lineStyle(1.5, UITheme.colors.primaryCyan, 1);
+        housing.strokeRoundedRect(-22, -18, 44, 26, 4);
+        this.dosimeterStation.add(housing);
+
+        this.dosimeterLedText = this.add.text(0, -5, "0.53", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10px",
+            color: UITheme.colors.emergencyRedStr,
+            fontStyle: "bold"
+        }).setOrigin(0.5);
+        this.dosimeterStation.add(this.dosimeterLedText);
+        this.updateDosimeterDisplay();
     }
 
     private drawShovel(x: number, y: number) {
@@ -135,7 +147,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
 
     private excavateSoil() {
         if (this.currentVal >= this.targetThickness) {
-            this.showSurfaceFloatingText(320, 480, "✔ MAXIMUM SAFE SHIELDING REACHED (3.2m)", UITheme.colors.bioGreenStr);
+            this.showSurfaceFloatingText(320, 440, "✔ MAXIMUM SAFE SHIELDING REACHED (3.2m)", UITheme.colors.bioGreenStr);
             return;
         }
 
@@ -182,7 +194,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
                 this.updateRegolithVisuals();
                 this.updateDosimeterDisplay();
                 this.updateVisorProgress(this.currentVal, this.targetThickness, "Meters");
-                this.showSurfaceFloatingText(820, 410, `+0.6m Basalt Soil Added (${this.currentVal.toFixed(1)}m)`, UITheme.colors.solarGoldStr);
+                this.showSurfaceFloatingText(820, 370, `+0.6m Basalt Soil Added (${this.currentVal.toFixed(1)}m)`, UITheme.colors.solarGoldStr);
             }
         });
     }
@@ -198,7 +210,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         });
 
         this.updateDosimeterDisplay();
-        this.showSurfaceFloatingText(820, 390, `Soil Compacted to ${this.compactionPercent}% Density!`, UITheme.colors.marsAmberStr);
+        this.showSurfaceFloatingText(820, 360, `Soil Compacted to ${this.compactionPercent}% Density!`, UITheme.colors.marsAmberStr);
     }
 
     private scanRadiation() {
@@ -215,7 +227,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
 
         this.updateDosimeterDisplay();
         const dose = Math.max(0.04, 0.70 - (this.currentVal / this.targetThickness) * 0.65).toFixed(2);
-        this.showSurfaceFloatingText(690, 560, `Dose: ${dose} mSv/Sol · Attenuation ${Math.min(98, Math.round((this.currentVal / this.targetThickness) * 95))}%`, UITheme.colors.bioGreenStr);
+        this.showSurfaceFloatingText(590, 460, `Dose: ${dose} mSv/Sol · Attenuation ${Math.min(98, Math.round((this.currentVal / this.targetThickness) * 95))}%`, UITheme.colors.bioGreenStr);
     }
 
     private updateRegolithVisuals() {
@@ -232,8 +244,10 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
 
     private updateDosimeterDisplay() {
         const dose = Math.max(0.04, 0.70 - (this.currentVal / this.targetThickness) * 0.65).toFixed(2);
-        this.radTelemetryText.setText(`DOSE: ${dose} mSv/Sol (TARGET <= 0.15)`);
-        this.radTelemetryText.setColor(Number(dose) <= 0.15 ? UITheme.colors.bioGreenStr : UITheme.colors.emergencyRedStr);
+        if (this.dosimeterLedText) {
+            this.dosimeterLedText.setText(dose);
+            this.dosimeterLedText.setColor(Number(dose) <= 0.15 ? UITheme.colors.bioGreenStr : UITheme.colors.emergencyRedStr);
+        }
     }
 
     protected isTargetMet(): boolean {
