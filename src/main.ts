@@ -11,6 +11,7 @@ import {
     Sol3RedGaleScene,
     Sol4ISRUProductionScene,
     Sol5SilenceCommsLagScene,
+    Sol5LastSafeHabitatScene,
     Sol6ColonyGridlockScene,
     Sol7JourneyHomeMAVScene
 } from "../Feature/UI-UX/index.ts";
@@ -194,6 +195,7 @@ const config: Phaser.Types.Core.GameConfig = {
         Sol3RedGaleScene,
         Sol4ISRUProductionScene,
         Sol5SilenceCommsLagScene,
+        Sol5LastSafeHabitatScene,
         Sol6ColonyGridlockScene,
         Sol7JourneyHomeMAVScene,
         StartScene,
@@ -225,6 +227,7 @@ const config: Phaser.Types.Core.GameConfig = {
 // =============================================
 
 const game = new Phaser.Game(config);
+(window as any).__PHASER_GAME__ = game;
 
 // =============================================
 // CANVAS STYLING
