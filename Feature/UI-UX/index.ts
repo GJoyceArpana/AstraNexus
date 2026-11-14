@@ -14,6 +14,7 @@ export * from "./components/PowerSwitchboard.ts";
 export * from "./components/TelemetryPanel.ts";
 export * from "./components/WarningNotification.ts";
 export * from "./components/MissionModals.ts";
+export * from "./components/MissionChallengesModal.ts";
 export * from "./scenes/OutpostSolScene.ts";
 export * from "./scenes/MarsWorldScene.ts";
 export * from "./scenes/SwitchboardModalScene.ts";

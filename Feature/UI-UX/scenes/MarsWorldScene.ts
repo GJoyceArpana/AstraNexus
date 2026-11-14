@@ -5,6 +5,7 @@ import TelemetryPanel from "../components/TelemetryPanel.ts";
 import WarningNotification from "../components/WarningNotification.ts";
 import PowerSwitchboard from "../components/PowerSwitchboard.ts";
 import MissionModals, { type SolResultsStats } from "../components/MissionModals.ts";
+import MissionChallengesModal from "../components/MissionChallengesModal.ts";
 import ButtonFactory from "../components/ButtonFactory.ts";
 import type { CustomizationData } from "../components/AstronautCustomizer.ts";
 import type { GameRole } from "../components/RoleSelector.ts";
@@ -42,6 +43,7 @@ export class MarsWorldScene extends Phaser.Scene {
         D: Phaser.Input.Keyboard.Key;
         E: Phaser.Input.Keyboard.Key;
         P: Phaser.Input.Keyboard.Key;
+        M: Phaser.Input.Keyboard.Key;
         ESC: Phaser.Input.Keyboard.Key;
     };
 
@@ -50,6 +52,7 @@ export class MarsWorldScene extends Phaser.Scene {
     private telemetryPanel!: TelemetryPanel;
     private warningSystem!: WarningNotification;
     private switchboardModal?: PowerSwitchboard;
+    private missionChallengesModal?: MissionChallengesModal;
     private pauseModal?: Phaser.GameObjects.Container;
     private resultsModal?: Phaser.GameObjects.Container;
 
@@ -393,12 +396,18 @@ export class MarsWorldScene extends Phaser.Scene {
             D: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D),
             E: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E),
             P: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.P),
+            M: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.M),
             ESC: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
         };
 
         // Open Power Switchboard on P
         this.keys.P.on("down", () => {
             this.openSwitchboard();
+        });
+
+        // Open 7-Sol Mission Challenges on M
+        this.keys.M.on("down", () => {
+            this.toggleMissionChallenges();
         });
 
         // Pause Menu on ESC
@@ -448,6 +457,22 @@ export class MarsWorldScene extends Phaser.Scene {
             () => this.togglePauseMenu()
         );
         pauseBtn.setDepth(110);
+        // Prominent HUD 7-Sol Mission Challenges Button
+        const hudChallengesBtn = ButtonFactory.createButton({
+            scene: this,
+            x: this.W - 500,
+            y: 38,
+            width: 200,
+            height: 38,
+            fontSize: "12px",
+            text: "7 SOL CHALLENGES [M]",
+            primaryColor: UITheme.colors.primaryCyan,
+            secondaryColor: 0x061528,
+            textColor: UITheme.colors.primaryCyanStr,
+            icon: "🎯",
+            onClick: () => this.toggleMissionChallenges()
+        });
+        hudChallengesBtn.setDepth(110);
     }
 
     // =========================================================
@@ -455,7 +480,7 @@ export class MarsWorldScene extends Phaser.Scene {
     // =========================================================
     private createObjectivesCard() {
         const cardW = 340;
-        const cardH = 175;
+        const cardH = 205;
         const cardX = 24;
         const cardY = 190;
 
@@ -501,11 +526,24 @@ export class MarsWorldScene extends Phaser.Scene {
             container.add(line);
         });
 
+        // 7-Sol Mission Challenges link
+        const challengesLink = this.add.text(14, 146, "✦ VIEW 7-SOL CHALLENGES [M] ✦", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "11px",
+            color: UITheme.colors.primaryCyanStr,
+            fontStyle: "bold"
+        });
+        challengesLink.setInteractive({ useHandCursor: true });
+        challengesLink.on("pointerover", () => challengesLink.setColor("#FFFFFF"));
+        challengesLink.on("pointerout", () => challengesLink.setColor(UITheme.colors.primaryCyanStr));
+        challengesLink.on("pointerdown", () => this.toggleMissionChallenges());
+        container.add(challengesLink);
+
         // Equipped suit model & callsign badge at bottom of objectives card
-        const suitTag = this.add.text(14, 148, `✦ ACTIVE SUIT: ${this.equippedSuitName.replace("ASTRONAUT ", "")} ✦`, {
+        const suitTag = this.add.text(14, 176, `✦ ACTIVE SUIT: ${this.equippedSuitName.replace("ASTRONAUT ", "")} ✦`, {
             fontFamily: UITheme.fonts.heading,
             fontSize: "10px",
-            color: UITheme.colors.primaryCyanStr,
+            color: UITheme.colors.solarGoldStr,
             fontStyle: "bold"
         });
         container.add(suitTag);
@@ -695,6 +733,45 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     // =========================================================
+    // 9B. 7-SOL MISSION CHALLENGES OVERLAY
+    // =========================================================
+    public toggleMissionChallenges() {
+        if (this.missionChallengesModal) {
+            this.missionChallengesModal.close();
+            this.missionChallengesModal = undefined;
+            return;
+        }
+
+        this.missionChallengesModal = new MissionChallengesModal(
+            this,
+            {
+                onClose: () => {
+                    this.missionChallengesModal = undefined;
+                },
+                onChallengeAction: (actionId: string, _payload?: any) => {
+                    this.warningSystem.show({
+                        type: "INFO",
+                        title: "CHALLENGE DIRECTIVE EXECUTED",
+                        message: `Action recorded: ${actionId.toUpperCase()}`,
+                        durationMs: 3500
+                    });
+                },
+                onAdvanceSol: (nextSol: number) => {
+                    this.solLevel = Math.min(7, nextSol);
+                    this.registry.set("solLevel", this.solLevel);
+                    this.warningSystem.show({
+                        type: "SUCCESS",
+                        title: `ADVANCING TO SOL 0${this.solLevel}`,
+                        message: `NASA Mission Operations: Flight directive updated for Sol 0${this.solLevel}.`,
+                        durationMs: 5000
+                    });
+                }
+            },
+            this.solLevel
+        );
+    }
+
+    // =========================================================
     // 10. SPACE WEATHER SIMULATION (Task 7)
     // =========================================================
     private setupDONKIWeatherEvents() {
@@ -792,7 +869,7 @@ export class MarsWorldScene extends Phaser.Scene {
     // 12. GAME LOOP (Update)
     // =========================================================
     override update(_time: number, delta: number) {
-        if (this.pauseModal || this.resultsModal) return;
+        if (this.pauseModal || this.resultsModal || this.missionChallengesModal) return;
 
         // Player Movement
         this.handleMovement(delta);
