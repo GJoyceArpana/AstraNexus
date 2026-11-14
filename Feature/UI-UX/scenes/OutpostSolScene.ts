@@ -1,14 +1,13 @@
 import Phaser from "phaser";
 import UITheme from "../styles/UITheme.ts";
 import OutpostSolTitle from "../components/OutpostSolTitle.ts";
-import RoleSelector, { type GameRole } from "../components/RoleSelector.ts";
 import LandingSiteSelector, { type LandingSiteId } from "../components/LandingSiteSelector.ts";
 import AstronautCustomizer, { type CustomizationData } from "../components/AstronautCustomizer.ts";
 import BaseMaterialSelector, { type BaseMaterialType } from "../components/BaseMaterialSelector.ts";
 import MissionModals from "../components/MissionModals.ts";
 import ButtonFactory from "../components/ButtonFactory.ts";
 
-export type OutpostFlowState = "TITLE" | "ROLE" | "SITE" | "CUSTOMIZE" | "BASE_MATERIAL" | "BRIEFING" | "HOW_TO_PLAY" | "TELEMETRY_ARCHIVE";
+export type OutpostFlowState = "TITLE" | "SITE" | "CUSTOMIZE" | "BASE_MATERIAL" | "BRIEFING" | "HOW_TO_PLAY" | "TELEMETRY_ARCHIVE";
 
 export class OutpostSolScene extends Phaser.Scene {
     private currentState: OutpostFlowState = "TITLE";
@@ -18,7 +17,6 @@ export class OutpostSolScene extends Phaser.Scene {
     }
 
     private titleComponent?: OutpostSolTitle;
-    private roleComponent?: RoleSelector;
     private siteComponent?: LandingSiteSelector;
     private customizerComponent?: AstronautCustomizer;
     private baseMaterialComponent?: BaseMaterialSelector;
@@ -82,6 +80,9 @@ export class OutpostSolScene extends Phaser.Scene {
 
     create() {
         this.cameras.main.setBackgroundColor(UITheme.colors.marsSky);
+        if (!this.registry.has("playerRole")) {
+            this.registry.set("playerRole", "cadet");
+        }
         this.showTitleScreen();
     }
 
@@ -93,8 +94,8 @@ export class OutpostSolScene extends Phaser.Scene {
         this.currentState = "TITLE";
 
         this.titleComponent = new OutpostSolTitle(this, {
-            onStartMission: () => this.showRoleSelector(),
-            onSelectRole: () => this.showRoleSelector(),
+            onStartMission: () => this.showCustomizer(),
+            onSelectRole: () => this.showCustomizer(),
             onSelectLandingSite: () => this.showLandingSiteSelector(),
             onCustomization: () => this.showCustomizer(),
             onOpenTelemetry: () => this.showTelemetryArchive(),
@@ -103,22 +104,7 @@ export class OutpostSolScene extends Phaser.Scene {
     }
 
     /**
-     * STATE 2: Junior Cadet vs Flight Director Selection
-     */
-    private showRoleSelector() {
-        this.clearActiveComponents();
-        this.currentState = "ROLE";
-
-        this.roleComponent = new RoleSelector(this, {
-            onRoleSelected: (_role: GameRole) => {
-                this.showLandingSiteSelector();
-            },
-            onBack: () => this.showTitleScreen()
-        });
-    }
-
-    /**
-     * STATE 3: Jezero Crater vs Arcadia Planitia Landing Site
+     * STATE 2: Jezero Crater vs Arcadia Planitia Landing Site
      */
     private showLandingSiteSelector() {
         this.clearActiveComponents();
@@ -128,7 +114,7 @@ export class OutpostSolScene extends Phaser.Scene {
             onSiteSelected: (_site: LandingSiteId) => {
                 this.showCustomizer();
             },
-            onBack: () => this.showRoleSelector()
+            onBack: () => this.showTitleScreen()
         });
     }
 
@@ -143,7 +129,7 @@ export class OutpostSolScene extends Phaser.Scene {
             onComplete: (_data: CustomizationData) => {
                 this.showBaseMaterialSelector();
             },
-            onBack: () => this.showLandingSiteSelector()
+            onBack: () => this.showTitleScreen()
         });
     }
 
@@ -210,7 +196,7 @@ export class OutpostSolScene extends Phaser.Scene {
         const guideText = this.add.text(
             (width - boxW) / 2 + 40,
             (height - boxH) / 2 + 80,
-            "WELCOME TO MARS BASE: OUTPOST SOL!\n\n" +
+            "WELCOME TO MARS: SOL SURVIVOR!\n\n" +
             "1. EXPLORATION:\n" +
             "Use W, A, S, D or Arrow keys to walk across the Martian surface and explore Jezero Crater.\n\n" +
             "2. BASE MANAGEMENT & SWITCHBOARD:\n" +
@@ -307,10 +293,6 @@ export class OutpostSolScene extends Phaser.Scene {
         if (this.titleComponent) {
             this.titleComponent.destroy();
             this.titleComponent = undefined;
-        }
-        if (this.roleComponent) {
-            this.roleComponent.destroy();
-            this.roleComponent = undefined;
         }
         if (this.siteComponent) {
             this.siteComponent.destroy();

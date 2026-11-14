@@ -496,6 +496,7 @@ export class MarsWorldScene extends Phaser.Scene {
 
         // Toggle Fullscreen on F
         this.keys.F.on("down", () => {
+            SoundFX.playClick();
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(() => {});
             } else {
@@ -505,21 +506,25 @@ export class MarsWorldScene extends Phaser.Scene {
 
         // Open Power Switchboard on P
         this.keys.P.on("down", () => {
+            SoundFX.playClick();
             this.openSwitchboard();
         });
 
         // Open 7-Sol Mission Challenges on M
         this.keys.M.on("down", () => {
+            SoundFX.playClick();
             this.toggleMissionChallenges();
         });
 
         // Pause Menu on ESC
         this.keys.ESC.on("down", () => {
+            SoundFX.playClick();
             this.togglePauseMenu();
         });
 
         // Interact on E
         this.keys.E.on("down", () => {
+            SoundFX.playKeyStroke();
             if (this.isDriving) {
                 // If driving, pressing E dismounts and jumps out of the rover
                 this.dismountRoverWithJump();
@@ -626,6 +631,7 @@ export class MarsWorldScene extends Phaser.Scene {
                     line.setColor(obj.done ? UITheme.colors.bioGreenStr : "#FFFFFF");
                 });
                 line.on("pointerdown", () => {
+                    SoundFX.playClick();
                     this.openSwitchboard();
                 });
             }
@@ -644,7 +650,10 @@ export class MarsWorldScene extends Phaser.Scene {
         challengesLink.setInteractive({ useHandCursor: true });
         challengesLink.on("pointerover", () => challengesLink.setColor("#FFFFFF"));
         challengesLink.on("pointerout", () => challengesLink.setColor(UITheme.colors.primaryCyanStr));
-        challengesLink.on("pointerdown", () => this.toggleMissionChallenges());
+        challengesLink.on("pointerdown", () => {
+            SoundFX.playClick();
+            this.toggleMissionChallenges();
+        });
         container.add(challengesLink);
 
         // Equipped suit model & callsign badge at bottom of objectives card
@@ -732,6 +741,7 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     private handleGreenhouseInteraction() {
+        SoundFX.playSuccess();
         this.markObjectiveDone("greenhouse");
         const currentLife = this.resourceMeters.getMeterValue("lifeSupport");
         this.resourceMeters.setMeterValue("lifeSupport", Math.min(100, currentLife + 15));
@@ -745,6 +755,7 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     private handleSolarInteraction() {
+        SoundFX.playClick();
         const currentPower = this.resourceMeters.getMeterValue("hullPower");
         this.resourceMeters.setMeterValue("hullPower", Math.min(100, currentPower + 12));
 
@@ -757,6 +768,7 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     private handleAntennaInteraction() {
+        SoundFX.playClick();
         this.warningSystem.show({
             type: "INFO",
             title: "TELEMETRY LINK SYNCHRONIZED",

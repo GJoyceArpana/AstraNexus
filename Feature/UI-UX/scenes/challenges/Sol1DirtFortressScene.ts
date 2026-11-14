@@ -1051,7 +1051,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
         if (this.isRotating || this.isCompleted) return;
         this.isRotating = true;
 
-        SoundFX.playClick();
+        SoundFX.playPipeRotate();
 
         tile.rot = (tile.rot + 1) % 4;
         const targetAngle = tile.container.angle + 90;
@@ -1347,7 +1347,7 @@ export class Sol1DirtFortressScene extends SolChallengeBaseScene {
     }
 
     private celebrateTomatoSprout() {
-        SoundFX.playToggle(true);
+        SoundFX.playSuccess();
 
         for (let i = 0; i < 20; i++) {
             const p = this.add.circle(

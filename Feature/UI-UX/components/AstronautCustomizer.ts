@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import UITheme from "../styles/UITheme.ts";
-import ButtonFactory from "./ButtonFactory.ts";
+import ButtonFactory, { SoundFX } from "./ButtonFactory.ts";
 
 export type GenderType = "boy" | "girl";
 
@@ -437,6 +437,7 @@ export class AstronautCustomizer {
             swatch.add(hit);
 
             hit.on("pointerdown", () => {
+                SoundFX.playClick();
                 this.selectedColorIndex = idx;
                 this.updatePlatformBeam();
                 this.updateColorSwatches();
@@ -496,6 +497,7 @@ export class AstronautCustomizer {
             card.add(hit);
 
             hit.on("pointerdown", () => {
+                SoundFX.playSelect();
                 this.selectedToolId = tool.id;
                 this.updateToolCardVisuals();
             });
@@ -581,6 +583,7 @@ export class AstronautCustomizer {
         btn.add(hit);
 
         hit.on("pointerdown", () => {
+            SoundFX.playToggle(gender === "boy");
             this.gender = gender;
             this.updateAvatarImage();
             this.updateSuitCards();
@@ -674,6 +677,7 @@ export class AstronautCustomizer {
             card.add(hit);
 
             hit.on("pointerover", () => {
+                SoundFX.playHover();
                 if (suit.frame !== this.avatarFrame) {
                     bg.clear();
                     bg.fillStyle(0x0C2548, 0.95);
@@ -686,6 +690,7 @@ export class AstronautCustomizer {
                 this.updateSuitCards();
             });
             hit.on("pointerdown", () => {
+                SoundFX.playSelect();
                 this.onSuitSelected(suit.frame);
             });
 
