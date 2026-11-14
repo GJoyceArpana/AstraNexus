@@ -449,11 +449,11 @@ export class MarsWorldScene extends Phaser.Scene {
         // Top-Right Symmetrical HUD Navigation Controls
         const hudChallengesBtn = ButtonFactory.createButton({
             scene: this,
-            x: 695,
+            x: 760,
             y: 38,
-            width: 190,
+            width: 210,
             height: 38,
-            fontSize: "12px",
+            fontSize: "11px",
             text: "7 SOL CHALLENGES [M]",
             primaryColor: UITheme.colors.primaryCyan,
             secondaryColor: 0x061528,
@@ -466,7 +466,7 @@ export class MarsWorldScene extends Phaser.Scene {
         // Pause Button (Symmetrically spaced next to Challenges button)
         const pauseBtn = ButtonFactory.createIconButton(
             this,
-            820,
+            895,
             38,
             "⏸",
             18,
