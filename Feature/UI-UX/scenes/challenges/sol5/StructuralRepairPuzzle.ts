@@ -35,6 +35,8 @@ export class StructuralRepairPuzzle {
     private selectedTool: PatchToolType = "aerogel";
     private breaches: HullBreach[] = [];
     private isSolved = false;
+    private isClosed = false;
+    private completionTimer?: Phaser.Time.TimerEvent;
 
     private feedbackText!: Phaser.GameObjects.Text;
     private integrityGaugeFill!: Phaser.GameObjects.Graphics;
@@ -135,7 +137,9 @@ export class StructuralRepairPuzzle {
         // Bottom Feedback HUD
         this.createFeedbackHUD(cx, cy + frameH / 2 - 42, frameW - 56);
 
-        this.updateIntegrityGauge();
+        this.scene.time.delayedCall(0, () => {
+            if (!this.isClosed) this.updateIntegrityGauge();
+        });
     }
 
     private createWallViewport(cx: number, cy: number) {
@@ -560,13 +564,18 @@ export class StructuralRepairPuzzle {
 
         this.scene.cameras.main.flash(400, 0, 229, 255, false);
 
-        this.scene.time.delayedCall(1600, () => {
+        this.completionTimer = this.scene.time.delayedCall(1600, () => {
+            if (this.isClosed) return;
             this.callbacks.onComplete();
             this.close();
         });
     }
 
     public close() {
+        if (this.isClosed) return;
+        this.isClosed = true;
+        this.completionTimer?.destroy();
+        this.completionTimer = undefined;
         this.container.destroy();
         this.callbacks.onClose();
     }
