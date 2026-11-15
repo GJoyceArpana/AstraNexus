@@ -25,6 +25,14 @@ export interface SolChallengeDetail {
     secondaryActionText?: string;
 }
 
+/** Shared modal frame size (the frame is drawn in init(); Sol 4 lays itself out inside it). */
+const MODAL_W = 1160;
+const MODAL_H = 640;
+/** Tabs occupy frameY+70 .. frameY+110, so the Sol 4 area starts below them. */
+const SOL4_AREA_TOP = 120;
+const SOL4_AREA_BOTTOM_MARGIN = 16;
+const SOL4_AREA_SIDE_MARGIN = 16;
+
 export class MissionChallengesModal {
     private scene: Phaser.Scene;
     private container: Phaser.GameObjects.Container;
@@ -41,6 +49,15 @@ export class MissionChallengesModal {
 
     private contentContainer!: Phaser.GameObjects.Container;
     private tabButtons: Phaser.GameObjects.Container[] = [];
+
+    // Sol 4 briefing state
+    private sol4WeatherTitle?: Phaser.GameObjects.Text;
+    private sol4WeatherDetail?: Phaser.GameObjects.Text;
+    private sol4WeatherRequested = false;
+    private sol4WeatherStatus: { detail: string; color: string } = { detail: "Loading NASA data...", color: "#d8efff" };
+    private sol4WeatherAbort?: AbortController;
+    private sol4Tweens: Phaser.Tweens.Tween[] = [];
+    private isClosed = false;
 
     private readonly challenges: Record<number, SolChallengeDetail> = {
         1: {
@@ -156,8 +173,8 @@ export class MissionChallengesModal {
         this.container.add(backdrop);
 
         // 2. Main High-Tech Frame (1160 x 640)
-        const frameW = 1160;
-        const frameH = 640;
+        const frameW = MODAL_W;
+        const frameH = MODAL_H;
         const frameX = (width - frameW) / 2;
         const frameY = (height - frameH) / 2;
 
@@ -173,12 +190,13 @@ export class MissionChallengesModal {
         this.container.add(frameBg);
 
         // Header Title
-        const headerTitle = this.scene.add.text(frameX + 24, frameY + 16, "✦ OUTPOST SOL: 5-SOL MISSION CHALLENGES ✦", {
+        const headerTitle = this.scene.add.text(frameX + 24, frameY + 10, "ASTRANEXUS\n→ SOL SURVIVOR ←", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "18px",
-            color: UITheme.colors.primaryCyanStr,
+            fontSize: "16px",
+            color: "#FFFFFF",
             fontStyle: "bold",
-            letterSpacing: 2
+            letterSpacing: 1.5,
+            lineSpacing: -2
         });
         this.container.add(headerTitle);
 
@@ -201,7 +219,7 @@ export class MissionChallengesModal {
         this.container.add(closeBtn);
 
         // 3. Sol Navigation Carousel Tabs (Sols 1 - 5)
-        this.createSolTabs(frameX + 20, frameY + 70, frameW - 40);
+        this.createSolTabs(frameX + 300, frameY + 70, frameW - 324);
 
         // 4. Dynamic Content Container (re-drawn when switching Sols)
         this.contentContainer = this.scene.add.container(0, 0);
@@ -228,13 +246,15 @@ export class MissionChallengesModal {
             const tabContainer = this.scene.add.container(tabX, y + tabH / 2);
 
             const bg = this.scene.add.graphics();
-            this.drawTabBackground(bg, tabW, tabH, isSelected);
+            this.drawTabBackground(bg, tabW, tabH, isSelected, false, i === 4);
             tabContainer.add(bg);
 
             const label = this.scene.add.text(0, 0, `${data.icon} SOL ${i}`, {
                 fontFamily: UITheme.fonts.heading,
                 fontSize: "13px",
-                color: isSelected ? "#FFFFFF" : UITheme.colors.textSecondary,
+                color: isSelected
+                    ? (i === 4 ? "#0E1A32" : "#FFFFFF")
+                    : UITheme.colors.textSecondary,
                 fontStyle: "bold",
                 letterSpacing: 1
             }).setOrigin(0.5);
@@ -266,12 +286,19 @@ export class MissionChallengesModal {
         }
     }
 
-    private drawTabBackground(g: Phaser.GameObjects.Graphics, w: number, h: number, isSelected: boolean, isHovered: boolean = false) {
+    private drawTabBackground(
+        g: Phaser.GameObjects.Graphics,
+        w: number,
+        h: number,
+        isSelected: boolean,
+        isHovered: boolean = false,
+        isSol4: boolean = false
+    ) {
         g.clear();
         if (isSelected) {
-            g.fillStyle(UITheme.colors.cardSelected, 0.95);
+            g.fillStyle(isSol4 ? UITheme.colors.solarGold : UITheme.colors.cardSelected, 0.95);
             g.fillRoundedRect(-w / 2, -h / 2, w, h, 8);
-            g.lineStyle(2, UITheme.colors.primaryCyan, 1);
+            g.lineStyle(2, isSol4 ? UITheme.colors.marsAmber : UITheme.colors.primaryCyan, 1);
             g.strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
         } else if (isHovered) {
             g.fillStyle(UITheme.colors.cardHover, 0.85);
@@ -296,8 +323,10 @@ export class MissionChallengesModal {
             const label = tabContainer.getAt(1) as Phaser.GameObjects.Text;
             const isSelected = solNum === this.currentSolTab;
 
-            this.drawTabBackground(bg, tabContainer.width, tabContainer.height, isSelected);
-            label.setColor(isSelected ? "#FFFFFF" : UITheme.colors.textSecondary);
+            this.drawTabBackground(bg, tabContainer.width, tabContainer.height, isSelected, false, solNum === 4);
+            label.setColor(isSelected
+                ? (solNum === 4 ? "#0E1A32" : "#FFFFFF")
+                : UITheme.colors.textSecondary);
         });
 
         // Re-render Challenge details
@@ -308,7 +337,16 @@ export class MissionChallengesModal {
      * Renders the full 2-column detailed view for the active Sol
      */
     private renderSolChallenge(sol: number) {
+        // Stop any Sol 4 tweens BEFORE their targets are destroyed by removeAll(true)
+        this.clearSol4Tweens();
+        this.sol4WeatherTitle = undefined;
+        this.sol4WeatherDetail = undefined;
         this.contentContainer.removeAll(true);
+        if (sol === 4) {
+            this.renderSol4Briefing();
+            return;
+        }
+
         const { width, height } = this.scene.scale;
         const data = this.challenges[sol];
         const stateRecord = this.activeSolData[sol];
@@ -580,6 +618,497 @@ export class MissionChallengesModal {
         this.contentContainer.add(completeBtn);
     }
 
+    // =====================================================================
+    // SOL 4 BRIEFING
+    // Everything is drawn inside a single child container positioned at the
+    // top-left of the content area (below the Sol tabs, inside the modal
+    // frame). All coordinates below are LOCAL to that area (0..W, 0..H), so
+    // nothing can overlap the header or tabs.
+    // =====================================================================
+
+    private clearSol4Tweens() {
+        this.sol4Tweens.forEach((t) => t.remove());
+        this.sol4Tweens = [];
+    }
+
+    /** Add an image scaled (aspect preserved) to fit maxW x maxH, anchored bottom-centre. */
+    private addFittedImage(
+        parent: Phaser.GameObjects.Container,
+        key: string,
+        x: number,
+        bottom: number,
+        maxW: number,
+        maxH: number
+    ): Phaser.GameObjects.Image | undefined {
+        if (!this.scene.textures.exists(key)) return undefined;
+        const img = this.scene.add.image(x, bottom, key).setOrigin(0.5, 1);
+        img.setScale(Math.min(maxW / img.width, maxH / img.height));
+        parent.add(img);
+        return img;
+    }
+
+    /** Add an image that covers a rectangle (CSS "cover") by scaling + cropping — never overflows. */
+    private addCoverImage(
+        parent: Phaser.GameObjects.Container,
+        key: string,
+        x: number,
+        y: number,
+        w: number,
+        h: number
+    ): Phaser.GameObjects.Image | undefined {
+        if (!this.scene.textures.exists(key)) return undefined;
+        const img = this.scene.add.image(x + w / 2, y + h / 2, key);
+        const tw = img.width;
+        const th = img.height;
+        const s = Math.max(w / tw, h / th);
+        img.setScale(s);
+        const cw = w / s;
+        const ch = h / s;
+        img.setCrop((tw - cw) / 2, (th - ch) / 2, cw, ch);
+        parent.add(img);
+        return img;
+    }
+
+    /** Vertical fade made from stacked strips (avoids gradient APIs that differ between Phaser versions). */
+    private addFade(
+        parent: Phaser.GameObjects.Container,
+        x: number,
+        y: number,
+        w: number,
+        h: number,
+        color: number,
+        fromAlpha: number,
+        toAlpha: number,
+        steps = 16
+    ) {
+        const g = this.scene.add.graphics();
+        const stripH = h / steps;
+        for (let i = 0; i < steps; i += 1) {
+            const a = fromAlpha + (toAlpha - fromAlpha) * (i / (steps - 1));
+            g.fillStyle(color, a);
+            g.fillRect(x, y + i * stripH, w, Math.ceil(stripH) + 1);
+        }
+        parent.add(g);
+    }
+
+    private renderSol4Briefing() {
+        const { width, height } = this.scene.scale;
+        const frameX = (width - MODAL_W) / 2;
+        const frameY = (height - MODAL_H) / 2;
+
+        const areaX = frameX + SOL4_AREA_SIDE_MARGIN;
+        const areaY = frameY + SOL4_AREA_TOP;
+        const W = MODAL_W - SOL4_AREA_SIDE_MARGIN * 2;           // 1128
+        const H = MODAL_H - SOL4_AREA_TOP - SOL4_AREA_BOTTOM_MARGIN; // 504
+        const cx = W / 2;
+
+        const root = this.scene.add.container(areaX, areaY);
+        this.contentContainer.add(root);
+
+        // ---------- Background: space, stars, NASA terrain ----------
+        const sky = this.scene.add.graphics();
+        sky.fillStyle(0x07152e, 1);
+        sky.fillRoundedRect(0, 0, W, H, { tl: 10, tr: 10, bl: 14, br: 14 });
+        sky.fillStyle(0x0d2147, 0.8);
+        sky.fillRect(0, 0, W, 90);
+        root.add(sky);
+
+        const stars = this.scene.add.graphics();
+        stars.fillStyle(0xc8edff, 0.75);
+        for (let i = 0; i < 55; i += 1) {
+            const sx = 10 + ((i * 197) % (W - 20));
+            const sy = 8 + ((i * 83) % 190);
+            stars.fillCircle(sx, sy, i % 5 === 0 ? 1.8 : 1);
+        }
+        root.add(stars);
+
+        const terrainTop = 150;
+        const terrainH = H - terrainTop;
+        const terrain = this.addCoverImage(root, "mars_terrain", 0, terrainTop, W, terrainH);
+        if (terrain) {
+            terrain.setTint(0xe29a78);
+            terrain.setAlpha(0.95);
+        } else {
+            // Fallback ground if the NASA texture is missing (kept inside the area)
+            const ground = this.scene.add.graphics();
+            ground.fillStyle(0x9e4a38, 1);
+            ground.fillRect(0, terrainTop, W, terrainH);
+            ground.fillStyle(0xc85a3c, 1);
+            ground.fillTriangle(cx - 220, H, cx, terrainTop + 40, cx + 220, H);
+            root.add(ground);
+        }
+        // Blend terrain into the sky at the top, darken the bottom so the button/labels stay legible
+        this.addFade(root, 0, terrainTop, W, 70, 0x07152e, 1, 0);
+        this.addFade(root, 0, H - 110, W, 110, 0x1a0a14, 0, 0.7);
+
+        // Mars planet (top-left, clear of the title and the weather card)
+        const planet = this.scene.add.graphics();
+        planet.fillStyle(0xd96848, 1);
+        planet.fillCircle(92, 66, 34);
+        planet.fillStyle(0xa9443e, 0.55);
+        planet.fillCircle(80, 56, 7);
+        planet.fillCircle(104, 78, 9);
+        planet.fillCircle(98, 52, 4);
+        planet.lineStyle(2, 0xff9a5c, 0.8);
+        planet.strokeCircle(92, 66, 34);
+        root.add(planet);
+
+        // ---------- Header: SOL 4 badge, title, subtitle ----------
+        const badge = this.scene.add.graphics();
+        badge.fillStyle(UITheme.colors.solarGold, 1);
+        badge.fillRoundedRect(cx - 56, 6, 112, 32, 16);
+        badge.lineStyle(2, UITheme.colors.marsAmber, 1);
+        badge.strokeRoundedRect(cx - 56, 6, 112, 32, 16);
+        root.add(badge);
+        const badgeText = this.scene.add.text(cx, 22, "SOL 4", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "20px",
+            fontStyle: "bold",
+            color: "#0E1A32"
+        }).setOrigin(0.5);
+        root.add(badgeText);
+
+        const title = this.scene.add.text(cx, 82, "AIR, ICE & LED POTATOES", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "34px",
+            fontStyle: "bold",
+            color: "#fff8df",
+            stroke: "#ff7347",
+            strokeThickness: 4,
+            letterSpacing: 1
+        }).setOrigin(0.5);
+        const maxTitleW = 740;
+        if (title.width > maxTitleW) title.setScale(maxTitleW / title.width);
+        root.add(title);
+
+        const subtitle = this.scene.add.text(cx, 120, "Make oxygen, melt Martian ice, and grow your own potatoes!", {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "16px",
+            color: "#fff8df",
+            align: "center"
+        }).setOrigin(0.5);
+        if (subtitle.width > 640) subtitle.setScale(640 / subtitle.width);
+        root.add(subtitle);
+
+        // ---------- Characters ----------
+        const astronaut = this.addFittedImage(root, "girl-astronaut", 118, 440, 200, 300);
+        const rover = this.addFittedImage(root, "rover", W - 108, 440, 160, 112);
+        [astronaut, rover].forEach((img, i) => {
+            if (!img) return;
+            const baseY = img.y;
+            this.sol4Tweens.push(this.scene.tweens.add({
+                targets: img,
+                y: baseY - 5,
+                duration: 1800 + i * 400,
+                yoyo: true,
+                repeat: -1,
+                ease: "Sine.easeInOut"
+            }));
+        });
+
+        // ---------- Three mission stages ----------
+        const stageBottom = 286;
+        const stageGap = 240;
+        const colX = [cx - stageGap, cx, cx + stageGap];
+
+        // Pedestals
+        const pedestals = this.scene.add.graphics();
+        colX.forEach((x) => {
+            pedestals.fillStyle(0x6a2f26, 0.9);
+            pedestals.fillEllipse(x, stageBottom + 4, 196, 30);
+            pedestals.fillStyle(0xb5563a, 0.95);
+            pedestals.fillEllipse(x, stageBottom, 190, 24);
+        });
+        root.add(pedestals);
+
+        this.drawMoxie(root, colX[0], stageBottom - 6);
+        this.drawIceAndTank(root, colX[1], stageBottom - 6);
+        if (!this.addFittedImage(root, "greenhouse", colX[2], stageBottom - 6, 180, 140)) {
+            this.drawFallbackGreenhouse(root, colX[2], stageBottom - 6);
+        }
+
+        // Yellow arrows between stages
+        const arrows = this.scene.add.graphics();
+        arrows.lineStyle(7, 0xffc928, 1);
+        [cx - stageGap / 2, cx + stageGap / 2].forEach((ax) => {
+            const ay = 214;
+            arrows.beginPath();
+            arrows.moveTo(ax - 8, ay - 18);
+            arrows.lineTo(ax + 8, ay);
+            arrows.lineTo(ax - 8, ay + 18);
+            arrows.strokePath();
+        });
+        root.add(arrows);
+
+        // Label pills + captions, anchored directly under each illustration
+        const pillY = 314;
+        const stages: Array<{ label: string; caption: string; icon: "oxygen" | "water" | "food" }> = [
+            { label: "OXYGEN", caption: "Make oxygen\nfrom Mars air.", icon: "oxygen" },
+            { label: "WATER", caption: "Melt buried ice\nfor water.", icon: "water" },
+            { label: "GROW FOOD", caption: "Grow potatoes\nunder LED lights.", icon: "food" }
+        ];
+        stages.forEach((stage, i) => {
+            const x = colX[i];
+            const pill = this.scene.add.graphics();
+            pill.fillStyle(0x062346, 0.97);
+            pill.fillRoundedRect(x - 105, pillY - 19, 210, 38, 19);
+            pill.lineStyle(2.5, 0x00dfff, 1);
+            pill.strokeRoundedRect(x - 105, pillY - 19, 210, 38, 19);
+            this.drawStageIcon(pill, stage.icon, x - 72, pillY);
+            root.add(pill);
+
+            const label = this.scene.add.text(x + 14, pillY, stage.label, {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "17px",
+                fontStyle: "bold",
+                color: "#ffffff"
+            }).setOrigin(0.5);
+            const caption = this.scene.add.text(x, pillY + 30, stage.caption, {
+                fontFamily: UITheme.fonts.body,
+                fontSize: "15px",
+                color: "#fff8df",
+                align: "center",
+                lineSpacing: 2,
+                stroke: "#1a0a14",
+                strokeThickness: 3,
+                wordWrap: { width: 200 }
+            }).setOrigin(0.5, 0);
+            root.add([label, caption]);
+        });
+
+        // ---------- NASA Space Weather card (top-right, compact) ----------
+        const cardW = 250;
+        const cardH = 50;
+        const cardX = W - cardW - 14;
+        const cardY = 6;
+        const weatherCard = this.scene.add.graphics();
+        weatherCard.fillStyle(0x09234a, 0.96);
+        weatherCard.fillRoundedRect(cardX, cardY, cardW, cardH, 14);
+        weatherCard.lineStyle(2, 0x00e5ff, 1);
+        weatherCard.strokeRoundedRect(cardX, cardY, cardW, cardH, 14);
+        weatherCard.fillStyle(0xffd36b, 1);
+        weatherCard.fillCircle(cardX + cardW - 24, cardY + cardH / 2, 8);
+        root.add(weatherCard);
+
+        this.sol4WeatherTitle = this.scene.add.text(cardX + 14, cardY + 15, "NASA SPACE WEATHER", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "13px",
+            fontStyle: "bold",
+            color: "#ffd36b"
+        }).setOrigin(0, 0.5);
+        this.sol4WeatherDetail = this.scene.add.text(cardX + 14, cardY + 35, "", {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "12px",
+            color: "#d8efff"
+        }).setOrigin(0, 0.5);
+        root.add([this.sol4WeatherTitle, this.sol4WeatherDetail]);
+        this.applySol4Weather();
+
+        // ---------- Bottom row: back / deploy / attribution ----------
+        const backButton = ButtonFactory.createButton({
+            scene: this.scene,
+            x: 14 + 110,
+            y: H - 32,
+            text: "← BACK TO MARS BASE",
+            width: 220,
+            height: 40,
+            primaryColor: UITheme.colors.cardBg,
+            secondaryColor: UITheme.colors.primaryCyan,
+            textColor: "#ffffff",
+            fontSize: "13px",
+            onClick: () => {
+                SoundFX.playClick();
+                this.close();
+            }
+        });
+        root.add(backButton);
+
+        const deployButton = ButtonFactory.createButton({
+            scene: this.scene,
+            x: cx,
+            y: H - 62,
+            text: "🚀 DEPLOY TO SOL 4 MARTIAN SURFACE →",
+            width: 540,
+            height: 58,
+            primaryColor: UITheme.colors.marsAmber,
+            secondaryColor: UITheme.colors.solarGold,
+            textColor: "#fff6dc",
+            fontSize: "17px",
+            onClick: () => this.launchSolScene(4)
+        });
+        root.add(deployButton);
+
+        const attribution = this.scene.add.text(W - 14, H - 8, "NASA Mars Trek terrain mosaic • Jezero Crater, Mars", {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "12px",
+            color: "#9ff0ff",
+            stroke: "#1a0a14",
+            strokeThickness: 3
+        }).setOrigin(1, 1);
+        root.add(attribution);
+
+        if (!this.sol4WeatherRequested) {
+            this.sol4WeatherRequested = true;
+            void this.loadSol4SpaceWeather();
+        }
+    }
+
+    private drawStageIcon(g: Phaser.GameObjects.Graphics, icon: "oxygen" | "water" | "food", x: number, y: number) {
+        if (icon === "oxygen") {
+            g.lineStyle(3, 0x75e8ff, 1);
+            g.lineBetween(x - 12, y - 7, x + 10, y - 7);
+            g.lineBetween(x - 16, y, x + 14, y);
+            g.lineBetween(x - 10, y + 7, x + 8, y + 7);
+        } else if (icon === "water") {
+            g.fillStyle(0x62dfff, 1);
+            g.fillCircle(x, y + 3, 8);
+            g.fillTriangle(x, y - 13, x - 7, y, x + 7, y);
+        } else {
+            g.fillStyle(0x52e26a, 1);
+            g.fillEllipse(x - 5, y - 3, 14, 9);
+            g.fillEllipse(x + 6, y - 6, 14, 9);
+            g.lineStyle(2.5, 0x52e26a, 1);
+            g.lineBetween(x, y + 10, x, y - 2);
+        }
+    }
+
+    /** Child-friendly MOXIE machine (illustrated; not NASA imagery). */
+    private drawMoxie(parent: Phaser.GameObjects.Container, x: number, bottom: number) {
+        const g = this.scene.add.graphics();
+        // hose
+        g.lineStyle(9, 0x9aa7b5, 1);
+        g.beginPath();
+        g.moveTo(x + 24, bottom - 88);
+        g.lineTo(x + 30, bottom - 108);
+        g.lineTo(x + 48, bottom - 116);
+        g.lineTo(x + 60, bottom - 104);
+        g.lineTo(x + 62, bottom - 78);
+        g.lineTo(x + 62, bottom - 26);
+        g.strokePath();
+        // base + body
+        g.fillStyle(0xe8742a, 1);
+        g.fillRoundedRect(x - 64, bottom - 14, 128, 14, 5);
+        g.fillStyle(0xeef2f7, 1);
+        g.fillRoundedRect(x - 56, bottom - 92, 112, 80, 10);
+        g.lineStyle(3, 0x9fb4c8, 1);
+        g.strokeRoundedRect(x - 56, bottom - 92, 112, 80, 10);
+        // vents
+        g.lineStyle(2, 0x9fb4c8, 1);
+        [0, 1, 2].forEach((i) => g.lineBetween(x - 48, bottom - 78 + i * 7, x - 36, bottom - 78 + i * 7));
+        // screen
+        g.fillStyle(0x0b2b40, 1);
+        g.fillRoundedRect(x - 32, bottom - 54, 64, 36, 6);
+        g.lineStyle(2, 0x22d3ee, 1);
+        g.strokeRoundedRect(x - 32, bottom - 54, 64, 36, 6);
+        parent.add(g);
+
+        const name = this.scene.add.text(x - 6, bottom - 74, "MOXIE", {
+            fontFamily: UITheme.fonts.heading, fontSize: "14px", fontStyle: "bold", color: "#0e1a32"
+        }).setOrigin(0.5);
+        const o2 = this.scene.add.text(x, bottom - 36, "O₂", {
+            fontFamily: UITheme.fonts.heading, fontSize: "20px", fontStyle: "bold", color: "#4de3ff"
+        }).setOrigin(0.5);
+        parent.add([name, o2]);
+    }
+
+    /** Ice crystals + water container. */
+    private drawIceAndTank(parent: Phaser.GameObjects.Container, x: number, bottom: number) {
+        const g = this.scene.add.graphics();
+        const ox = x - 8;
+        // crystals
+        const crystal = (pts: Array<[number, number]>) => {
+            g.fillStyle(0xbfe8ff, 0.95);
+            g.fillPoints(pts.map(([px, py]) => new Phaser.Math.Vector2(ox + px, bottom + py)), true);
+            g.lineStyle(2, 0xffffff, 0.9);
+            g.strokePoints(pts.map(([px, py]) => new Phaser.Math.Vector2(ox + px, bottom + py)), true);
+        };
+        crystal([[-84, -2], [-76, -26], [-64, -2]]);
+        crystal([[-72, -2], [-58, -56], [-42, -72], [-26, -40], [-22, -2]]);
+        crystal([[-44, -2], [-30, -32], [-16, -2]]);
+        // tank
+        g.fillStyle(0x1e90d8, 0.9);
+        g.fillRoundedRect(ox, bottom - 92, 66, 88, 10);
+        g.lineStyle(3, 0xbfe8ff, 1);
+        g.strokeRoundedRect(ox, bottom - 92, 66, 88, 10);
+        g.fillStyle(0x8793a3, 1);
+        g.fillRoundedRect(ox + 6, bottom - 104, 54, 14, 5);
+        // drop
+        g.fillStyle(0xe8fbff, 1);
+        g.fillCircle(ox + 33, bottom - 40, 10);
+        g.fillTriangle(ox + 33, bottom - 66, ox + 24, bottom - 46, ox + 42, bottom - 46);
+        parent.add(g);
+    }
+
+    /** Only used if the existing "greenhouse" texture is missing. */
+    private drawFallbackGreenhouse(parent: Phaser.GameObjects.Container, x: number, bottom: number) {
+        const g = this.scene.add.graphics();
+        g.fillStyle(0x9fd8ff, 0.35);
+        g.beginPath();
+        g.arc(x, bottom - 10, 74, Math.PI, 0, false);
+        g.closePath();
+        g.fillPath();
+        g.lineStyle(3, 0xcfeeff, 0.9);
+        g.beginPath();
+        g.arc(x, bottom - 10, 74, Math.PI, 0, false);
+        g.strokePath();
+        g.fillStyle(0x6b3b24, 1);
+        g.fillRect(x - 70, bottom - 12, 140, 10);
+        g.fillStyle(0x3da94b, 1);
+        [-40, -10, 24, 50].forEach((dx) => g.fillCircle(x + dx, bottom - 24, 12));
+        g.fillStyle(0xd9a441, 1);
+        g.fillEllipse(x + 40, bottom - 10, 24, 14);
+        parent.add(g);
+    }
+
+    private applySol4Weather() {
+        if (this.sol4WeatherTitle?.active) {
+            this.sol4WeatherTitle.setText("NASA SPACE WEATHER");
+        }
+        if (this.sol4WeatherDetail?.active) {
+            this.sol4WeatherDetail.setText(this.sol4WeatherStatus.detail).setColor(this.sol4WeatherStatus.color);
+        }
+    }
+
+    private async loadSol4SpaceWeather() {
+        const endpoint = import.meta.env.DEV
+            ? "http://localhost:3001/api/nasa/space-weather"
+            : "/api/nasa/space-weather";
+        const controller = new AbortController();
+        this.sol4WeatherAbort = controller;
+        const timeout = window.setTimeout(() => controller.abort(), 8_000);
+
+        try {
+            const response = await fetch(endpoint, {
+                headers: { Accept: "application/json" },
+                signal: controller.signal
+            });
+            if (!response.ok) throw new Error(`NASA proxy returned HTTP ${response.status}`);
+            const payload = await response.json() as {
+                success?: boolean;
+                data?: { totalEvents?: number };
+            };
+            const total = payload.data?.totalEvents;
+            if (!payload.success || typeof total !== "number" || !Number.isFinite(total)) {
+                throw new Error("NASA proxy returned an invalid response.");
+            }
+            this.sol4WeatherStatus = {
+                detail: total > 0
+                    ? `${total} recent solar event${total === 1 ? "" : "s"} (DONKI)`
+                    : "No recent events (DONKI)",
+                color: total > 0 ? "#bfffd1" : "#d8efff"
+            };
+        } catch (error) {
+            if (!this.isClosed) {
+                this.sol4WeatherStatus = { detail: "Data unavailable", color: "#b8b8b8" };
+                console.warn("Sol 4 NASA space-weather status unavailable:", error);
+            }
+        } finally {
+            window.clearTimeout(timeout);
+            this.sol4WeatherAbort = undefined;
+            if (!this.isClosed) this.applySol4Weather();
+        }
+    }
+
     private getSolSceneKey(sol: number): string {
         switch (sol) {
             case 1: return "Sol1DirtFortressScene";
@@ -702,6 +1231,12 @@ export class MissionChallengesModal {
     }
 
     public close() {
+        if (this.isClosed) return;
+        this.isClosed = true;
+        this.clearSol4Tweens();
+        this.sol4WeatherAbort?.abort();
+        this.sol4WeatherTitle = undefined;
+        this.sol4WeatherDetail = undefined;
         this.container.destroy();
         this.callbacks.onClose();
     }
