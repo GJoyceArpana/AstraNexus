@@ -474,15 +474,7 @@ export class MissionChallengesModal {
         });
         this.contentContainer.add(titleText);
 
-        const codename = this.scene.add.text(leftX + 20, topY + 48, `MISSION CODENAME: [ ${data.codename} ]`, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "12px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold",
-            letterSpacing: 1,
-            wordWrap: { width: colW - 40 }
-        });
-        this.contentContainer.add(codename);
+       
 
         // Hazard Banner
         const hazardBg = this.scene.add.graphics();
