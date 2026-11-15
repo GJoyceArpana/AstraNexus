@@ -50,7 +50,6 @@ export default class SolIntroductionScene extends Phaser.Scene {
     private stage: IntroductionStage = "VIDEO";
     private lessonIndex = 0;
     private video?: HTMLVideoElement;
-    private videoDom?: Phaser.GameObjects.DOMElement;
     private videoFrame?: Phaser.GameObjects.Graphics;
     private videoMessage?: Phaser.GameObjects.Text;
     private videoPlayButton?: Phaser.GameObjects.Container;
@@ -58,12 +57,17 @@ export default class SolIntroductionScene extends Phaser.Scene {
     private videoSkipButton?: Phaser.GameObjects.Container;
     private videoReplayButton?: Phaser.GameObjects.Container;
     private videoContinueButton?: Phaser.GameObjects.Container;
+    private videoHeader?: Phaser.GameObjects.Container;
     private lessonRoot?: Phaser.GameObjects.Container;
     private resizeHandler?: () => void;
     private videoFinished = false;
     private videoMuted = true;
+    private readonly handleVideoMetadata = () => {
+        this.updateVideoLayout();
+    };
     private readonly handleVideoLoaded = () => {
         if (this.stage !== "VIDEO") return;
+        this.updateVideoLayout();
         this.videoMessage?.setText("MARS TOUCHDOWN — PLAYING");
         void this.playVideo();
     };
@@ -127,7 +131,10 @@ export default class SolIntroductionScene extends Phaser.Scene {
     create() {
         this.cameras.main.setBackgroundColor("#050914");
         this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanup, this);
-        this.resizeHandler = () => this.scale.refresh();
+        this.resizeHandler = () => {
+            if (this.stage === "VIDEO") this.updateVideoLayout();
+            if (this.stage === "LESSON") this.renderLessonCard();
+        };
         this.scale.on("resize", this.resizeHandler, this);
 
         this.createVideoStage();
@@ -139,25 +146,23 @@ export default class SolIntroductionScene extends Phaser.Scene {
         this.lessonRoot = undefined;
 
         this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x050914).setOrigin(0);
-        this.add.text(GAME_WIDTH / 2, 34, "MISSION CONTROL: WE HAVE LANDED!", {
+        this.videoHeader = this.add.container(0, 0).setDepth(10);
+        this.videoHeader.add(this.add.text(GAME_WIDTH / 2, 34, "MISSION CONTROL: WE HAVE LANDED!", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "24px",
             fontStyle: "bold",
             color: "#FFD23F",
             stroke: "#07172E",
             strokeThickness: 4
-        }).setOrigin(0.5).setDepth(10);
-        this.add.text(GAME_WIDTH / 2, 68, "Welcome, Junior Astronaut! Your adventure on Mars begins now.", {
+        }).setOrigin(0.5));
+        this.videoHeader.add(this.add.text(GAME_WIDTH / 2, 68, "Welcome, Junior Astronaut! Your adventure on Mars begins now.", {
             fontFamily: UITheme.fonts.body,
             fontSize: "17px",
             color: "#D8F7FF"
-        }).setOrigin(0.5).setDepth(10);
+        }).setOrigin(0.5));
 
         this.videoFrame = this.add.graphics().setDepth(3);
-        this.videoFrame.fillStyle(0x081d3d, 0.96);
-        this.videoFrame.fillRoundedRect(52, 94, 1176, 516, 16);
-        this.videoFrame.lineStyle(2, 0x00e5ff, 0.9);
-        this.videoFrame.strokeRoundedRect(52, 94, 1176, 516, 16);
+        this.updateVideoLayout();
 
         this.videoMessage = this.add.text(GAME_WIDTH / 2, 352, "LOADING MARS TOUCHDOWN...", {
             fontFamily: UITheme.fonts.heading,
@@ -221,6 +226,7 @@ export default class SolIntroductionScene extends Phaser.Scene {
             onClick: () => this.showLesson()
         });
         this.videoContinueButton.setVisible(false);
+        this.updateVideoLayout();
     }
 
     private createVideoElement() {
@@ -234,21 +240,85 @@ export default class SolIntroductionScene extends Phaser.Scene {
         video.controls = false;
         video.setAttribute("aria-label", "Mars touchdown cinematic");
         Object.assign(video.style, {
-            width: "1136px",
-            height: "496px",
+            width: "1px",
+            height: "1px",
             objectFit: "contain",
+            maxWidth: "100%",
+            maxHeight: "100%",
             backgroundColor: "#020712",
             display: "block",
             borderRadius: "12px"
         });
 
+        video.addEventListener("loadedmetadata", this.handleVideoMetadata);
         video.addEventListener("loadeddata", this.handleVideoLoaded);
         video.addEventListener("canplay", this.handleVideoCanPlay);
         video.addEventListener("ended", this.handleVideoEnded);
         video.addEventListener("error", this.handleVideoError);
 
-        this.videoDom = this.add.dom(GAME_WIDTH / 2, 352, video);
-        this.videoDom.setDepth(4);
+        video.style.position = "fixed";
+        video.style.zIndex = "5";
+        video.style.pointerEvents = "none";
+        document.body.appendChild(video);
+        this.updateVideoLayout();
+    }
+
+    private getVideoLayout() {
+        const compact = this.scale.displaySize.width < 900;
+        return compact
+            ? { panelX: 60, panelY: 94, panelW: 1160, panelH: 430, footerY: 590 }
+            : { panelX: 52, panelY: 94, panelW: 1176, panelH: 516, footerY: 662 };
+    }
+
+    private updateVideoLayout() {
+        const layout = this.getVideoLayout();
+        const padding = 18;
+
+        if (this.videoFrame) {
+            this.videoFrame.clear();
+            this.videoFrame.fillStyle(0x081d3d, 0.96);
+            this.videoFrame.fillRoundedRect(layout.panelX, layout.panelY, layout.panelW, layout.panelH, 16);
+            this.videoFrame.lineStyle(2, 0x00e5ff, 0.9);
+            this.videoFrame.strokeRoundedRect(layout.panelX, layout.panelY, layout.panelW, layout.panelH, 16);
+        }
+
+        this.videoMessage?.setPosition(
+            layout.panelX + layout.panelW / 2,
+            layout.panelY + layout.panelH / 2
+        );
+
+        this.updateVideoControlsLayout(layout.footerY);
+
+        const videoWidth = this.video?.videoWidth ?? 0;
+        const videoHeight = this.video?.videoHeight ?? 0;
+        if (!this.video || videoWidth <= 0 || videoHeight <= 0) return;
+
+        const availableWidth = layout.panelW - padding * 2;
+        const availableHeight = layout.panelH - padding * 2;
+        const fitScale = Math.min(availableWidth / videoWidth, availableHeight / videoHeight);
+        const displayWidth = Math.max(1, Math.floor(videoWidth * fitScale));
+        const displayHeight = Math.max(1, Math.floor(videoHeight * fitScale));
+        const canvas = this.game.canvas;
+        const canvasBounds = canvas.getBoundingClientRect();
+        const scaleX = canvasBounds.width / GAME_WIDTH;
+        const scaleY = canvasBounds.height / GAME_HEIGHT;
+        const screenWidth = displayWidth * scaleX;
+        const screenHeight = displayHeight * scaleY;
+        const screenCenterX = canvasBounds.left + (layout.panelX + layout.panelW / 2) * scaleX;
+        const screenCenterY = canvasBounds.top + (layout.panelY + layout.panelH / 2) * scaleY;
+
+        this.video.style.width = `${screenWidth}px`;
+        this.video.style.height = `${screenHeight}px`;
+        this.video.style.left = `${screenCenterX - screenWidth / 2}px`;
+        this.video.style.top = `${screenCenterY - screenHeight / 2}px`;
+        this.video.style.aspectRatio = `${videoWidth} / ${videoHeight}`;
+    }
+
+    private updateVideoControlsLayout(footerY: number) {
+        this.videoSkipButton?.setPosition(120, footerY);
+        this.videoReplayButton?.setPosition(440, footerY);
+        this.videoContinueButton?.setPosition(760, footerY);
+        this.videoMuteButton?.setPosition(1080, footerY);
     }
 
     private async playVideo() {
@@ -306,7 +376,9 @@ export default class SolIntroductionScene extends Phaser.Scene {
     private showLesson() {
         if (this.stage === "LESSON") return;
         this.video?.pause();
-        this.videoDom?.setVisible(false);
+        this.videoHeader?.destroy(true);
+        this.videoHeader = undefined;
+        if (this.video) this.video.style.display = "none";
         this.videoFrame?.setVisible(false);
         this.videoMessage?.setVisible(false);
         this.videoSkipButton?.setVisible(false);
@@ -322,69 +394,83 @@ export default class SolIntroductionScene extends Phaser.Scene {
         this.lessonRoot?.destroy(true);
         this.lessonRoot = this.add.container(0, 0).setDepth(20);
         const card = LESSON_CARDS[this.lessonIndex];
+        const compact = this.scale.displaySize.width < 900;
+        const panelX = compact ? 28 : 64;
+        const panelY = compact ? 28 : 86;
+        const panelW = compact ? 1224 : 1152;
+        const panelH = compact ? 596 : 538;
+        const contentLeft = compact ? 82 : 126;
+        const contentWidth = compact ? 1116 : 500;
+        const titleY = compact ? 136 : 220;
+        const bodyY = compact ? 186 : 285;
+        const highlightY = compact ? 346 : 466;
+        const illustrationX = compact ? GAME_WIDTH / 2 : 930;
+        const illustrationY = compact ? 486 : 382;
 
         const panel = this.add.graphics();
         panel.fillStyle(0x091d3e, 0.98);
-        panel.fillRoundedRect(64, 86, 1152, 538, 18);
+        panel.fillRoundedRect(panelX, panelY, panelW, panelH, 18);
         panel.lineStyle(2.5, card.accent, 0.95);
-        panel.strokeRoundedRect(64, 86, 1152, 538, 18);
+        panel.strokeRoundedRect(panelX, panelY, panelW, panelH, 18);
         this.lessonRoot.add(panel);
 
-        this.lessonRoot.add(this.add.text(640, 116, "SO... WHAT IS A SOL?", {
+        this.lessonRoot.add(this.add.text(GAME_WIDTH / 2, compact ? 60 : 116, "SO... WHAT IS A SOL?", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "27px",
+            fontSize: compact ? "24px" : "27px",
             fontStyle: "bold",
             color: "#FFD23F"
         }).setOrigin(0.5));
 
-        this.lessonRoot.add(this.add.text(640, 155, `SPACE LESSON  •  ${this.lessonIndex + 1} OF ${LESSON_CARDS.length}`, {
+        this.lessonRoot.add(this.add.text(GAME_WIDTH / 2, compact ? 92 : 155, `SPACE LESSON  •  ${this.lessonIndex + 1} OF ${LESSON_CARDS.length}`, {
             fontFamily: UITheme.fonts.body,
             fontSize: "13px",
             fontStyle: "bold",
             color: "#9CEEFF"
         }).setOrigin(0.5));
 
-        const illustration = this.add.container(885, 345);
+        const illustration = this.add.container(illustrationX, illustrationY);
+        if (compact) illustration.setScale(0.78);
         const illustrationBg = this.add.graphics();
         illustrationBg.fillStyle(0x102f59, 0.95);
         illustrationBg.fillRoundedRect(-250, -145, 430, 290, 16);
         illustrationBg.lineStyle(1.5, card.accent, 0.85);
         illustrationBg.strokeRoundedRect(-250, -145, 430, 290, 16);
         illustration.add(illustrationBg);
-        illustration.add(this.add.text(-35, 0, card.icon, {
-            fontFamily: UITheme.fonts.body,
-            fontSize: this.lessonIndex === 2 ? "31px" : "52px",
-            color: "#FFFFFF",
-            align: "center"
-        }).setOrigin(0.5));
-        this.drawLessonArtwork(illustration);
+        this.drawLessonArtwork(illustration, card.accent);
         this.lessonRoot.add(illustration);
 
-        this.lessonRoot.add(this.add.text(126, 220, card.title, {
+        this.lessonRoot.add(this.add.text(contentLeft, titleY, card.title, {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "28px",
+            fontSize: compact ? "24px" : "28px",
             fontStyle: "bold",
             color: `#${card.accent.toString(16).padStart(6, "0")}`,
-            wordWrap: { width: 580 }
+            wordWrap: { width: contentWidth }
         }));
-        this.lessonRoot.add(this.add.text(126, 285, card.body, {
+        this.lessonRoot.add(this.add.text(contentLeft, bodyY, card.body, {
             fontFamily: UITheme.fonts.body,
-            fontSize: "20px",
+            fontSize: compact ? "18px" : "20px",
             color: "#F1F7FF",
-            lineSpacing: 8,
-            wordWrap: { width: 590 }
+            lineSpacing: compact ? 6 : 8,
+            wordWrap: { width: contentWidth }
+        }));
+        this.lessonRoot.add(this.add.text(contentLeft, highlightY, this.getLessonHighlight(), {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: compact ? "14px" : "15px",
+            fontStyle: "bold",
+            color: `#${card.accent.toString(16).padStart(6, "0")}`,
+            wordWrap: { width: contentWidth }
         }));
 
         const back = ButtonFactory.createButton({
             scene: this,
             x: 170,
-            y: 665,
-            width: 170,
-            height: 42,
+            y: 670,
+            width: 180,
+            height: 44,
             text: "← BACK",
             primaryColor: 0x6be8ff,
             secondaryColor: 0x102f59,
-            fontSize: "13px",
+            fontSize: "14px",
             onClick: () => {
                 if (this.lessonIndex > 0) {
                     this.lessonIndex -= 1;
@@ -398,13 +484,13 @@ export default class SolIntroductionScene extends Phaser.Scene {
         const skip = ButtonFactory.createButton({
             scene: this,
             x: 640,
-            y: 665,
-            width: 190,
-            height: 42,
+            y: 670,
+            width: 210,
+            height: 44,
             text: "SKIP LESSON",
             primaryColor: 0xff9b70,
             secondaryColor: 0x1b2944,
-            fontSize: "12px",
+            fontSize: "13px",
             onClick: () => this.showFinalLesson()
         });
         this.lessonRoot.add(skip);
@@ -412,14 +498,14 @@ export default class SolIntroductionScene extends Phaser.Scene {
         const next = ButtonFactory.createButton({
             scene: this,
             x: 1105,
-            y: 665,
-            width: 190,
-            height: 42,
+            y: 670,
+            width: 220,
+            height: 44,
             text: this.lessonIndex === LESSON_CARDS.length - 1 ? "LET'S EXPLORE MARS! →" : "NEXT →",
             primaryColor: card.accent,
             secondaryColor: 0x123a46,
             textColor: "#061329",
-            fontSize: "13px",
+            fontSize: "14px",
             onClick: () => {
                 if (this.lessonIndex === LESSON_CARDS.length - 1) {
                     this.showFinalLesson();
@@ -431,7 +517,7 @@ export default class SolIntroductionScene extends Phaser.Scene {
         });
         this.lessonRoot.add(next);
 
-        this.lessonRoot.add(this.add.text(640, 601, LESSON_CARDS.map((_item, index) => index === this.lessonIndex ? "●" : "○").join("  "), {
+        this.lessonRoot.add(this.add.text(GAME_WIDTH / 2, compact ? 602 : 595, LESSON_CARDS.map((_item, index) => index === this.lessonIndex ? "●" : "○").join("  "), {
             fontFamily: UITheme.fonts.body,
             fontSize: "18px",
             color: `#${card.accent.toString(16).padStart(6, "0")}`
@@ -446,7 +532,20 @@ export default class SolIntroductionScene extends Phaser.Scene {
         });
     }
 
-    private drawLessonArtwork(illustration: Phaser.GameObjects.Container) {
+    private getLessonHighlight(): string {
+        switch (this.lessonIndex) {
+            case 0:
+                return "KEY IDEA: A SOL = ONE MARTIAN DAY.";
+            case 1:
+                return "KEY IDEA: THE BASE IS YOUR CREW'S SAFE HOME.";
+            case 2:
+                return "KEY IDEA: OXYGEN + WATER + FOOD + POWER KEEP THE CREW GOING.";
+            default:
+                return "KEY IDEA: EVERY CHOICE HAS A MISSION CONSEQUENCE.";
+        }
+    }
+
+    private drawLessonArtwork(illustration: Phaser.GameObjects.Container, accent: number) {
         if (this.lessonIndex === 0) {
             illustration.add(this.add.circle(-125, -36, 47, 0x4f9bd9));
             illustration.add(this.add.circle(58, -36, 47, 0xc85532));
@@ -468,16 +567,88 @@ export default class SolIntroductionScene extends Phaser.Scene {
             return;
         }
 
-        const textureKey = this.lessonIndex === 1
-            ? "mars-habitat"
-            : this.lessonIndex === 2
-                ? "solar-panels"
-                : "rover";
-        if (this.textures.exists(textureKey)) {
-            const image = this.add.image(-35, 24, textureKey);
-            image.setDisplaySize(250, this.lessonIndex === 1 ? 175 : 145);
-            illustration.add(image);
+        if (this.lessonIndex === 1) {
+            this.addIllustrationImage(illustration, "mars-habitat", -78, 28, 190, 130);
+            this.addIllustrationImage(illustration, "solar-panels", 82, 54, 135, 82);
+            this.addIllustrationImage(illustration, "boy-astronaut", -178, 38, 72, 105);
+            this.addArtworkLabel(illustration, "HABITAT", -78, 112, accent);
+            this.addArtworkLabel(illustration, "SOLAR POWER", 82, 112, accent);
+            this.addArtworkLabel(illustration, "SAFE CREW", -178, 112, accent);
+            return;
         }
+
+        if (this.lessonIndex === 2) {
+            const resources = [
+                ["O₂", "BREATHE", -135, -72, 0x6be8ff],
+                ["💧", "DRINK", 65, -72, 0x4fa9ff],
+                ["🍎", "EAT", -135, 45, 0xff9b70],
+                ["⚡", "POWER", 65, 45, 0xffd23f]
+            ] as const;
+            resources.forEach(([icon, label, x, y, color]) => {
+                const box = this.add.graphics();
+                box.fillStyle(0x091d3e, 0.95);
+                box.fillRoundedRect(x - 70, y - 38, 140, 82, 10);
+                box.lineStyle(1.5, color, 0.95);
+                box.strokeRoundedRect(x - 70, y - 38, 140, 82, 10);
+                illustration.add(box);
+                illustration.add(this.add.text(x, y - 10, icon, {
+                    fontFamily: UITheme.fonts.body,
+                    fontSize: "25px",
+                    color: "#FFFFFF"
+                }).setOrigin(0.5));
+                this.addArtworkLabel(illustration, label, x, y + 20, color);
+            });
+            return;
+        }
+
+        this.addIllustrationImage(illustration, "rover", -115, 64, 180, 110);
+        this.addIllustrationImage(illustration, "greenhouse", 100, 54, 150, 115);
+        this.addChoiceBadge(illustration, "SAVE POWER", -135, -90, 0x6be8ff);
+        this.addChoiceBadge(illustration, "GROW FOOD", 75, -90, 0x40ffaa);
+    }
+
+    private addIllustrationImage(
+        illustration: Phaser.GameObjects.Container,
+        textureKey: string,
+        x: number,
+        y: number,
+        width: number,
+        height: number
+    ) {
+        if (!this.textures.exists(textureKey)) return;
+        const image = this.add.image(x, y, textureKey).setDisplaySize(width, height);
+        illustration.add(image);
+    }
+
+    private addArtworkLabel(
+        illustration: Phaser.GameObjects.Container,
+        label: string,
+        x: number,
+        y: number,
+        color: number
+    ) {
+        illustration.add(this.add.text(x, y, label, {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10px",
+            fontStyle: "bold",
+            color: `#${color.toString(16).padStart(6, "0")}`
+        }).setOrigin(0.5));
+    }
+
+    private addChoiceBadge(
+        illustration: Phaser.GameObjects.Container,
+        label: string,
+        x: number,
+        y: number,
+        color: number
+    ) {
+        const badge = this.add.graphics();
+        badge.fillStyle(0x091d3e, 0.98);
+        badge.fillRoundedRect(x - 76, y - 22, 152, 44, 8);
+        badge.lineStyle(1.5, color, 0.95);
+        badge.strokeRoundedRect(x - 76, y - 22, 152, 44, 8);
+        illustration.add(badge);
+        this.addArtworkLabel(illustration, label, x, y, color);
     }
 
     private showFinalLesson() {
@@ -538,17 +709,17 @@ export default class SolIntroductionScene extends Phaser.Scene {
             this.scale.off("resize", this.resizeHandler, this);
             this.resizeHandler = undefined;
         }
-        if (this.video) {
-            this.video.pause();
-            this.video.removeEventListener("loadeddata", this.handleVideoLoaded);
-            this.video.removeEventListener("canplay", this.handleVideoCanPlay);
-            this.video.removeEventListener("ended", this.handleVideoEnded);
-            this.video.removeEventListener("error", this.handleVideoError);
-            this.video.removeAttribute("src");
-            this.video.load();
-            this.video = undefined;
-        }
-        this.videoDom?.destroy();
-        this.videoDom = undefined;
+        const video = this.video;
+        if (!video) return;
+        video.pause();
+        video.removeEventListener("loadedmetadata", this.handleVideoMetadata);
+        video.removeEventListener("loadeddata", this.handleVideoLoaded);
+        video.removeEventListener("canplay", this.handleVideoCanPlay);
+        video.removeEventListener("ended", this.handleVideoEnded);
+        video.removeEventListener("error", this.handleVideoError);
+        video.removeAttribute("src");
+        video.load();
+        video.remove();
+        this.video = undefined;
     }
 }
