@@ -3,7 +3,11 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import nasaRoutes from "./routes/nasa.js";
+import { getCsaFoodProductionData } from "../services/csaFoodService.js";
 
+app.get("/api/csa/food-production", (_req, res) => {
+    res.json(getCsaFoodProductionData());
+});
 dotenv.config();
 
 const app = express();

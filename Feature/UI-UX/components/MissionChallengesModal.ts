@@ -25,15 +25,16 @@ export interface SolChallengeDetail {
     secondaryActionText?: string;
 }
 
-/** Shared modal frame size (the frame is drawn in init(); Sol 3 & Sol 4 lay themselves out inside it). */
+/** Shared modal frame size (the frame is drawn in init(); Sol 1–4 lay themselves out inside it). */
 const MODAL_W = 1160;
 const MODAL_H = 640;
 /** Tabs occupy frameY+70 .. frameY+110, so custom Sol briefing areas start below them. */
-const SOL4_AREA_TOP = 120;
-const SOL4_AREA_BOTTOM_MARGIN = 16;
-const SOL4_AREA_SIDE_MARGIN = 16;
+const SOL_AREA_TOP = 120;
+const SOL_AREA_BOTTOM_MARGIN = 16;
+const SOL_AREA_SIDE_MARGIN = 16;
 
 type PreviewCmdId = "FORWARD" | "LEFT" | "RIGHT" | "STOP" | "CAPTURE" | "SAMPLE";
+type StagePillIcon = "oxygen" | "water" | "food" | "pipe" | "blower" | "solar" | "dustdevil";
 
 export class MissionChallengesModal {
     private scene: Phaser.Scene;
@@ -43,7 +44,7 @@ export class MissionChallengesModal {
     private currentSolTab: number = 1;
     private activeSolData: Record<number, { currentVal: number; completed: boolean }> = {
         1: { currentVal: 0, completed: false },    // 0% water flow
-        2: { currentVal: 0, completed: false },    // 0% perchlorate in cabin
+        2: { currentVal: 0, completed: false },    // 0 / 4 solar panels cleaned
         3: { currentVal: 0, completed: false },    // 0 / 3 signal mission stages
         4: { currentVal: 1, completed: false },    // ISRU systems active
         5: { currentVal: 2, completed: false },    // 2 commands queued
@@ -52,6 +53,10 @@ export class MissionChallengesModal {
     private contentContainer!: Phaser.GameObjects.Container;
     private tabButtons: Phaser.GameObjects.Container[] = [];
     private fullscreenText?: Phaser.GameObjects.Text;
+
+    // Sol 1 & Sol 2 briefing tweens
+    private sol1Tweens: Phaser.Tweens.Tween[] = [];
+    private sol2Tweens: Phaser.Tweens.Tween[] = [];
 
     // Sol 3 interactive preview state
     private sol3PreviewQueue: PreviewCmdId[] = ["FORWARD", "FORWARD", "RIGHT", "CAPTURE", "SAMPLE"];
@@ -422,12 +427,24 @@ export class MissionChallengesModal {
      * Renders the full detailed view for the active Sol
      */
     private renderSolChallenge(sol: number) {
+        this.clearSol1Tweens();
+        this.clearSol2Tweens();
         this.clearSol3Tweens();
         this.clearSol4Tweens();
         this.sol4WeatherTitle = undefined;
         this.sol4WeatherDetail = undefined;
         this.contentContainer.removeAll(true);
 
+        if (sol === 1) {
+            this.renderSol1Briefing();
+            this.animateContentIn();
+            return;
+        }
+        if (sol === 2) {
+            this.renderSol2Briefing();
+            this.animateContentIn();
+            return;
+        }
         if (sol === 3) {
             this.renderSol3Briefing();
             this.animateContentIn();
@@ -473,8 +490,6 @@ export class MissionChallengesModal {
             wordWrap: { width: colW - 40 }
         });
         this.contentContainer.add(titleText);
-
-       
 
         // Hazard Banner
         const hazardBg = this.scene.add.graphics();
@@ -720,13 +735,572 @@ export class MissionChallengesModal {
     }
 
     // =====================================================================
+    // SHARED ILLUSTRATED STAGE BRIEFING SHELL (SOL 1, SOL 2, SOL 4)
+    // =====================================================================
+
+    private buildThreeStageBriefingBase(opts: {
+        solNumber: number;
+        titleText: string;
+        subtitleText: string;
+        deployText: string;
+        attributionText: string;
+        tweensList: Phaser.Tweens.Tween[];
+    }): {
+        root: Phaser.GameObjects.Container;
+        W: number;
+        H: number;
+        cx: number;
+        colX: number[];
+        stageBottom: number;
+        pillY: number;
+    } {
+        const { width, height } = this.scene.scale;
+        const frameX = (width - MODAL_W) / 2;
+        const frameY = (height - MODAL_H) / 2;
+
+        const areaX = frameX + SOL_AREA_SIDE_MARGIN;
+        const areaY = frameY + SOL_AREA_TOP;
+        const W = MODAL_W - SOL_AREA_SIDE_MARGIN * 2;           // 1128
+        const H = MODAL_H - SOL_AREA_TOP - SOL_AREA_BOTTOM_MARGIN; // 504
+        const cx = W / 2;
+
+        const root = this.scene.add.container(areaX, areaY);
+        this.contentContainer.add(root);
+
+        // ---------- Background: space, stars, NASA terrain ----------
+        const sky = this.scene.add.graphics();
+        sky.fillStyle(0x07152e, 1);
+        sky.fillRoundedRect(0, 0, W, H, { tl: 10, tr: 10, bl: 14, br: 14 });
+        sky.fillStyle(0x0d2147, 0.8);
+        sky.fillRect(0, 0, W, 90);
+        root.add(sky);
+
+        const stars = this.scene.add.graphics();
+        stars.fillStyle(0xc8edff, 0.75);
+        for (let i = 0; i < 55; i += 1) {
+            const sx = 10 + ((i * 197) % (W - 20));
+            const sy = 8 + ((i * 83) % 190);
+            stars.fillCircle(sx, sy, i % 5 === 0 ? 1.8 : 1);
+        }
+        root.add(stars);
+
+        const terrainTop = 150;
+        const terrainH = H - terrainTop;
+        const terrain = this.addCoverImage(root, "mars_terrain", 0, terrainTop, W, terrainH);
+        if (terrain) {
+            terrain.setTint(0xe29a78);
+            terrain.setAlpha(0.95);
+        } else {
+            const ground = this.scene.add.graphics();
+            ground.fillStyle(0x9e4a38, 1);
+            ground.fillRect(0, terrainTop, W, terrainH);
+            ground.fillStyle(0xc85a3c, 1);
+            ground.fillTriangle(cx - 220, H, cx, terrainTop + 40, cx + 220, H);
+            root.add(ground);
+        }
+        this.addFade(root, 0, terrainTop, W, 70, 0x07152e, 1, 0);
+        this.addFade(root, 0, H - 110, W, 110, 0x1a0a14, 0, 0.7);
+
+        // Cyan inner border framing the briefing stage
+        const border = this.scene.add.graphics();
+        border.lineStyle(2, 0x00e5ff, 0.85);
+        border.strokeRoundedRect(1, 1, W - 2, H - 2, { tl: 10, tr: 10, bl: 14, br: 14 });
+        root.add(border);
+
+        // Mars planet (top-left)
+        const planet = this.scene.add.graphics();
+        planet.fillStyle(0xd96848, 1);
+        planet.fillCircle(92, 66, 34);
+        planet.fillStyle(0xa9443e, 0.55);
+        planet.fillCircle(80, 56, 7);
+        planet.fillCircle(104, 78, 9);
+        planet.fillCircle(98, 52, 4);
+        planet.lineStyle(2, 0xff9a5c, 0.8);
+        planet.strokeCircle(92, 66, 34);
+        root.add(planet);
+
+        // ---------- Header: SOL badge, title, subtitle ----------
+        const badge = this.scene.add.graphics();
+        badge.fillStyle(UITheme.colors.solarGold, 1);
+        badge.fillRoundedRect(cx - 56, 6, 112, 32, 16);
+        badge.lineStyle(2, UITheme.colors.marsAmber, 1);
+        badge.strokeRoundedRect(cx - 56, 6, 112, 32, 16);
+        root.add(badge);
+        const badgeText = this.scene.add.text(cx, 22, `SOL ${opts.solNumber}`, {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "20px",
+            fontStyle: "bold",
+            color: "#0E1A32"
+        }).setOrigin(0.5);
+        root.add(badgeText);
+
+        const title = this.scene.add.text(cx, 82, opts.titleText, {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "34px",
+            fontStyle: "bold",
+            color: "#fff8df",
+            stroke: "#ff7347",
+            strokeThickness: 4,
+            letterSpacing: 1
+        }).setOrigin(0.5);
+        const maxTitleW = 760;
+        if (title.width > maxTitleW) title.setScale(maxTitleW / title.width);
+        root.add(title);
+
+        const subtitle = this.scene.add.text(cx, 120, opts.subtitleText, {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "16px",
+            color: "#fff8df",
+            align: "center"
+        }).setOrigin(0.5);
+        if (subtitle.width > 680) subtitle.setScale(680 / subtitle.width);
+        root.add(subtitle);
+
+        // ---------- Characters (Commander Maya on left, Mars Rover on bottom-right) ----------
+        const astronaut = this.addFittedImage(root, "girl-astronaut", 118, 440, 200, 300);
+        const rover = this.addFittedImage(root, "rover", W - 108, 440, 160, 112);
+        [astronaut, rover].forEach((img, i) => {
+            if (!img) return;
+            const baseY = img.y;
+            opts.tweensList.push(this.scene.tweens.add({
+                targets: img,
+                y: baseY - 5,
+                duration: 1800 + i * 400,
+                yoyo: true,
+                repeat: -1,
+                ease: "Sine.easeInOut"
+            }));
+        });
+
+        // ---------- Three stage pedestals & yellow connecting arrows ----------
+        const stageBottom = 286;
+        const stageGap = 240;
+        const colX = [cx - stageGap, cx, cx + stageGap];
+
+        const pedestals = this.scene.add.graphics();
+        colX.forEach((x) => {
+            pedestals.fillStyle(0x6a2f26, 0.9);
+            pedestals.fillEllipse(x, stageBottom + 4, 196, 30);
+            pedestals.fillStyle(0xb5563a, 0.95);
+            pedestals.fillEllipse(x, stageBottom, 190, 24);
+        });
+        root.add(pedestals);
+
+        const arrows = this.scene.add.graphics();
+        arrows.lineStyle(7, 0xffc928, 1);
+        [cx - stageGap / 2, cx + stageGap / 2].forEach((ax) => {
+            const ay = 214;
+            arrows.beginPath();
+            arrows.moveTo(ax - 8, ay - 18);
+            arrows.lineTo(ax + 8, ay);
+            arrows.lineTo(ax - 8, ay + 18);
+            arrows.strokePath();
+        });
+        root.add(arrows);
+
+        // ---------- Bottom action row ----------
+        const backButton = ButtonFactory.createButton({
+            scene: this.scene,
+            x: 14 + 110,
+            y: H - 32,
+            text: "← BACK TO MARS BASE",
+            width: 220,
+            height: 40,
+            primaryColor: UITheme.colors.cardBg,
+            secondaryColor: UITheme.colors.primaryCyan,
+            textColor: "#ffffff",
+            fontSize: "13px",
+            onClick: () => {
+                SoundFX.playClick();
+                this.close();
+            }
+        });
+        root.add(backButton);
+
+        const deployButton = ButtonFactory.createButton({
+            scene: this.scene,
+            x: cx,
+            y: H - 62,
+            text: opts.deployText,
+            width: 540,
+            height: 58,
+            primaryColor: UITheme.colors.marsAmber,
+            secondaryColor: UITheme.colors.solarGold,
+            textColor: "#fff6dc",
+            fontSize: "17px",
+            onClick: () => this.launchSolScene(opts.solNumber)
+        });
+        root.add(deployButton);
+
+        const attribution = this.scene.add.text(W - 14, H - 8, opts.attributionText, {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "12px",
+            color: "#9ff0ff",
+            stroke: "#1a0a14",
+            strokeThickness: 3
+        }).setOrigin(1, 1);
+        root.add(attribution);
+
+        return { root, W, H, cx, colX, stageBottom, pillY: 314 };
+    }
+
+    private renderStagePillsAndCaptions(
+        root: Phaser.GameObjects.Container,
+        colX: number[],
+        pillY: number,
+        stages: Array<{ label: string; caption: string; icon: StagePillIcon }>
+    ) {
+        stages.forEach((stage, i) => {
+            const x = colX[i];
+            const pill = this.scene.add.graphics();
+            pill.fillStyle(0x062346, 0.97);
+            pill.fillRoundedRect(x - 108, pillY - 19, 216, 38, 19);
+            pill.lineStyle(2.5, 0x00dfff, 1);
+            pill.strokeRoundedRect(x - 108, pillY - 19, 216, 38, 19);
+            this.drawStageIcon(pill, stage.icon, x - 78, pillY);
+            root.add(pill);
+
+            const label = this.scene.add.text(x + 14, pillY, stage.label, {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "15px",
+                fontStyle: "bold",
+                color: "#ffffff"
+            }).setOrigin(0.5);
+            if (label.width > 144) label.setScale(144 / label.width);
+
+            const caption = this.scene.add.text(x, pillY + 30, stage.caption, {
+                fontFamily: UITheme.fonts.body,
+                fontSize: "15px",
+                color: "#fff8df",
+                align: "center",
+                lineSpacing: 2,
+                stroke: "#1a0a14",
+                strokeThickness: 3,
+                wordWrap: { width: 206 }
+            }).setOrigin(0.5, 0);
+            root.add([label, caption]);
+        });
+    }
+
+    // =====================================================================
+    // SOL 1 BRIEFING: SPACE-TOMATO GREENHOUSE
+    // =====================================================================
+
+    private clearSol1Tweens() {
+        this.sol1Tweens.forEach((t) => t.remove());
+        this.sol1Tweens = [];
+    }
+
+    private renderSol1Briefing() {
+        const { root, colX, stageBottom, pillY } = this.buildThreeStageBriefingBase({
+            solNumber: 1,
+            titleText: "SPACE-TOMATO GREENHOUSE",
+            subtitleText: "Connect the pipes, water the plants, and grow space-tomatoes!",
+            deployText: "🚀 DEPLOY TO SOL 1 MARTIAN SURFACE →",
+            attributionText: "NASA Mars Trek terrain • Veggie & Tomatosphere Space Garden",
+            tweensList: this.sol1Tweens
+        });
+
+        // Step 1: Ice extraction station + water droplet tank
+        this.drawIceAndTank(root, colX[0], stageBottom - 6);
+
+        // Step 2: Disconnected water pipes illustration
+        this.drawDisconnectedPipes(root, colX[1], stageBottom - 6);
+
+        // Step 3: Transparent greenhouse dome containing tomato plants
+        this.drawTomatoGreenhouseDome(root, colX[2], stageBottom - 6);
+
+        this.renderStagePillsAndCaptions(root, colX, pillY, [
+            { label: "MELT ICE", caption: "Melt Martian ice\nfor water", icon: "water" },
+            { label: "CONNECT PIPES", caption: "Connect disconnected\npipes", icon: "pipe" },
+            { label: "GROW TOMATOES", caption: "Water the plants to\nsprout tomatoes", icon: "food" }
+        ]);
+    }
+
+    private drawDisconnectedPipes(parent: Phaser.GameObjects.Container, x: number, bottom: number) {
+        const g = this.scene.add.graphics();
+
+        // Left pipe assembly (connected to water inlet)
+        g.fillStyle(0x4a6b88, 1);
+        g.fillRoundedRect(x - 74, bottom - 58, 42, 18, 4);
+        g.fillStyle(0x6d96b8, 1);
+        g.fillRoundedRect(x - 36, bottom - 62, 10, 26, 3);
+        g.lineStyle(2, 0xbfe8ff, 0.9);
+        g.strokeRoundedRect(x - 74, bottom - 58, 42, 18, 4);
+        g.strokeRoundedRect(x - 36, bottom - 62, 10, 26, 3);
+        // Blue water flow stripe inside left pipe
+        g.fillStyle(0x38d6ff, 1);
+        g.fillRect(x - 70, bottom - 52, 32, 6);
+
+        // Center disconnected elbow segment (tilted / unaligned)
+        g.fillStyle(0xd97724, 1);
+        g.fillRoundedRect(x - 16, bottom - 86, 32, 18, 5);
+        g.fillRoundedRect(x - 9, bottom - 86, 18, 34, 5);
+        g.lineStyle(2, 0xffd25a, 1);
+        g.strokeRoundedRect(x - 16, bottom - 86, 32, 18, 5);
+        g.strokeRoundedRect(x - 9, bottom - 86, 18, 34, 5);
+
+        // Right pipe assembly (leading to greenhouse)
+        g.fillStyle(0x4a6b88, 1);
+        g.fillRoundedRect(x + 32, bottom - 58, 42, 18, 4);
+        g.fillStyle(0x6d96b8, 1);
+        g.fillRoundedRect(x + 26, bottom - 62, 10, 26, 3);
+        g.lineStyle(2, 0xbfe8ff, 0.9);
+        g.strokeRoundedRect(x + 32, bottom - 58, 42, 18, 4);
+        g.strokeRoundedRect(x + 26, bottom - 62, 10, 26, 3);
+
+        // Water drip & rotation indicator arcs showing disconnected gap
+        g.fillStyle(0x62dfff, 1);
+        g.fillCircle(x - 24, bottom - 28, 5);
+        g.fillTriangle(x - 24, bottom - 39, x - 29, bottom - 30, x - 19, bottom - 30);
+
+        g.lineStyle(2.5, 0xffc928, 0.95);
+        g.beginPath();
+        g.arc(x, bottom - 70, 24, Math.PI * 1.15, Math.PI * 1.85, false);
+        g.strokePath();
+
+        parent.add(g);
+    }
+
+    private drawTomatoGreenhouseDome(parent: Phaser.GameObjects.Container, x: number, bottom: number) {
+        const g = this.scene.add.graphics();
+
+        // Dome base tray
+        g.fillStyle(0x3a526b, 1);
+        g.fillRoundedRect(x - 76, bottom - 16, 152, 14, 5);
+        g.fillStyle(0x6b3b24, 1);
+        g.fillRect(x - 68, bottom - 20, 136, 8);
+
+        // Transparent glass dome
+        g.fillStyle(0x9fd8ff, 0.28);
+        g.beginPath();
+        g.arc(x, bottom - 16, 72, Math.PI, 0, false);
+        g.closePath();
+        g.fillPath();
+
+        // Outer dome arch
+        g.lineStyle(2.5, 0xcfeeff, 0.95);
+        g.beginPath();
+        g.arc(x, bottom - 16, 72, Math.PI, 0, false);
+        g.strokePath();
+
+        // Inner geodesic semi-ellipse rib (drawn via points because Phaser Graphics lacks g.ellipse)
+        g.lineStyle(1.5, 0x8be2ff, 0.65);
+        g.beginPath();
+        const ribRx = 36;
+        const ribRy = 72;
+        const steps = 24;
+        for (let s = 0; s <= steps; s += 1) {
+            const theta = Math.PI + (Math.PI * s) / steps;
+            const px = x + Math.cos(theta) * ribRx;
+            const py = (bottom - 16) + Math.sin(theta) * ribRy;
+            if (s === 0) {
+                g.moveTo(px, py);
+            } else {
+                g.lineTo(px, py);
+            }
+        }
+        g.strokePath();
+
+        // Leafy tomato vines inside dome
+        [-34, 0, 34].forEach((dx, idx) => {
+            const stemH = idx === 1 ? 46 : 36;
+            g.lineStyle(3.5, 0x3da94b, 1);
+            g.lineBetween(x + dx, bottom - 20, x + dx, bottom - 20 - stemH);
+            g.fillStyle(0x52e26a, 1);
+            g.fillEllipse(x + dx - 10, bottom - 20 - stemH * 0.55, 16, 9);
+            g.fillEllipse(x + dx + 10, bottom - 20 - stemH * 0.72, 16, 9);
+
+            // Ripe red cherry tomatoes
+            g.fillStyle(0xff4238, 1);
+            g.fillCircle(x + dx - 7, bottom - 20 - stemH * 0.42, 6);
+            g.fillCircle(x + dx + 8, bottom - 20 - stemH * 0.6, 6);
+            g.fillStyle(0xff9e99, 0.85);
+            g.fillCircle(x + dx - 9, bottom - 22 - stemH * 0.42, 2);
+            g.fillCircle(x + dx + 6, bottom - 22 - stemH * 0.6, 2);
+        });
+
+        parent.add(g);
+    }
+
+    // =====================================================================
+    // SOL 2 BRIEFING: DUST DEVIL CLEANUP
+    // =====================================================================
+
+    private clearSol2Tweens() {
+        this.sol2Tweens.forEach((t) => t.remove());
+        this.sol2Tweens = [];
+    }
+
+    private renderSol2Briefing() {
+        const { root, colX, stageBottom, pillY } = this.buildThreeStageBriefingBase({
+            solNumber: 2,
+            titleText: "DUST DEVIL CLEANUP",
+            subtitleText: "Dodging dust devils to clean the solar panels before sunset!",
+            deployText: "🚀 DEPLOY TO SOL 2 MARTIAN SURFACE →",
+            attributionText: "NASA Mars Solar Array & Dust Devil Atmospheric Dynamics",
+            tweensList: this.sol2Tweens
+        });
+
+        // Step 1: Industrial wind-blower illustration
+        this.drawWindBlower(root, colX[0], stageBottom - 6);
+
+        // Step 2: Mars solar panel partly dusty & partly clean
+        this.drawSolarPanelCleanup(root, colX[1], stageBottom - 6);
+
+        // Step 3: Martian dust devil / tornado
+        this.drawDustDevilVortex(root, colX[2], stageBottom - 6);
+
+        this.renderStagePillsAndCaptions(root, colX, pillY, [
+            { label: "USE BLOWER", caption: "Blast the red dust\nwith air", icon: "blower" },
+            { label: "CLEAN PANELS", caption: "Restore power to\nthe base", icon: "solar" },
+            { label: "DODGE DEVILS", caption: "Avoid bouncy\ndust devils", icon: "dustdevil" }
+        ]);
+    }
+
+    private drawWindBlower(parent: Phaser.GameObjects.Container, x: number, bottom: number) {
+        const g = this.scene.add.graphics();
+
+        // Support stand
+        g.fillStyle(0x3a4a5e, 1);
+        g.fillRoundedRect(x - 54, bottom - 16, 68, 12, 4);
+        g.fillRect(x - 32, bottom - 34, 14, 20);
+
+        // Turbine motor housing (yellow/orange industrial casing)
+        g.fillStyle(0xf59e0b, 1);
+        g.fillCircle(x - 28, bottom - 56, 26);
+        g.lineStyle(3, 0xfff3b0, 0.95);
+        g.strokeCircle(x - 28, bottom - 56, 26);
+
+        // Fan intake grille
+        g.fillStyle(0x162840, 1);
+        g.fillCircle(x - 28, bottom - 56, 15);
+        g.lineStyle(2, 0x7be8ff, 0.9);
+        g.strokeCircle(x - 28, bottom - 56, 15);
+        g.lineBetween(x - 40, bottom - 56, x - 16, bottom - 56);
+        g.lineBetween(x - 28, bottom - 68, x - 28, bottom - 44);
+
+        // Tapered air nozzle pointing right
+        g.fillStyle(0xe2e8f0, 1);
+        g.beginPath();
+        g.moveTo(x - 10, bottom - 72);
+        g.lineTo(x + 36, bottom - 64);
+        g.lineTo(x + 36, bottom - 48);
+        g.lineTo(x - 10, bottom - 40);
+        g.closePath();
+        g.fillPath();
+        g.lineStyle(2, 0x64748b, 1);
+        g.strokePath();
+
+        // Cyan wind gust streams blasting from nozzle
+        g.lineStyle(3, 0x67e8f9, 0.95);
+        g.beginPath();
+        g.moveTo(x + 42, bottom - 62);
+        g.lineTo(x + 76, bottom - 68);
+        g.moveTo(x + 44, bottom - 56);
+        g.lineTo(x + 84, bottom - 56);
+        g.moveTo(x + 42, bottom - 50);
+        g.lineTo(x + 76, bottom - 44);
+        g.strokePath();
+
+        parent.add(g);
+    }
+
+    private drawSolarPanelCleanup(parent: Phaser.GameObjects.Container, x: number, bottom: number) {
+        const g = this.scene.add.graphics();
+
+        // Mounting pedestal
+        g.fillStyle(0x475569, 1);
+        g.fillRect(x - 8, bottom - 34, 16, 30);
+        g.fillRoundedRect(x - 28, bottom - 10, 56, 8, 3);
+
+        // Angled solar array frame
+        const px = x - 66;
+        const py = bottom - 92;
+        const pw = 132;
+        const ph = 64;
+
+        g.fillStyle(0x1e3a8a, 1);
+        g.fillRoundedRect(px, py, pw, ph, 6);
+
+        // Photovoltaic grid lines
+        g.lineStyle(1.5, 0x60a5fa, 0.9);
+        for (let c = 1; c < 4; c += 1) {
+            g.lineBetween(px + (pw / 4) * c, py + 2, px + (pw / 4) * c, py + ph - 2);
+        }
+        g.lineBetween(px + 2, py + ph / 2, px + pw - 2, py + ph / 2);
+
+        // Left half clean gleam
+        g.fillStyle(0x38bdf8, 0.35);
+        g.fillRect(px + 4, py + 4, pw / 2 - 6, ph - 8);
+
+        // Right half coated in Martian red dust
+        g.fillStyle(0xc85a32, 0.88);
+        g.fillRoundedRect(px + pw / 2, py + 2, pw / 2 - 2, ph - 4, { tl: 0, tr: 5, bl: 0, br: 5 });
+        g.fillStyle(0x9a3412, 0.75);
+        g.fillCircle(px + pw * 0.72, py + 22, 10);
+        g.fillCircle(px + pw * 0.84, py + 44, 12);
+        g.fillCircle(px + pw * 0.62, py + 46, 8);
+
+        // Outer metallic bezel
+        g.lineStyle(3, 0xe2e8f0, 1);
+        g.strokeRoundedRect(px, py, pw, ph, 6);
+
+        // Sparkle star on cleaned left side
+        g.fillStyle(0xfffbeb, 1);
+        g.fillCircle(px + 24, py + 18, 4);
+        g.lineStyle(2, 0x7dd3fc, 1);
+        g.lineBetween(px + 16, py + 18, px + 32, py + 18);
+        g.lineBetween(px + 24, py + 10, px + 24, py + 26);
+
+        parent.add(g);
+    }
+
+    private drawDustDevilVortex(parent: Phaser.GameObjects.Container, x: number, bottom: number) {
+        const vortex = this.scene.add.container(x, 0);
+        const g = this.scene.add.graphics();
+
+        // Swirling conical Martian dust funnel (wide top -> narrow base)
+        const tiers = [
+            { y: bottom - 92, w: 92, h: 16, color: 0xe07a4f },
+            { y: bottom - 76, w: 74, h: 15, color: 0xc85a32 },
+            { y: bottom - 61, w: 58, h: 14, color: 0xde7245 },
+            { y: bottom - 47, w: 44, h: 13, color: 0xb84a27 },
+            { y: bottom - 34, w: 32, h: 12, color: 0xd96b3e },
+            { y: bottom - 22, w: 22, h: 11, color: 0xa63e20 },
+            { y: bottom - 11, w: 14, h: 9, color: 0xc85a32 }
+        ];
+
+        tiers.forEach((t, idx) => {
+            const offset = idx % 2 === 0 ? -3 : 3;
+            g.fillStyle(t.color, 0.94);
+            g.fillEllipse(offset, t.y, t.w, t.h);
+            g.lineStyle(1.5, 0xffb088, 0.65);
+            g.strokeEllipse(offset, t.y, t.w, t.h);
+        });
+
+        // Kicked-up dust pebbles swirling around funnel
+        g.fillStyle(0xffb088, 0.9);
+        g.fillCircle(-48, bottom - 74, 3.5);
+        g.fillCircle(46, bottom - 64, 3);
+        g.fillCircle(-34, bottom - 40, 3);
+        g.fillCircle(30, bottom - 28, 3.5);
+
+        vortex.add(g);
+        parent.add(vortex);
+
+        this.sol2Tweens.push(this.scene.tweens.add({
+            targets: vortex,
+            x: x + 6,
+            duration: 900,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut"
+        }));
+    }
+
+    // =====================================================================
     // SOL 3 BRIEFING: ECHOES FROM MARS – THE SIGNAL MISSION
-    // Matches the visual reference layout with native Phaser GameObjects:
-    // - Left canyon scene: Mars planet, canyon cliffs, outpost, orbital relay
-    //   satellite, glowing radio signals, rover, Commander Maya & Bleep,
-    //   live ROVER TELEMETRY card, and prominent BEGIN MISSION → button.
-    // - Right panel: ESTABLISH THE SIGNAL (3 mission stages) + interactive
-    //   ROVER COMMANDS (6 controls) & COMMAND QUEUE (MAX 5).
     // =====================================================================
 
     private clearSol3Tweens() {
@@ -739,10 +1313,10 @@ export class MissionChallengesModal {
         const frameX = (width - MODAL_W) / 2;
         const frameY = (height - MODAL_H) / 2;
 
-        const areaX = frameX + SOL4_AREA_SIDE_MARGIN;
-        const areaY = frameY + SOL4_AREA_TOP;
-        const W = MODAL_W - SOL4_AREA_SIDE_MARGIN * 2;           // 1128
-        const H = MODAL_H - SOL4_AREA_TOP - SOL4_AREA_BOTTOM_MARGIN; // 504
+        const areaX = frameX + SOL_AREA_SIDE_MARGIN;
+        const areaY = frameY + SOL_AREA_TOP;
+        const W = MODAL_W - SOL_AREA_SIDE_MARGIN * 2;           // 1128
+        const H = MODAL_H - SOL_AREA_TOP - SOL_AREA_BOTTOM_MARGIN; // 504
 
         const root = this.scene.add.container(areaX, areaY);
         this.contentContainer.add(root);
@@ -781,7 +1355,6 @@ export class MissionChallengesModal {
 
         // Canyon cliffs & Martian floor
         const canyon = this.scene.add.graphics();
-        // Distant mesas
         canyon.fillStyle(0x6e2c26, 0.96);
         canyon.beginPath();
         canyon.moveTo(2, 310);
@@ -797,7 +1370,6 @@ export class MissionChallengesModal {
         canyon.closePath();
         canyon.fillPath();
 
-        // Midground canyon terrace
         canyon.fillStyle(0x9e422b, 0.98);
         canyon.beginPath();
         canyon.moveTo(2, 352);
@@ -810,7 +1382,6 @@ export class MissionChallengesModal {
         canyon.closePath();
         canyon.fillPath();
 
-        // Foreground rust-orange ground
         canyon.fillStyle(0xc65a34, 1);
         canyon.beginPath();
         canyon.moveTo(2, 412);
@@ -822,14 +1393,13 @@ export class MissionChallengesModal {
         canyon.closePath();
         canyon.fillPath();
 
-        // Scattered canyon boulders
         canyon.fillStyle(0x7c3021, 1);
         canyon.fillEllipse(248, 396, 36, 16);
         canyon.fillEllipse(466, 384, 52, 22);
         canyon.fillEllipse(654, 424, 44, 18);
         root.add(canyon);
 
-        // Mars Outpost Habitat Dome + Dish (mid-right background)
+        // Mars Outpost Habitat Dome + Dish
         const outpost = this.scene.add.graphics();
         outpost.fillStyle(0x52657d, 1);
         outpost.fillRoundedRect(546, 290, 114, 16, 6);
@@ -842,19 +1412,16 @@ export class MissionChallengesModal {
         outpost.beginPath();
         outpost.arc(602, 292, 44, Math.PI, 0, false);
         outpost.strokePath();
-        // Outpost comms dish
         outpost.lineStyle(3, 0xc9d9eb, 1);
         outpost.lineBetween(576, 252, 576, 232);
         outpost.strokeCircle(576, 226, 11);
-        // NASA blue badge on dome
         outpost.fillStyle(0x1653b8, 1);
         outpost.fillCircle(602, 272, 9);
         root.add(outpost);
 
-        // Orbital Relay Satellite (upper center-right)
+        // Orbital Relay Satellite
         const satGroup = this.scene.add.container(442, 118);
         const satGfx = this.scene.add.graphics();
-        // Solar wings
         satGfx.fillStyle(0x1f5ca8, 1);
         satGfx.fillRect(-74, -14, 52, 28);
         satGfx.fillRect(22, -14, 52, 28);
@@ -865,7 +1432,6 @@ export class MissionChallengesModal {
         satGfx.lineBetween(48, -14, 48, 14);
         satGfx.lineBetween(-74, 0, -22, 0);
         satGfx.lineBetween(22, 0, 74, 0);
-        // Satellite bus & dish
         satGfx.fillStyle(0xe6eef7, 1);
         satGfx.fillRoundedRect(-18, -18, 36, 36, 6);
         satGfx.lineStyle(2, 0x7c97b5, 1);
@@ -889,7 +1455,7 @@ export class MissionChallengesModal {
             ease: "Sine.easeInOut"
         }));
 
-        // Glowing Cyan Radio Signal Waves (Rover <-> Satellite <-> Outpost)
+        // Glowing Cyan Radio Signal Waves
         const signalWaves = this.scene.add.graphics();
         signalWaves.lineStyle(2.5, 0x00f0ff, 0.9);
         [0, 1, 2].forEach(idx => {
@@ -913,7 +1479,7 @@ export class MissionChallengesModal {
             ease: "Sine.easeInOut"
         }));
 
-        // Mars Rover illustration (or existing "rover" texture)
+        // Mars Rover illustration
         const roverContainer = this.scene.add.container(338, 355);
         if (this.scene.textures.exists("rover")) {
             const roverImg = this.scene.add.image(0, 0, "rover");
@@ -937,7 +1503,7 @@ export class MissionChallengesModal {
         }
         root.add(roverContainer);
 
-        // Title Banner: ECHOES FROM MARS / ((( THE SIGNAL MISSION )))
+        // Title Banner
         const missionTitle = this.scene.add.text(218, 28, "ECHOES FROM MARS", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "30px",
@@ -965,7 +1531,6 @@ export class MissionChallengesModal {
         }).setOrigin(0.5);
         root.add(missionSub);
 
-        // Commander Maya & Bleep Character Cards + Dialogue Bubbles
         this.createCharacterBubble(root, {
             x: 16,
             y: 94,
@@ -1049,7 +1614,6 @@ export class MissionChallengesModal {
 
         root.add([row1, row2, statusBadge, row3, packetBadge]);
 
-        // Prominent Orange BEGIN MISSION -> Button at bottom-center of Canyon Panel
         const beginBtn = ButtonFactory.createButton({
             scene: this.scene,
             x: 486,
@@ -1068,7 +1632,6 @@ export class MissionChallengesModal {
         root.add(beginBtn);
 
         // ---------- RIGHT MISSION CONTROL PANEL ----------
-        // Top Card: ESTABLISH THE SIGNAL (3 Stages)
         const topCardH = 188;
         const topCard = this.scene.add.graphics();
         topCard.fillStyle(0x081d3d, 0.96);
@@ -1128,7 +1691,6 @@ export class MissionChallengesModal {
             }
         });
 
-        // Bottom Card: ROVER COMMANDS + COMMAND QUEUE (MAX 5)
         const botCardY = topCardH + 12;
         const botCardH = H - botCardY;
         const botCard = this.scene.add.graphics();
@@ -1209,7 +1771,6 @@ export class MissionChallengesModal {
                 }
             }
 
-            // Trash / Clear button
             const trashX = rightX + 18 + 5 * (slotSize + slotGap) + 4;
             const trashBg = this.scene.add.graphics();
             trashBg.fillStyle(0x9c2838, 0.95);
@@ -1277,7 +1838,6 @@ export class MissionChallengesModal {
             root.add(hit);
         });
 
-        // Subtle helper prompt inside queue box
         const queueHint = this.scene.add.text(rightX + 18, botCardY + 238, "Test queueing commands here, then press BEGIN MISSION → to drive!", {
             fontFamily: UITheme.fonts.body,
             fontSize: "11.5px",
@@ -1302,7 +1862,6 @@ export class MissionChallengesModal {
     ) {
         const { x, y, speaker, badgeColor, borderColor, message, portraitType } = cfg;
 
-        // Circular avatar portrait
         const avatarBg = this.scene.add.graphics();
         avatarBg.fillStyle(0x10284c, 1);
         avatarBg.fillCircle(x + 38, y + 48, 36);
@@ -1315,7 +1874,6 @@ export class MissionChallengesModal {
             img.setScale(Math.min(64 / img.width, 64 / img.height));
             parent.add(img);
         } else {
-            // Illustrated friendly Bleep / Maya icon fallback
             const face = this.scene.add.graphics();
             if (portraitType === "maya") {
                 face.fillStyle(0xffd2b3, 1);
@@ -1341,7 +1899,6 @@ export class MissionChallengesModal {
             parent.add(face);
         }
 
-        // Speaker name pill
         const pillX = x + 84;
         const pill = this.scene.add.graphics();
         pill.fillStyle(badgeColor, 0.98);
@@ -1358,7 +1915,6 @@ export class MissionChallengesModal {
         }).setOrigin(0, 0.5);
         parent.add(speakerTxt);
 
-        // Speech bubble card
         const bubbleW = 248;
         const bubbleH = 74;
         const bubble = this.scene.add.graphics();
@@ -1453,10 +2009,10 @@ export class MissionChallengesModal {
         const frameX = (width - MODAL_W) / 2;
         const frameY = (height - MODAL_H) / 2;
 
-        const areaX = frameX + SOL4_AREA_SIDE_MARGIN;
-        const areaY = frameY + SOL4_AREA_TOP;
-        const W = MODAL_W - SOL4_AREA_SIDE_MARGIN * 2;           // 1128
-        const H = MODAL_H - SOL4_AREA_TOP - SOL4_AREA_BOTTOM_MARGIN; // 504
+        const areaX = frameX + SOL_AREA_SIDE_MARGIN;
+        const areaY = frameY + SOL_AREA_TOP;
+        const W = MODAL_W - SOL_AREA_SIDE_MARGIN * 2;           // 1128
+        const H = MODAL_H - SOL_AREA_TOP - SOL_AREA_BOTTOM_MARGIN; // 504
         const cx = W / 2;
 
         const root = this.scene.add.container(areaX, areaY);
@@ -1705,7 +2261,7 @@ export class MissionChallengesModal {
         }
     }
 
-    private drawStageIcon(g: Phaser.GameObjects.Graphics, icon: "oxygen" | "water" | "food", x: number, y: number) {
+    private drawStageIcon(g: Phaser.GameObjects.Graphics, icon: StagePillIcon, x: number, y: number) {
         if (icon === "oxygen") {
             g.lineStyle(3, 0x75e8ff, 1);
             g.lineBetween(x - 12, y - 7, x + 10, y - 7);
@@ -1715,6 +2271,33 @@ export class MissionChallengesModal {
             g.fillStyle(0x62dfff, 1);
             g.fillCircle(x, y + 3, 8);
             g.fillTriangle(x, y - 13, x - 7, y, x + 7, y);
+        } else if (icon === "pipe") {
+            g.lineStyle(3.5, 0x75e8ff, 1);
+            g.beginPath();
+            g.moveTo(x - 12, y + 4);
+            g.lineTo(x - 2, y + 4);
+            g.lineTo(x - 2, y - 6);
+            g.lineTo(x + 12, y - 6);
+            g.strokePath();
+        } else if (icon === "blower") {
+            g.fillStyle(0xf59e0b, 1);
+            g.fillCircle(x - 6, y, 7);
+            g.lineStyle(2.5, 0x75e8ff, 1);
+            g.lineBetween(x + 3, y - 4, x + 14, y - 6);
+            g.lineBetween(x + 4, y, x + 16, y);
+            g.lineBetween(x + 3, y + 4, x + 14, y + 6);
+        } else if (icon === "solar") {
+            g.fillStyle(0x38bdf8, 1);
+            g.fillRoundedRect(x - 12, y - 8, 24, 16, 3);
+            g.lineStyle(1.5, 0xffffff, 0.9);
+            g.strokeRoundedRect(x - 12, y - 8, 24, 16, 3);
+            g.lineBetween(x, y - 8, x, y + 8);
+            g.lineBetween(x - 12, y, x + 12, y);
+        } else if (icon === "dustdevil") {
+            g.lineStyle(2.5, 0xff9a62, 1);
+            g.strokeEllipse(x, y - 6, 20, 6);
+            g.strokeEllipse(x, y, 14, 5);
+            g.strokeEllipse(x, y + 6, 8, 4);
         } else {
             g.fillStyle(0x52e26a, 1);
             g.fillEllipse(x - 5, y - 3, 14, 9);
@@ -1870,8 +2453,8 @@ export class MissionChallengesModal {
                 stateRecord.currentVal = Math.min(100, stateRecord.currentVal + 25);
                 break;
             case 2:
-                stateRecord.currentVal = Math.min(3, stateRecord.currentVal + 1);
-                stateRecord.completed = stateRecord.currentVal >= 3;
+                stateRecord.currentVal = Math.min(4, stateRecord.currentVal + 1);
+                stateRecord.completed = stateRecord.currentVal >= 4;
                 break;
             case 3:
                 this.launchSolScene(3);
@@ -1900,8 +2483,8 @@ export class MissionChallengesModal {
                 break;
             case 2:
                 SoundFX.playClick();
-                stateRecord.currentVal = Math.min(3, stateRecord.currentVal + 1);
-                stateRecord.completed = stateRecord.currentVal >= 3;
+                stateRecord.currentVal = Math.min(4, stateRecord.currentVal + 1);
+                stateRecord.completed = stateRecord.currentVal >= 4;
                 this.renderSolChallenge(sol);
                 break;
             case 3:
@@ -1957,6 +2540,8 @@ export class MissionChallengesModal {
     public close() {
         if (this.isClosed) return;
         this.isClosed = true;
+        this.clearSol1Tweens();
+        this.clearSol2Tweens();
         this.clearSol3Tweens();
         this.clearSol4Tweens();
         this.sol4WeatherAbort?.abort();
