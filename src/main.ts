@@ -14,6 +14,7 @@ import {
     Sol5LastSafeHabitatScene
 } from "../Feature/UI-UX/index.ts";
 import StartScene from "./scenes/StartScene";
+import SolIntroductionScene from "../Feature/UI-UX/scenes/SolIntroductionScene.ts";
 import StoryScene from "./scenes/StoryScene";
 import CustomizationScene from "./scenes/CustomizationScene";
 import LunarWorldScene from "./scenes/LunarWorldScene";
@@ -175,6 +176,7 @@ const config: Phaser.Types.Core.GameConfig = {
         Sol5SilenceCommsLagScene,
         Sol5LastSafeHabitatScene,
         StartScene,
+        SolIntroductionScene,
         StoryScene,
         CustomizationScene,
         LunarWorldScene

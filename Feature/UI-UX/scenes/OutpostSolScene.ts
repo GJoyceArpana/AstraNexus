@@ -9,8 +9,13 @@ import ButtonFactory from "../components/ButtonFactory.ts";
 
 export type OutpostFlowState = "TITLE" | "SITE" | "CUSTOMIZE" | "BASE_MATERIAL" | "BRIEFING" | "HOW_TO_PLAY" | "TELEMETRY_ARCHIVE";
 
+interface OutpostSceneData {
+    openCustomizer?: boolean;
+}
+
 export class OutpostSolScene extends Phaser.Scene {
     private currentState: OutpostFlowState = "TITLE";
+    private openCustomizerOnCreate = false;
 
     public getCurrentFlowState(): OutpostFlowState {
         return this.currentState;
@@ -24,6 +29,10 @@ export class OutpostSolScene extends Phaser.Scene {
 
     constructor() {
         super("OutpostSolScene");
+    }
+
+    init(data: OutpostSceneData = {}) {
+        this.openCustomizerOnCreate = data.openCustomizer === true;
     }
 
     preload() {
@@ -108,7 +117,11 @@ export class OutpostSolScene extends Phaser.Scene {
             }
         }
 
-        this.showTitleScreen();
+        if (this.openCustomizerOnCreate) {
+            this.showCustomizer();
+        } else {
+            this.showTitleScreen();
+        }
     }
 
     /**
@@ -119,13 +132,21 @@ export class OutpostSolScene extends Phaser.Scene {
         this.currentState = "TITLE";
 
         this.titleComponent = new OutpostSolTitle(this, {
-            onStartMission: () => this.showCustomizer(),
-            onSelectRole: () => this.showCustomizer(),
+            onStartMission: () => this.startIntroduction(),
+            onSelectRole: () => this.startIntroduction(),
             onSelectLandingSite: () => this.showLandingSiteSelector(),
-            onCustomization: () => this.showCustomizer(),
+            onCustomization: () => this.startIntroduction(),
             onOpenTelemetry: () => this.showTelemetryArchive(),
             onHowToPlay: () => this.showHowToPlay()
         });
+    }
+
+    private startIntroduction() {
+        if (this.registry.get("solIntroductionSeen") === true) {
+            this.showCustomizer();
+            return;
+        }
+        this.scene.start("SolIntroductionScene");
     }
 
     /**
