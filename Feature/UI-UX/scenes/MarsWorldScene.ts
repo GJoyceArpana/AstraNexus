@@ -103,6 +103,7 @@ export class MarsWorldScene extends Phaser.Scene {
         this.load.image("dish-antenna", "/assets/game/base/dish-antenna.png");
         this.load.image("rover", "/assets/game/base/rover.png");
         this.load.image("oxygen-cylinder", "/assets/game/base/oxygen-cylinder.png");
+        this.load.image("sol2_mission_briefing", "/assets/game/ui/sol2_mission_briefing.jpg");
 
         // Astronauts
         this.load.image("boy-astronaut", "/assets/game/characters/boy-astronaut.png");
