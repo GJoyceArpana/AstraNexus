@@ -34,29 +34,66 @@ export interface AstronautCustomizerCallbacks {
     onBack: () => void;
 }
 
+interface SuitCardEntry {
+    container: Phaser.GameObjects.Container;
+    bg: Phaser.GameObjects.Graphics;
+    thumb: Phaser.GameObjects.Image;
+    label: Phaser.GameObjects.Text;
+    width: number;
+    height: number;
+    thumbMaxW: number;
+    thumbMaxH: number;
+}
+
+// Unified 16:9 design coordinate space scaled proportionally to any viewport
+const DESIGN = {
+    WIDTH: 1920,
+    HEIGHT: 1080,
+    MARGIN_X: 56,
+    HEADER_Y: 36,
+    SUBTITLE_Y: 78,
+    CONTENT_TOP: 120,
+    NAV_HEIGHT: 84,
+    NAV_BOTTOM_MARGIN: 24,
+    COLUMN_GAP: 40,
+    LEFT_COL_RATIO: 0.40
+} as const;
+
 export class AstronautCustomizer {
     private scene: Phaser.Scene;
-    private container: Phaser.GameObjects.Container;
+    private rootContainer: Phaser.GameObjects.Container;
+    private layoutContainer: Phaser.GameObjects.Container;
     private callbacks: AstronautCustomizerCallbacks;
 
     private gender: GenderType = "boy";
     private avatarFrame = 1;
-    private selectedColorIndex = 0;
-    private selectedToolId = "drill";
     private callsign = "Cadet Orion";
 
     private avatarImage?: Phaser.GameObjects.Image;
-    private avatarContainer!: Phaser.GameObjects.Container;
-    private platformBeam!: Phaser.GameObjects.Graphics;
-    private platformRing!: Phaser.GameObjects.Ellipse;
-    private colorButtons: Phaser.GameObjects.Container[] = [];
-    private suitCards: Phaser.GameObjects.Container[] = [];
-    private toolCards: Map<string, Phaser.GameObjects.Container> = new Map();
+    private avatarFloatContainer!: Phaser.GameObjects.Container;
+    private previewBounds = { width: 340, height: 360 };
+
+    private suitCards: SuitCardEntry[] = [];
     private callsignText!: Phaser.GameObjects.Text;
     private suitModelTitleText!: Phaser.GameObjects.Text;
     private suitRoleTagText!: Phaser.GameObjects.Text;
+
     private boyBtn!: Phaser.GameObjects.Container;
     private girlBtn!: Phaser.GameObjects.Container;
+    private genderBtnSize = { width: 460, height: 68 };
+
+    private activeTweens: Phaser.Tweens.Tween[] = [];
+
+    // Preserved defaults for backward compatibility
+    private readonly defaultColor = { name: "ARES CYAN", hex: 0x00E5FF };
+    private readonly defaultToolId = "drill";
+    private readonly callsignPresets = [
+        "Cadet Orion",
+        "Commander Nova",
+        "Ares One",
+        "Sol Walker",
+        "Astra Scout"
+    ];
 
     public static readonly boySuitModels: SuitModel[] = [
         { frame: 1, name: "ALPHA RECON EVA", roleTag: "STANDARD RECON", perk: "Balanced Mobility & Oxygen Recirculation" },
@@ -88,276 +125,263 @@ export class AstronautCustomizer {
         return this.gender === "boy" ? AstronautCustomizer.boySuitModels : AstronautCustomizer.girlSuitModels;
     }
 
-    private readonly suitColors = [
-        { name: "MARS RUST", hex: 0xFF7043, str: "#FF7043" },
-        { name: "ARES CYAN", hex: 0x00E5FF, str: "#00E5FF" },
-        { name: "SOL GOLD", hex: 0xFFD600, str: "#FFD600" },
-        { name: "BIO GREEN", hex: 0x00E676, str: "#00E676" },
-        { name: "COSMIC VOID", hex: 0xB388FF, str: "#B388FF" },
-        { name: "POLAR WHITE", hex: 0xE0F7FA, str: "#E0F7FA" }
-    ];
-
-    private readonly tools: ToolItem[] = [
-        {
-            id: "drill",
-            name: "DRILLING MACHINE",
-            icon: "⚙",
-            desc: "Martian core drill for mineral & water ice extraction.",
-            perk: "+25% Resource Yield"
-        },
-        {
-            id: "medkit",
-            name: "FIRST AID KIT",
-            icon: "♥",
-            desc: "Emergency biogel injectors to treat low-G fatigue.",
-            perk: "+30% Health Recovery"
-        },
-        {
-            id: "spanner",
-            name: "TOOLBOX & SPANNER",
-            icon: "🔧",
-            desc: "Precision torque tools for solar array & airlock repairs.",
-            perk: "-40% Repair Time"
-        },
-        {
-            id: "radio",
-            name: "WALKIE TALKIE",
-            icon: "📻",
-            desc: "High-frequency transceiver linked to NASA Mission Control.",
-            perk: "+50% Telemetry Range"
-        }
-    ];
-
     constructor(scene: Phaser.Scene, callbacks: AstronautCustomizerCallbacks) {
         this.scene = scene;
         this.callbacks = callbacks;
-        this.container = this.scene.add.container(0, 0);
+        this.rootContainer = this.scene.add.container(0, 0);
+        this.layoutContainer = this.scene.add.container(0, 0);
+        this.rootContainer.add(this.layoutContainer);
 
         // Load existing saved state if available
         const saved = this.scene.registry.get("astronautCustomization") as CustomizationData | undefined;
         if (saved) {
             this.gender = saved.gender;
             this.avatarFrame = saved.avatarFrame || 1;
-            const cIdx = this.suitColors.findIndex(c => c.hex === saved.suitColor);
-            this.selectedColorIndex = cIdx >= 0 ? cIdx : 0;
-            this.selectedToolId = saved.toolId;
-            this.callsign = saved.callsign;
+            this.callsign = saved.callsign || "Cadet Orion";
         }
 
         this.init();
+        this.updateResponsiveLayout();
+        this.scene.scale.on("resize", this.updateResponsiveLayout, this);
     }
 
     public getContainer(): Phaser.GameObjects.Container {
-        return this.container;
+        return this.rootContainer;
     }
 
     private init() {
-        const { width, height } = this.scene.scale;
+        const W = DESIGN.WIDTH;
+        const H = DESIGN.HEIGHT;
 
-        // 1. Deep Space Background
-        const bg = this.scene.add.rectangle(0, 0, width, height, UITheme.colors.spaceDark).setOrigin(0);
-        this.container.add(bg);
+        // 1. Deep Space Background (fills full virtual stage)
+        const bg = this.scene.add.rectangle(0, 0, W, H, 0x040B18).setOrigin(0);
+        this.layoutContainer.add(bg);
 
-        // Mars atmosphere nebula
-        const nebula = this.scene.add.circle(width * 0.25, height * 0.48, 360, UITheme.colors.marsSky, 0.45);
-        this.container.add(nebula);
+        // Glowing Nebulae
+        this.layoutContainer.add(this.scene.add.ellipse(W * 0.2, H * 0.5, 780, 960, 0x0A2A5E, 0.4));
+        this.layoutContainer.add(this.scene.add.ellipse(W * 0.8, H * 0.4, 920, 780, 0x1A1A4A, 0.3));
 
-        for (let i = 0; i < 45; i++) {
-            const star = this.scene.add.circle(
-                Phaser.Math.Between(0, width),
-                Phaser.Math.Between(0, height),
-                Phaser.Math.FloatBetween(0.8, 1.8),
-                0xFFFFFF,
-                Phaser.Math.FloatBetween(0.2, 0.8)
-            );
-            this.container.add(star);
+        // Distant Planet (Mars)
+        this.layoutContainer.add(this.scene.add.circle(W * 0.11, H * 0.82, 220, 0x6B2E1D, 0.55));
+        this.layoutContainer.add(this.scene.add.circle(W * 0.11, H * 0.82, 206, 0x8B3A22, 0.75));
+
+        // Deterministic Starfield
+        for (let i = 0; i < 90; i++) {
+            const sx = ((i * 239) % W);
+            const sy = ((i * 157) % H);
+            const sr = 1.0 + (i % 3) * 0.6;
+            const sa = 0.2 + (i % 5) * 0.12;
+            this.layoutContainer.add(this.scene.add.circle(sx, sy, sr, 0xFFFFFF, sa));
         }
 
         // 2. Header
-        const title = this.scene.add.text(width / 2, 32, "ASTRONAUT SUIT CUSTOMIZATION", {
+        const title = this.scene.add.text(W / 2, DESIGN.HEADER_Y, "ASTRONAUT SUIT CUSTOMIZATION", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "26px",
+            fontSize: "36px",
             color: "#FFFFFF",
             fontStyle: "bold",
-            letterSpacing: 2
-        }).setOrigin(0.5);
-        this.container.add(title);
+            letterSpacing: 3
+        }).setOrigin(0.5).setShadow(0, 0, "#00E5FF", 15, true, true);
+        this.layoutContainer.add(title);
 
-        const sub = this.scene.add.text(width / 2, 56, "Equip high-visibility EVA suits with specialized perks for current and upcoming Martian mission levels", {
+        const sub = this.scene.add.text(W / 2, DESIGN.SUBTITLE_Y, "Choose your cadet, explore your Mars EVA suits, and prepare for your next mission!", {
             fontFamily: UITheme.fonts.body,
-            fontSize: "13px",
-            color: UITheme.colors.textSecondary
+            fontSize: "19px",
+            color: "#A0B4D0"
         }).setOrigin(0.5);
-        this.container.add(sub);
+        this.layoutContainer.add(sub);
 
-        // 3. Left Column: Big & Clear Astronaut Holographic Pedestal
-        this.createAvatarDisplay(240, 310);
+        // Compute clean two-column geometry (40% Left / 60% Right) above dedicated bottom navigation
+        const usableWidth = W - DESIGN.MARGIN_X * 2 - DESIGN.COLUMN_GAP;
+        const leftColX = DESIGN.MARGIN_X;
+        const leftColW = Math.floor(usableWidth * DESIGN.LEFT_COL_RATIO);
+        const rightColX = leftColX + leftColW + DESIGN.COLUMN_GAP;
+        const rightColW = usableWidth - leftColW;
 
-        // 4. Right Column: Controls Panel (Suits, Colors, Tools, Callsign)
-        this.createControlsPanel(490, 74, 760, 525);
+        const navTopY = H - DESIGN.NAV_BOTTOM_MARGIN - DESIGN.NAV_HEIGHT;
+        const contentBottomY = navTopY - 24;
+        const contentHeight = contentBottomY - DESIGN.CONTENT_TOP;
 
-        // 5. Footer Buttons
+        // 3. Left Column: Astronaut Preview (40%)
+        this.createLeftPreviewColumn(leftColX, DESIGN.CONTENT_TOP, leftColW, contentHeight);
+
+        // 4. Right Column: Customization Panel (60%)
+        this.createControlsPanel(rightColX, DESIGN.CONTENT_TOP, rightColW, contentHeight);
+
+        // 5. Dedicated Bottom Navigation (outside both columns)
+        const navCenterY = navTopY + DESIGN.NAV_HEIGHT / 2;
+
         const backBtn = ButtonFactory.createButton({
             scene: this.scene,
-            x: 130,
-            y: height - 52,
-            width: 170,
-            height: 42,
-            fontSize: "13px",
+            x: DESIGN.MARGIN_X + 120,
+            y: navCenterY,
+            width: 240,
+            height: 60,
+            fontSize: "19px",
             text: "← BACK",
-            primaryColor: 0x6E85A8,
+            primaryColor: 0x102849,
+            secondaryColor: 0x2A5A8A,
+            textColor: "#FFFFFF",
             onClick: () => this.callbacks.onBack()
         });
-        this.container.add(backBtn);
+        this.layoutContainer.add(backBtn);
 
         const launchBtn = ButtonFactory.createButton({
             scene: this.scene,
-            x: width - 180,
-            y: height - 52,
-            width: 280,
-            height: 44,
-            fontSize: "14px",
+            x: W - DESIGN.MARGIN_X - 210,
+            y: navCenterY,
+            width: 420,
+            height: 64,
+            fontSize: "21px",
             text: "CONFIRM LOADOUT ➔",
-            primaryColor: UITheme.colors.primaryCyan,
-            textColor: "#FFFFFF",
+            primaryColor: 0xFFD600,
+            secondaryColor: 0xFF7043,
+            textColor: "#0A1A32",
             icon: "🚀",
             onClick: () => {
                 const suits = this.getSuitModels();
                 const currentSuit = suits[this.avatarFrame - 1] || suits[0];
+
                 const data: CustomizationData = {
                     gender: this.gender,
                     avatarFrame: this.avatarFrame,
                     suitName: currentSuit.name,
-                    suitColor: this.suitColors[this.selectedColorIndex].hex,
-                    suitColorName: this.suitColors[this.selectedColorIndex].name,
-                    toolId: this.selectedToolId,
+                    suitColor: this.defaultColor.hex,
+                    suitColorName: this.defaultColor.name,
+                    toolId: this.defaultToolId,
                     callsign: this.callsign
                 };
+
                 this.scene.registry.set("astronautCustomization", data);
                 if (typeof window !== "undefined" && window.localStorage) {
                     try {
                         localStorage.setItem("astra_astronaut_suit", JSON.stringify(data));
                     } catch {
-                        // Ignore storage restrictions
+                        // Ignore storage quota / privacy restrictions
                     }
                 }
                 this.callbacks.onComplete(data);
             }
         });
-        this.container.add(launchBtn);
+        this.layoutContainer.add(launchBtn);
     }
 
-    private createAvatarDisplay(x: number, y: number) {
-        this.avatarContainer = this.scene.add.container(x, y);
+    private createLeftPreviewColumn(x: number, y: number, w: number, h: number) {
+        const panel = this.scene.add.container(x, y);
 
-        // High-Tech Teleport Base Platform - Wider & Deeper
-        this.platformRing = this.scene.add.ellipse(0, 160, 280, 62, 0x0E1F3B);
-        this.platformRing.setStrokeStyle(3.5, this.suitColors[this.selectedColorIndex].hex, 1);
-        this.avatarContainer.add(this.platformRing);
+        // Subtle Left Column Container Frame
+        const panelBg = this.scene.add.graphics();
+        panelBg.fillStyle(0x061426, 0.65);
+        panelBg.fillRoundedRect(0, 0, w, h, 24);
+        panelBg.lineStyle(2, 0x00E5FF, 0.35);
+        panelBg.strokeRoundedRect(0, 0, w, h, 24);
+        panel.add(panelBg);
 
-        // Holographic Beam Glow
-        this.platformBeam = this.scene.add.graphics();
-        this.updatePlatformBeam();
-        this.avatarContainer.add(this.platformBeam);
+        const pad = 28;
+        const cardW = w - pad * 2;
+        const cardH = 156;
+        const cardX = pad;
+        const cardY = h - pad - cardH;
 
-        // Giant, High-Definition Astronaut Display (scale 0.40)
+        // Holographic Stage Region (strictly above description card)
+        const stageTop = pad;
+        const stageBottom = cardY - 22;
+        const stageCenterX = w / 2;
+        const platformY = stageBottom - 44;
+
+        // Circular Holographic Platform beneath the character
+        const platformGlow = this.scene.add.ellipse(stageCenterX, platformY, 390, 92, 0x00E5FF, 0.18);
+        panel.add(platformGlow);
+
+        const platformRing = this.scene.add.ellipse(stageCenterX, platformY, 350, 76, 0x061122, 0.92);
+        platformRing.setStrokeStyle(4, 0x00E5FF, 1);
+        panel.add(platformRing);
+
+        const innerRing = this.scene.add.ellipse(stageCenterX, platformY, 240, 48, 0x00E5FF, 0.12);
+        innerRing.setStrokeStyle(2, 0xFFD600, 0.7);
+        panel.add(innerRing);
+
+        // Holographic Projection Beam
+        const beam = this.scene.add.graphics();
+        beam.fillStyle(0x00E5FF, 0.08);
+        beam.fillTriangle(stageCenterX - 170, platformY, stageCenterX + 170, platformY, stageCenterX, stageTop + 20);
+        beam.fillStyle(0x00E5FF, 0.14);
+        beam.fillTriangle(stageCenterX - 95, platformY, stageCenterX + 95, platformY, stageCenterX, stageTop + 70);
+        panel.add(beam);
+
+        // Dedicated floating container for astronaut sprite
+        const spriteCenterY = stageTop + (platformY - stageTop) * 0.50;
+        this.previewBounds = {
+            width: w - 120,
+            height: platformY - stageTop - 36
+        };
+
+        this.avatarFloatContainer = this.scene.add.container(stageCenterX, spriteCenterY);
+        panel.add(this.avatarFloatContainer);
+
         this.updateAvatarImage();
 
-        // Mars Low-G Floating Sine Wave
-        this.scene.tweens.add({
-            targets: this.avatarContainer,
-            y: y - 8,
-            duration: 2600,
+        const floatTween = this.scene.tweens.add({
+            targets: this.avatarFloatContainer,
+            y: spriteCenterY - 10,
+            duration: 2800,
             yoyo: true,
             repeat: -1,
             ease: "Sine.easeInOut"
         });
+        this.activeTweens.push(floatTween);
 
-        // Interactive Left / Right Arrows (spaced outwards)
-        const prevArrow = ButtonFactory.createIconButton(
-            this.scene,
-            -155,
-            -10,
-            "◀",
-            20,
-            UITheme.colors.primaryCyan,
-            () => {
-                this.avatarFrame = this.avatarFrame > 1 ? this.avatarFrame - 1 : 5;
-                this.onSuitSelected(this.avatarFrame);
-            }
-        );
-        const nextArrow = ButtonFactory.createIconButton(
-            this.scene,
-            155,
-            -10,
-            "▶",
-            20,
-            UITheme.colors.primaryCyan,
-            () => {
-                this.avatarFrame = this.avatarFrame < 5 ? this.avatarFrame + 1 : 1;
-                this.onSuitSelected(this.avatarFrame);
-            }
-        );
-        this.avatarContainer.add([prevArrow, nextArrow]);
-
-        // Suit Title & Specs Plaque (Wider, High Contrast, Guaranteed to fit inside)
-        const plaqueW = 340;
-        const plaqueH = 62;
-        const suitPlaque = this.scene.add.graphics();
-        suitPlaque.fillStyle(0x08162B, 0.96);
-        suitPlaque.fillRoundedRect(-plaqueW / 2, 176, plaqueW, plaqueH, 10);
-        suitPlaque.lineStyle(2, UITheme.colors.primaryCyan, 0.9);
-        suitPlaque.strokeRoundedRect(-plaqueW / 2, 176, plaqueW, plaqueH, 10);
-        this.avatarContainer.add(suitPlaque);
+        // Separate Character Name & Suit Description Card below platform (completely clear of BACK)
+        const infoCard = this.scene.add.graphics();
+        infoCard.fillStyle(0x0A1A32, 0.95);
+        infoCard.fillRoundedRect(cardX, cardY, cardW, cardH, 16);
+        infoCard.lineStyle(2, 0x00E5FF, 0.85);
+        infoCard.strokeRoundedRect(cardX, cardY, cardW, cardH, 16);
+        panel.add(infoCard);
 
         const currentSuit = this.getSuitModels()[this.avatarFrame - 1] || this.getSuitModels()[0];
-        this.suitModelTitleText = this.scene.add.text(0, 191, currentSuit.name, {
+
+        this.suitModelTitleText = this.scene.add.text(stageCenterX, cardY + 34, currentSuit.name, {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "12px",
+            fontSize: "24px",
             color: "#FFFFFF",
             fontStyle: "bold",
-            letterSpacing: 1
-        }).setOrigin(0.5);
-
-        this.suitRoleTagText = this.scene.add.text(0, 214, `★ ${currentSuit.roleTag} · ${currentSuit.perk}`, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "9.5px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold",
             align: "center",
-            wordWrap: { width: 320 }
+            wordWrap: { width: cardW - 40 }
         }).setOrigin(0.5);
-        this.avatarContainer.add([this.suitModelTitleText, this.suitRoleTagText]);
 
-        this.container.add(this.avatarContainer);
-    }
+        this.suitRoleTagText = this.scene.add.text(
+            stageCenterX,
+            cardY + 98,
+            `★ ${currentSuit.roleTag}\n${currentSuit.perk}`,
+            {
+                fontFamily: UITheme.fonts.body,
+                fontSize: "17px",
+                color: "#FFD600",
+                align: "center",
+                lineSpacing: 6,
+                wordWrap: { width: cardW - 40 }
+            }
+        ).setOrigin(0.5);
 
-    private updatePlatformBeam() {
-        const color = this.suitColors[this.selectedColorIndex].hex;
-        this.platformBeam.clear();
-        this.platformBeam.fillStyle(color, 0.16);
-        this.platformBeam.fillTriangle(-130, 160, 130, 160, 0, -180);
-        if (this.platformRing) {
-            this.platformRing.setStrokeStyle(3.5, color, 1);
-        }
+        panel.add([this.suitModelTitleText, this.suitRoleTagText]);
+        this.layoutContainer.add(panel);
     }
 
     private updateAvatarImage() {
         if (this.avatarImage) {
             this.avatarImage.destroy();
+            this.avatarImage = undefined;
         }
 
-        const frameKey = this.gender === "boy" 
-            ? `boy_avatar_${this.avatarFrame}` 
-            : `girl_avatar_${this.avatarFrame}`;
-
+        const frameKey = this.gender === "boy" ? `boy_avatar_${this.avatarFrame}` : `girl_avatar_${this.avatarFrame}`;
         const fallbackKey = this.gender === "boy" ? "boy-astronaut" : "girl-astronaut";
         const textureToUse = this.scene.textures.exists(frameKey) ? frameKey : fallbackKey;
 
-        if (this.scene.textures.exists(textureToUse)) {
-            this.avatarImage = this.scene.add.image(0, -10, textureToUse);
-            this.avatarImage.setScale(0.40);
-            this.avatarContainer.add(this.avatarImage);
+        if (this.scene.textures.exists(textureToUse) && this.avatarFloatContainer) {
+            this.avatarImage = this.scene.add.image(0, 0, textureToUse).setOrigin(0.5);
+            this.fitImageInsideBox(this.avatarImage, this.previewBounds.width, this.previewBounds.height);
+            this.avatarFloatContainer.add(this.avatarImage);
         }
 
         const suits = this.getSuitModels();
@@ -366,223 +390,182 @@ export class AstronautCustomizer {
             this.suitModelTitleText.setText(currentSuit.name);
         }
         if (this.suitRoleTagText) {
-            this.suitRoleTagText.setText(`★ ${currentSuit.roleTag} · ${currentSuit.perk}`);
+            this.suitRoleTagText.setText(`★ ${currentSuit.roleTag}\n${currentSuit.perk}`);
         }
     }
 
     private createControlsPanel(x: number, y: number, w: number, h: number) {
         const panel = this.scene.add.container(x, y);
 
+        // Glass Panel Background
         const bg = this.scene.add.graphics();
-        bg.fillStyle(UITheme.colors.panelBg, 0.95);
-        bg.fillRoundedRect(0, 0, w, h, UITheme.layout.cardRadius);
-        bg.lineStyle(1.5, UITheme.colors.panelBorder, 1);
-        bg.strokeRoundedRect(0, 0, w, h, UITheme.layout.cardRadius);
+        bg.fillStyle(0x061426, 0.88);
+        bg.fillRoundedRect(0, 0, w, h, 24);
+        bg.lineStyle(2, 0x00E5FF, 0.55);
+        bg.strokeRoundedRect(0, 0, w, h, 24);
         panel.add(bg);
 
-        // 1. Gender Selection - Clean single-row layout with generous 100px+ spacing
-        const genderLabel = this.scene.add.text(20, 26, "1. ASTRONAUT CADET BASE:", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold",
-            letterSpacing: 1
-        }).setOrigin(0, 0.5);
-        panel.add(genderLabel);
+        const padX = 36;
+        const padY = 28;
+        const innerW = w - padX * 2;
+        const sectionGap = 32;
+        const headerOffset = 34;
 
-        this.boyBtn = this.createGenderButton(panel, 410, 26, "boy", "BOY CADET", "👨‍🚀");
-        this.girlBtn = this.createGenderButton(panel, 580, 26, "girl", "GIRL CADET", "👩‍🚀");
+        let cursorY = padY;
+
+        // =====================================================================
+        // SECTION 1: CADET SELECTION (Two equally sized buttons in one row)
+        // =====================================================================
+        panel.add(
+            this.scene.add.text(padX, cursorY, "1. CADET SELECTION", {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "19px",
+                color: "#00E5FF",
+                fontStyle: "bold",
+                letterSpacing: 1.5
+            })
+        );
+        cursorY += headerOffset;
+
+        const genderGap = 24;
+        const genderBtnW = Math.floor((innerW - genderGap) / 2);
+        const genderBtnH = 68;
+        this.genderBtnSize = { width: genderBtnW, height: genderBtnH };
+
+        this.boyBtn = this.createGenderCard(panel, padX, cursorY, genderBtnW, genderBtnH, "boy", "BOY CADET", "👨‍🚀");
+        this.girlBtn = this.createGenderCard(
+            panel,
+            padX + genderBtnW + genderGap,
+            cursorY,
+            genderBtnW,
+            genderBtnH,
+            "girl",
+            "GIRL CADET",
+            "👩‍🚀"
+        );
         this.updateGenderButtons();
 
-        // 2. Select Mars Suit Model (5 Visual Cards)
-        const suitLabel = this.scene.add.text(20, 56, "2. SELECT MARS SUIT MODEL (EQUIPPED ACROSS ALL SOL MISSIONS):", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold",
-            letterSpacing: 1
-        });
-        panel.add(suitLabel);
+        cursorY += genderBtnH + sectionGap;
 
-        this.createSuitCards(panel, 20, 78, w - 40);
+        // =====================================================================
+        // SECTION 3 BOUNDS (Calculated bottom-up so Section 2 fills remaining space)
+        // =====================================================================
+        const callsignBoxH = 72;
+        const callsignHeaderY = h - padY - callsignBoxH - headerOffset;
+        const callsignBoxY = h - padY - callsignBoxH;
 
-        // 3. Suit Telemetry & Beam Color
-        const colorLabel = this.scene.add.text(20, 210, "3. SUIT TELEMETRY ACCENT COLOR:", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold",
-            letterSpacing: 1
-        });
-        panel.add(colorLabel);
-
-        this.suitColors.forEach((color, idx) => {
-            const swatch = this.scene.add.container(55 + idx * 125, 252);
-
-            const circle = this.scene.add.circle(0, 0, 13, color.hex, 1);
-            circle.setStrokeStyle(2.5, idx === this.selectedColorIndex ? 0xFFFFFF : 0x1A3050, 1);
-            swatch.add(circle);
-
-            const name = this.scene.add.text(0, 18, color.name, {
-                fontFamily: UITheme.fonts.body,
-                fontSize: "9px",
-                color: "#A0B4D0",
-                letterSpacing: 0.5
-            }).setOrigin(0.5);
-            swatch.add(name);
-
-            // Hit shield
-            const hit = this.scene.add.circle(0, 0, 22, 0x000000, 0.001);
-            hit.setInteractive({ useHandCursor: true });
-            swatch.add(hit);
-
-            hit.on("pointerdown", () => {
-                SoundFX.playClick();
-                this.selectedColorIndex = idx;
-                this.updatePlatformBeam();
-                this.updateColorSwatches();
-            });
-
-            this.colorButtons.push(swatch);
-            panel.add(swatch);
-        });
-
-        // 4. Surface Tool Loadout
-        const toolLabel = this.scene.add.text(20, 302, "4. MARS SURFACE TOOL LOADOUT:", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold",
-            letterSpacing: 1
-        });
-        panel.add(toolLabel);
-
-        const toolCardW = 350;
-        const toolCardH = 48;
-        this.tools.forEach((tool, idx) => {
-            const row = Math.floor(idx / 2);
-            const col = idx % 2;
-            const cardX = 20 + col * 368;
-            const cardY = 326 + row * 56;
-
-            const card = this.scene.add.container(cardX, cardY);
-            const cardBg = this.scene.add.graphics();
-            card.add(cardBg);
-
-            const icon = this.scene.add.text(12, 8, tool.icon, { fontSize: "16px" });
-            const title = this.scene.add.text(38, 5, tool.name, {
+        // =====================================================================
+        // SECTION 2: SUIT SELECTION (Clean 3 + 2 Grid)
+        // =====================================================================
+        panel.add(
+            this.scene.add.text(padX, cursorY, "2. SELECT MARS SUIT MODEL", {
                 fontFamily: UITheme.fonts.heading,
-                fontSize: "10px",
-                color: "#FFFFFF",
-                fontStyle: "bold"
-            });
-            const desc = this.scene.add.text(38, 18, tool.desc, {
-                fontFamily: UITheme.fonts.body,
-                fontSize: "8.5px",
-                color: UITheme.colors.textSecondary,
-                wordWrap: { width: 295 }
-            });
-            const perk = this.scene.add.text(38, 31, tool.perk, {
-                fontFamily: UITheme.fonts.body,
-                fontSize: "8.5px",
-                color: UITheme.colors.bioGreenStr,
-                fontStyle: "bold"
-            });
+                fontSize: "19px",
+                color: "#FFD600",
+                fontStyle: "bold",
+                letterSpacing: 1.5
+            })
+        );
+        cursorY += headerOffset;
 
-            card.add([icon, title, desc, perk]);
+        const gridBottomY = callsignHeaderY - sectionGap;
+        const gridAvailableH = gridBottomY - cursorY;
 
-            // Hit shield
-            const hit = this.scene.add.rectangle(toolCardW / 2, toolCardH / 2, toolCardW, toolCardH, 0x000000, 0.001);
-            hit.setInteractive({ useHandCursor: true });
-            card.add(hit);
+        this.createSuitCards(panel, padX, cursorY, innerW, gridAvailableH);
 
-            hit.on("pointerdown", () => {
-                SoundFX.playSelect();
-                this.selectedToolId = tool.id;
-                this.updateToolCardVisuals();
-            });
-
-            this.toolCards.set(tool.id, card);
-            panel.add(card);
-        });
-
-        this.updateToolCardVisuals();
-
-        // 5. Callsign Section (Completely inside the panel with zero overlap!)
-        const nameLabel = this.scene.add.text(20, 472, "5. ACTIVE CADET CALLSIGN:", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold",
-            letterSpacing: 1
-        }).setOrigin(0, 0.5);
-        panel.add(nameLabel);
-
-        const badgeW = 190;
-        const badgeH = 32;
-        const badgeX = 330;
-        const badgeY = 472;
+        // =====================================================================
+        // SECTION 3: ACTIVE CADET CALLSIGN (Display + Cycle button in one row)
+        // =====================================================================
+        panel.add(
+            this.scene.add.text(padX, callsignHeaderY, "3. ACTIVE CADET CALLSIGN", {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "19px",
+                color: "#00E5FF",
+                fontStyle: "bold",
+                letterSpacing: 1.5
+            })
+        );
 
         const badgeBg = this.scene.add.graphics();
-        badgeBg.fillStyle(0x071B33, 0.95);
-        badgeBg.fillRoundedRect(badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 6);
-        badgeBg.lineStyle(1.5, UITheme.colors.primaryCyan, 0.9);
-        badgeBg.strokeRoundedRect(badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 6);
+        badgeBg.fillStyle(0x071B33, 0.96);
+        badgeBg.fillRoundedRect(padX, callsignBoxY, innerW, callsignBoxH, 12);
+        badgeBg.lineStyle(2, 0x00E5FF, 0.85);
+        badgeBg.strokeRoundedRect(padX, callsignBoxY, innerW, callsignBoxH, 12);
         panel.add(badgeBg);
 
-        this.callsignText = this.scene.add.text(badgeX, badgeY, this.callsign.toUpperCase(), {
+        const cycleBtnW = 176;
+        const cycleBtnH = 48;
+        const cycleBtnX = padX + innerW - cycleBtnW / 2 - 14;
+        const rowCenterY = callsignBoxY + callsignBoxH / 2;
+
+        const textZoneLeft = padX + 24;
+        const textZoneRight = cycleBtnX - cycleBtnW / 2 - 16;
+        const textCenterX = (textZoneLeft + textZoneRight) / 2;
+
+        this.callsignText = this.scene.add.text(textCenterX, rowCenterY, this.callsign.toUpperCase(), {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
+            fontSize: "24px",
             color: "#FFFFFF",
-            fontStyle: "bold"
+            fontStyle: "bold",
+            letterSpacing: 1.5
         }).setOrigin(0.5);
         panel.add(this.callsignText);
 
-        const callsignPresets = ["Cadet Orion", "Commander Nova", "Ares One", "Sol Walker", "Astra Scout"];
         const cycleBtn = ButtonFactory.createButton({
             scene: this.scene,
-            x: 560,
-            y: badgeY,
-            width: 180,
-            height: 32,
-            fontSize: "11px",
-            text: "CYCLE CALLSIGN 🎲",
-            primaryColor: UITheme.colors.marsAmber,
+            x: cycleBtnX,
+            y: rowCenterY,
+            width: cycleBtnW,
+            height: cycleBtnH,
+            fontSize: "16px",
+            text: "CYCLE ↻",
+            primaryColor: 0xFF7043,
             onClick: () => {
-                const currentIdx = callsignPresets.indexOf(this.callsign);
-                const nextIdx = (currentIdx + 1) % callsignPresets.length;
-                this.callsign = callsignPresets[nextIdx];
-                if (this.callsignText) {
-                    this.callsignText.setText(this.callsign.toUpperCase());
-                }
+                SoundFX.playSelect();
+                const currentIdx = this.callsignPresets.indexOf(this.callsign);
+                this.callsign = this.callsignPresets[(currentIdx + 1) % this.callsignPresets.length];
+                this.callsignText.setText(this.callsign.toUpperCase());
             }
         });
         panel.add(cycleBtn);
 
-        this.container.add(panel);
+        this.layoutContainer.add(panel);
     }
 
-    private createGenderButton(panel: Phaser.GameObjects.Container, x: number, y: number, gender: GenderType, label: string, icon: string): Phaser.GameObjects.Container {
-        const btn = this.scene.add.container(x, y);
-        const w = 140, h = 32;
+    private createGenderCard(
+        panel: Phaser.GameObjects.Container,
+        x: number,
+        y: number,
+        w: number,
+        h: number,
+        gender: GenderType,
+        label: string,
+        icon: string
+    ): Phaser.GameObjects.Container {
+        const btn = this.scene.add.container(x + w / 2, y + h / 2);
+        btn.setSize(w, h);
 
         const bg = this.scene.add.graphics();
         btn.add(bg);
 
-        const iconText = this.scene.add.text(-44, 0, icon, { fontSize: "14px" }).setOrigin(0.5);
-        const labelText = this.scene.add.text(-24, 0, label, {
+        const iconText = this.scene.add.text(-86, 0, icon, {
+            fontSize: "28px"
+        }).setOrigin(0.5);
+
+        const labelText = this.scene.add.text(22, 0, label, {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
+            fontSize: "19px",
             color: "#FFFFFF",
             fontStyle: "bold"
-        }).setOrigin(0, 0.5);
+        }).setOrigin(0.5);
+
         btn.add([iconText, labelText]);
 
-        const hit = this.scene.add.rectangle(0, 0, w, h, 0x000000, 0.001);
-        hit.setInteractive({ useHandCursor: true });
+        const hit = this.scene.add.rectangle(0, 0, w, h, 0x000000, 0.001).setInteractive({ useHandCursor: true });
         btn.add(hit);
 
         hit.on("pointerdown", () => {
+            if (this.gender === gender) return;
             SoundFX.playToggle(gender === "boy");
             this.gender = gender;
             this.updateAvatarImage();
@@ -595,106 +578,125 @@ export class AstronautCustomizer {
     }
 
     private updateGenderButtons() {
-        const w = 140, h = 32, r = 8;
+        const { width: w, height: h } = this.genderBtnSize;
 
-        if (this.boyBtn && this.boyBtn.list[0]) {
-            const boyBg = this.boyBtn.list[0] as Phaser.GameObjects.Graphics;
-            boyBg.clear();
-            if (this.gender === "boy") {
-                boyBg.fillStyle(UITheme.colors.primaryCyan, 0.95);
-                boyBg.fillRoundedRect(-w / 2, -h / 2, w, h, r);
-                boyBg.lineStyle(2, 0xFFFFFF, 1);
-                boyBg.strokeRoundedRect(-w / 2, -h / 2, w, h, r);
-            } else {
-                boyBg.fillStyle(UITheme.colors.cardBg, 0.85);
-                boyBg.fillRoundedRect(-w / 2, -h / 2, w, h, r);
-                boyBg.lineStyle(1.5, UITheme.colors.panelBorder, 0.7);
-                boyBg.strokeRoundedRect(-w / 2, -h / 2, w, h, r);
-            }
+        if (this.boyBtn) {
+            const isBoy = this.gender === "boy";
+            const bg = this.boyBtn.list[0] as Phaser.GameObjects.Graphics;
+            const label = this.boyBtn.list[2] as Phaser.GameObjects.Text;
+            bg.clear();
+            bg.fillStyle(isBoy ? 0xFFD600 : 0x0A1A32, 0.96);
+            bg.fillRoundedRect(-w / 2, -h / 2, w, h, 14);
+            bg.lineStyle(isBoy ? 3 : 1.5, isBoy ? 0xFFFFFF : 0x1A3A63, 1);
+            bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 14);
+            if (label) label.setColor(isBoy ? "#0A1A32" : "#FFFFFF");
         }
 
-        if (this.girlBtn && this.girlBtn.list[0]) {
-            const girlBg = this.girlBtn.list[0] as Phaser.GameObjects.Graphics;
-            girlBg.clear();
-            if (this.gender === "girl") {
-                girlBg.fillStyle(0xE040FB, 0.95);
-                girlBg.fillRoundedRect(-w / 2, -h / 2, w, h, r);
-                girlBg.lineStyle(2, 0xFFFFFF, 1);
-                girlBg.strokeRoundedRect(-w / 2, -h / 2, w, h, r);
-            } else {
-                girlBg.fillStyle(UITheme.colors.cardBg, 0.85);
-                girlBg.fillRoundedRect(-w / 2, -h / 2, w, h, r);
-                girlBg.lineStyle(1.5, UITheme.colors.panelBorder, 0.7);
-                girlBg.strokeRoundedRect(-w / 2, -h / 2, w, h, r);
-            }
+        if (this.girlBtn) {
+            const isGirl = this.gender === "girl";
+            const bg = this.girlBtn.list[0] as Phaser.GameObjects.Graphics;
+            const label = this.girlBtn.list[2] as Phaser.GameObjects.Text;
+            bg.clear();
+            bg.fillStyle(isGirl ? 0xFFD600 : 0x0A1A32, 0.96);
+            bg.fillRoundedRect(-w / 2, -h / 2, w, h, 14);
+            bg.lineStyle(isGirl ? 3 : 1.5, isGirl ? 0xFFFFFF : 0x1A3A63, 1);
+            bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 14);
+            if (label) label.setColor(isGirl ? "#0A1A32" : "#FFFFFF");
         }
     }
 
-    private createSuitCards(panel: Phaser.GameObjects.Container, startX: number, startY: number, _totalW: number) {
-        const cardW = 134;
-        const cardH = 114;
-        const cardGap = 12;
+    private createSuitCards(
+        panel: Phaser.GameObjects.Container,
+        startX: number,
+        startY: number,
+        totalW: number,
+        totalH: number
+    ) {
+        this.suitCards = [];
+
+        const cols = 3;
+        const rows = 2;
+        const gapX = 22;
+        const gapY = 22;
+
+        // Identical explicit dimensions for all 5 suit cards
+        const cardW = Math.floor((totalW - gapX * (cols - 1)) / cols);
+        const cardH = Math.floor((totalH - gapY * (rows - 1)) / rows);
+
+        // Internal zones inside each card so thumbnail and suit name never collide
+        const labelZoneH = 54;
+        const thumbTopPad = 14;
+        const thumbBottomPad = 10;
+        const thumbZoneH = cardH - labelZoneH - thumbTopPad - thumbBottomPad;
+        const thumbMaxW = cardW - 36;
+        const thumbMaxH = Math.max(48, thumbZoneH);
+        const thumbCenterY = thumbTopPad + thumbZoneH / 2;
+        const labelCenterY = cardH - labelZoneH / 2;
+
         const suits = this.getSuitModels();
 
         suits.forEach((suit, idx) => {
-            const cardX = startX + idx * (cardW + cardGap);
-            const card = this.scene.add.container(cardX, startY);
+            const row = Math.floor(idx / cols);
+            const col = idx % cols;
 
-            // 0: Card Graphics Background
+            // Row 0: 3 cards | Row 1: 2 cards centered cleanly
+            const cardsInRow = row === 0 ? 3 : 2;
+            const rowWidth = cardsInRow * cardW + (cardsInRow - 1) * gapX;
+            const rowStartX = startX + Math.floor((totalW - rowWidth) / 2);
+
+            const cardX = rowStartX + col * (cardW + gapX);
+            const cardY = startY + row * (cardH + gapY);
+
+            const card = this.scene.add.container(cardX, cardY);
+            card.setSize(cardW, cardH);
+
             const bg = this.scene.add.graphics();
             card.add(bg);
 
-            // 1: Thumbnail Image of suit (scale 0.074, ~42px tall, perfectly centered at y=56)
+            // Subtle divider separating thumbnail zone from suit name zone
+            const divider = this.scene.add.graphics();
+            divider.lineStyle(1, 0x1A3A63, 0.85);
+            divider.lineBetween(16, cardH - labelZoneH, cardW - 16, cardH - labelZoneH);
+            card.add(divider);
+
             const frameKey = `${this.gender}_avatar_${suit.frame}`;
-            const thumb = this.scene.add.image(cardW / 2, 56, this.scene.textures.exists(frameKey) ? frameKey : "boy-astronaut");
-            thumb.setScale(0.074);
+            const fallbackKey = this.gender === "boy" ? "boy-astronaut" : "girl-astronaut";
+            const texKey = this.scene.textures.exists(frameKey) ? frameKey : fallbackKey;
+
+            const thumb = this.scene.add.image(cardW / 2, thumbCenterY, texKey).setOrigin(0.5);
+            this.fitImageInsideBox(thumb, thumbMaxW, thumbMaxH);
             card.add(thumb);
 
-            // 2: Suit Tag Top Pill
-            const tag = this.scene.add.text(cardW / 2, 12, `SUIT 0${suit.frame}`, {
+            const label = this.scene.add.text(cardW / 2, labelCenterY, this.getSuitShortName(suit.name), {
                 fontFamily: UITheme.fonts.heading,
-                fontSize: "9px",
-                color: UITheme.colors.primaryCyanStr,
-                fontStyle: "bold"
-            }).setOrigin(0.5);
-            card.add(tag);
-
-            // 3: Name (Never overlaps thumbnail, fully contained in card)
-            const shortName = this.getSuitShortName(suit.name);
-            const name = this.scene.add.text(cardW / 2, 99, shortName, {
-                fontFamily: UITheme.fonts.heading,
-                fontSize: "9px",
+                fontSize: "15px",
                 color: "#FFFFFF",
                 fontStyle: "bold",
                 align: "center",
-                wordWrap: { width: cardW - 10 }
+                wordWrap: { width: cardW - 20 }
             }).setOrigin(0.5);
-            card.add(name);
+            card.add(label);
 
-            // 4: Interactive hit shield covering 100% of card
-            const hit = this.scene.add.rectangle(cardW / 2, cardH / 2, cardW, cardH, 0x000000, 0.001);
-            hit.setInteractive({ useHandCursor: true });
+            const hit = this.scene.add.rectangle(cardW / 2, cardH / 2, cardW, cardH, 0x000000, 0.001)
+                .setInteractive({ useHandCursor: true });
             card.add(hit);
 
-            hit.on("pointerover", () => {
-                SoundFX.playHover();
-                if (suit.frame !== this.avatarFrame) {
-                    bg.clear();
-                    bg.fillStyle(0x0C2548, 0.95);
-                    bg.fillRoundedRect(0, 0, cardW, cardH, 10);
-                    bg.lineStyle(2, UITheme.colors.primaryCyan, 0.95);
-                    bg.strokeRoundedRect(0, 0, cardW, cardH, 10);
-                }
-            });
-            hit.on("pointerout", () => {
-                this.updateSuitCards();
-            });
             hit.on("pointerdown", () => {
                 SoundFX.playSelect();
                 this.onSuitSelected(suit.frame);
             });
 
-            this.suitCards.push(card);
+            this.suitCards.push({
+                container: card,
+                bg,
+                thumb,
+                label,
+                width: cardW,
+                height: cardH,
+                thumbMaxW,
+                thumbMaxH
+            });
+
             panel.add(card);
         });
 
@@ -708,95 +710,58 @@ export class AstronautCustomizer {
     }
 
     private updateSuitCards() {
-        const cardW = 134;
-        const cardH = 114;
-        const suits = this.getSuitModels();
+        const fallbackKey = this.gender === "boy" ? "boy-astronaut" : "girl-astronaut";
 
-        this.suitCards.forEach((card, idx) => {
-            const suitFrame = idx + 1;
-            const suit = suits[idx];
-            const isSelected = suitFrame === this.avatarFrame;
-            const bg = card.list[0] as Phaser.GameObjects.Graphics;
+        this.suitCards.forEach((entry, idx) => {
+            const frame = idx + 1;
+            const isSelected = frame === this.avatarFrame;
+            const { bg, thumb, label, width: w, height: h, thumbMaxW, thumbMaxH } = entry;
+
             bg.clear();
+            bg.fillStyle(isSelected ? 0x162D52 : 0x0A1A32, 0.94);
+            bg.fillRoundedRect(0, 0, w, h, 14);
+            bg.lineStyle(isSelected ? 3.5 : 1.5, isSelected ? 0xFFD600 : 0x1A3A63, 1);
+            bg.strokeRoundedRect(0, 0, w, h, 14);
 
-            if (isSelected) {
-                // Radiant glow and highlight backing
-                bg.fillStyle(0x0C284D, 0.98);
-                bg.fillRoundedRect(0, 0, cardW, cardH, 10);
-                bg.lineStyle(2.5, UITheme.colors.solarGold, 1);
-                bg.strokeRoundedRect(0, 0, cardW, cardH, 10);
+            label.setColor(isSelected ? "#FFD600" : "#FFFFFF");
 
-                // Top highlight line
-                bg.lineStyle(2, UITheme.colors.primaryCyan, 0.8);
-                bg.lineBetween(10, 2, cardW - 10, 2);
-            } else {
-                bg.fillStyle(UITheme.colors.cardBg, 0.80);
-                bg.fillRoundedRect(0, 0, cardW, cardH, 10);
-                bg.lineStyle(1.5, UITheme.colors.panelBorder, 0.7);
-                bg.strokeRoundedRect(0, 0, cardW, cardH, 10);
-            }
-
-            // Update thumb texture if gender changed
-            const frameKey = `${this.gender}_avatar_${suitFrame}`;
-            const thumb = card.list[1] as Phaser.GameObjects.Image;
-            if (thumb && this.scene.textures.exists(frameKey)) {
-                thumb.setTexture(frameKey);
-                thumb.setScale(0.074);
-                thumb.setPosition(cardW / 2, 56);
-            }
-
-            // Update tag style
-            const tag = card.list[2] as Phaser.GameObjects.Text;
-            if (tag) {
-                tag.setColor(isSelected ? UITheme.colors.solarGoldStr : UITheme.colors.primaryCyanStr);
-                tag.setText(isSelected ? `★ SUIT 0${suitFrame}` : `SUIT 0${suitFrame}`);
-                tag.setPosition(cardW / 2, 12);
-            }
-
-            // Update name label
-            const name = card.list[3] as Phaser.GameObjects.Text;
-            if (name && suit) {
-                const shortName = this.getSuitShortName(suit.name);
-                name.setText(shortName);
-                name.setPosition(cardW / 2, 99);
+            const frameKey = `${this.gender}_avatar_${frame}`;
+            const texKey = this.scene.textures.exists(frameKey) ? frameKey : fallbackKey;
+            if (thumb && this.scene.textures.exists(texKey)) {
+                thumb.setTexture(texKey);
+                this.fitImageInsideBox(thumb, thumbMaxW, thumbMaxH);
             }
         });
     }
 
-    private updateColorSwatches() {
-        this.colorButtons.forEach((swatch, idx) => {
-            const circle = swatch.list[0] as Phaser.GameObjects.Arc;
-            circle.setStrokeStyle(3, idx === this.selectedColorIndex ? 0xFFFFFF : 0x1A3050, 1);
-        });
+    private fitImageInsideBox(image: Phaser.GameObjects.Image, maxW: number, maxH: number) {
+        if (!image || image.width <= 0 || image.height <= 0) return;
+        const scale = Math.min(maxW / image.width, maxH / image.height);
+        image.setScale(scale);
     }
 
-    private updateToolCardVisuals() {
-        const cardW = 350;
-        const cardH = 48;
-        this.tools.forEach(tool => {
-            const card = this.toolCards.get(tool.id);
-            if (!card) return;
+    private updateResponsiveLayout() {
+        if (!this.layoutContainer || !this.scene?.scale) return;
 
-            const bg = card.list[0] as Phaser.GameObjects.Graphics;
-            bg.clear();
+        const viewW = this.scene.scale.width;
+        const viewH = this.scene.scale.height;
 
-            const isSelected = this.selectedToolId === tool.id;
-            if (isSelected) {
-                bg.fillStyle(UITheme.colors.cardSelected, 0.98);
-                bg.fillRoundedRect(0, 0, cardW, cardH, 8);
-                bg.lineStyle(2.5, UITheme.colors.primaryCyan, 1);
-                bg.strokeRoundedRect(0, 0, cardW, cardH, 8);
-            } else {
-                bg.fillStyle(UITheme.colors.cardBg, 0.75);
-                bg.fillRoundedRect(0, 0, cardW, cardH, 8);
-                bg.lineStyle(1.5, UITheme.colors.panelBorder, 0.8);
-                bg.strokeRoundedRect(0, 0, cardW, cardH, 8);
-            }
-        });
+        const scaleX = viewW / DESIGN.WIDTH;
+        const scaleY = viewH / DESIGN.HEIGHT;
+        const uniformScale = Math.min(scaleX, scaleY);
+
+        const offsetX = Math.floor((viewW - DESIGN.WIDTH * uniformScale) / 2);
+        const offsetY = Math.floor((viewH - DESIGN.HEIGHT * uniformScale) / 2);
+
+        this.layoutContainer.setScale(uniformScale);
+        this.layoutContainer.setPosition(offsetX, offsetY);
     }
 
     public destroy() {
-        this.container.destroy();
+        this.scene.scale.off("resize", this.updateResponsiveLayout, this);
+        this.activeTweens.forEach(tween => tween.remove());
+        this.activeTweens = [];
+        this.rootContainer.destroy();
     }
 }
 
