@@ -2601,7 +2601,7 @@ export class MissionChallengesModal {
             case 2: return "Sol2PerchlorateBarrierScene";
             case 3: return "Sol3RedGaleScene";
             case 4: return "Sol4ISRUProductionScene";
-            case 5: return "Sol5SilenceCommsLagScene";
+            case 5: return "Sol5LastSafeHabitatScene";
             default: return "Sol1DirtFortressScene";
         }
     }
@@ -2685,7 +2685,8 @@ export class MissionChallengesModal {
             "Sol2PerchlorateBarrierScene",
             "Sol3RedGaleScene",
             "Sol4ISRUProductionScene",
-            "Sol5SilenceCommsLagScene"
+            "Sol5SilenceCommsLagScene",
+            "Sol5LastSafeHabitatScene"
         ];
 
         for (const key of allSolKeys) {

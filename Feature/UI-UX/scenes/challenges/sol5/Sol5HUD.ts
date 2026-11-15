@@ -28,6 +28,9 @@ export class Sol5HUD {
 
     private timerText!: Phaser.GameObjects.Text;
     private timerBox!: Phaser.GameObjects.Graphics;
+    private repairProgressFill!: Phaser.GameObjects.Graphics;
+    private repairProgressText!: Phaser.GameObjects.Text;
+    private repairsCompleted = 0;
 
     // Objectives checkmarks
     private objectiveTexts: Record<SubsystemId, Phaser.GameObjects.Text> = {} as any;
@@ -58,7 +61,7 @@ export class Sol5HUD {
         const { width } = this.scene.scale;
 
         // 1. TOP EMERGENCY DASHBOARD spans the game canvas; fullscreen is keyboard-only.
-        const dashW = 1240;
+        const dashW = width - 40;
         const dashH = 68;
         const dashX = 20;
         const dashY = 12;
@@ -92,6 +95,7 @@ export class Sol5HUD {
 
         // [5] EMERGENCY COUNTDOWN TIMER (x = dashX + 660)
         this.createCountdownTimer(dashX + 655, dashY + 12);
+        this.createRepairProgress(dashX + 825, dashY + 12);
 
         // Pause & Guide Buttons (Top Right inside visor)
         const guideBtn = ButtonFactory.createButton({
@@ -201,6 +205,40 @@ export class Sol5HUD {
         }).setOrigin(0.5);
 
         this.container.add([tTag, this.timerText]);
+    }
+
+    private createRepairProgress(x: number, y: number) {
+        this.repairProgressText = this.scene.add.text(x, y + 4, "REPAIRS  0 / 4", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10px",
+            color: UITheme.colors.bioGreenStr,
+            fontStyle: "bold"
+        });
+
+        const track = this.scene.add.graphics();
+        track.fillStyle(0x020712, 0.95);
+        track.fillRoundedRect(x, y + 24, 172, 12, 4);
+        track.lineStyle(1, UITheme.colors.panelBorder, 0.8);
+        track.strokeRoundedRect(x, y + 24, 172, 12, 4);
+
+        this.repairProgressFill = this.scene.add.graphics();
+        this.container.add([this.repairProgressText, track, this.repairProgressFill]);
+        this.updateRepairProgress();
+    }
+
+    private updateRepairProgress() {
+        this.repairProgressText.setText(`REPAIRS  ${this.repairsCompleted} / 4`);
+        this.repairProgressFill.clear();
+        if (this.repairsCompleted > 0) {
+            this.repairProgressFill.fillStyle(UITheme.colors.bioGreen, 1);
+            this.repairProgressFill.fillRoundedRect(
+                20 + 825 + 2,
+                12 + 12 + 24 + 2,
+                168 * (this.repairsCompleted / 4),
+                8,
+                3
+            );
+        }
     }
 
     private createObjectivesBox(x: number, y: number) {
@@ -370,6 +408,8 @@ export class Sol5HUD {
         const txt = this.objectiveTexts[id];
         if (!txt) return;
 
+        this.repairsCompleted = Math.min(4, this.repairsCompleted + 1);
+        this.updateRepairProgress();
         txt.setColor(UITheme.colors.bioGreenStr);
         const cur = txt.text.replace("[ ⚠ ]", "[ ✔ ]");
         txt.setText(cur + " — RESTORED");
