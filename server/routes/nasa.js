@@ -1,5 +1,8 @@
 import express from "express";
-import { getSpaceWeather } from "../services/donkiService.js";
+import {
+  getCMEs,
+  getSolarFlares
+} from "../services/donkiService.js";
 import {
   getMarsWeatherTelemetry,
   getSol2State,
@@ -14,10 +17,31 @@ const router = express.Router();
  */
 router.get("/space-weather", async (req, res) => {
   try {
-    const data = await getSpaceWeather();
+    const [solarFlares, cmes] = await Promise.all([
+      getSolarFlares(),
+      getCMEs()
+    ]);
+    const events = [
+      ...solarFlares.data.map((event) => ({ ...event, type: "SOLAR_FLARE" })),
+      ...cmes.data.map((event) => ({ ...event, type: "CME" }))
+    ].sort((a, b) => {
+      const timeA = new Date(a.beginTime || a.startTime || 0).getTime();
+      const timeB = new Date(b.beginTime || b.startTime || 0).getTime();
+      return timeB - timeA;
+    });
+
     res.json({
       success: true,
-      data
+      data: {
+        source: "NASA DONKI",
+        period: solarFlares.period,
+        fetchedAt: new Date().toISOString(),
+        totalEvents: events.length,
+        latestEvents: events.slice(0, 10),
+        status: events.length > 0
+          ? "EVENTS_REPORTED"
+          : "NO_EVENTS_REPORTED"
+      }
     });
   } catch (error) {
     console.error("DONKI API error:", error.message);
