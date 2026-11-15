@@ -33,6 +33,24 @@ interface SiteCardVisualRefs {
     titleText: Phaser.GameObjects.Text;
 }
 
+/**
+ * Terrain mosaic sources. The screen uses `textureKey` (normally loaded by an earlier scene).
+ * If that key is missing, it reuses an alias key loaded elsewhere (e.g. by MarsWorldScene),
+ * and otherwise tries to load the file itself, trying several image extensions.
+ */
+const TERRAIN_DIR = "/assets/game/mars/";
+const TERRAIN_EXTENSIONS = ["png", "jpg", "jpeg", "webp"];
+const TERRAIN_SOURCES: Record<LandingSiteId, { baseName: string; aliases: string[] }> = {
+    jezero: {
+        baseName: "jezero-ctx-mosaic-3x3",
+        aliases: ["mars_terrain_jezero", "mars_terrain"]
+    },
+    arcadia: {
+        baseName: "arcadia-planitia-ctx-mosaic-3x3",
+        aliases: []
+    }
+};
+
 export class LandingSiteSelector {
     private scene: Phaser.Scene;
     private container: Phaser.GameObjects.Container;
@@ -44,6 +62,9 @@ export class LandingSiteSelector {
     private previewDynamicContainer!: Phaser.GameObjects.Container;
     private activeTweens: Phaser.Tweens.Tween[] = [];
     private fullscreenText?: Phaser.GameObjects.Text;
+
+    private destroyed = false;
+    private pendingLoadCleanups = new Set<() => void>();
 
     private readonly siteData: Record<LandingSiteId, LandingSiteInfo> = {
         jezero: {
@@ -63,7 +84,7 @@ export class LandingSiteSelector {
             id: "arcadia",
             name: "ARCADIA PLANITIA",
             coordinates: "39.30° N, 188.0° E",
-            
+            terrainType: "Smooth Northern Plains & Shallow Ice Sheets",
             targetFocus: "In-Situ Water Ice Extraction & Base Expansion",
             elevation: "-4.0 km (Atmospheric Shielding)",
             iceDepth: "1.0 - 2.5 meters (Shallow Sheet Ice)",
@@ -102,7 +123,7 @@ export class LandingSiteSelector {
             fallbackAccentColor: 0xc96e4b
         },
         arcadia: {
-            
+            subtitle: "Ice-rich northern plains",
             highlight: "High Water Potential",
             elevationShort: "-4.0 km",
             iceShort: "Shallow Sheet Ice",
@@ -124,6 +145,9 @@ export class LandingSiteSelector {
         this.init();
         this.scene.input.keyboard?.on("keydown", this.handleKeyboard, this);
         this.scene.scale.on("fullscreenchange", this.updateFullscreenLabel, this);
+
+        // If a terrain image failed to load earlier (wrong file extension, etc.), try to recover it now
+        this.recoverMissingTerrain();
     }
 
     public getContainer(): Phaser.GameObjects.Container {
@@ -134,6 +158,73 @@ export class LandingSiteSelector {
         if (!this.scene.textures.exists(key)) return false;
         const tex = this.scene.textures.get(key);
         return tex.key !== "__MISSING" && tex.getSourceImage() !== null;
+    }
+
+    /** Returns the first usable terrain texture key for a site (its own key, then aliases), or null. */
+    private resolveTerrainKey(id: LandingSiteId): string | null {
+        const candidates = [this.cardSummaryData[id].textureKey, ...TERRAIN_SOURCES[id].aliases];
+        return candidates.find((key) => this.hasValidTexture(key)) ?? null;
+    }
+
+    /** Tries to load any terrain texture that is still missing, then rebuilds the screen with it. */
+    private recoverMissingTerrain() {
+        (["jezero", "arcadia"] as LandingSiteId[]).forEach((id) => {
+            if (this.resolveTerrainKey(id)) return;
+            const source = TERRAIN_SOURCES[id];
+            const urls = TERRAIN_EXTENSIONS.map((ext) => `${TERRAIN_DIR}${source.baseName}.${ext}`);
+            this.tryLoadImageVariants(this.cardSummaryData[id].textureKey, urls, () => this.rebuild());
+        });
+    }
+
+    /**
+     * Tries candidate URLs for one texture key until one loads. All listeners are removed
+     * on success, on final failure and in destroy().
+     */
+    private tryLoadImageVariants(key: string, urls: string[], onLoaded: () => void, index = 0) {
+        if (this.destroyed) return;
+        if (index >= urls.length) {
+            console.warn(
+                `[LandingSiteSelector] Could not load "${key}" from any of: ${urls.join(", ")}. ` +
+                "Showing the radar placeholder instead. Check the filename and extension under /public."
+            );
+            return;
+        }
+
+        const loader = this.scene.load;
+        const successEvent = `filecomplete-image-${key}`;
+
+        const cleanup = () => {
+            loader.off(successEvent, onSuccess);
+            loader.off(Phaser.Loader.Events.FILE_LOAD_ERROR, onError);
+            this.pendingLoadCleanups.delete(cleanup);
+        };
+        const onSuccess = () => {
+            cleanup();
+            if (!this.destroyed) onLoaded();
+        };
+        const onError = (file: Phaser.Loader.File) => {
+            if (file.key !== key) return;
+            cleanup();
+            // Defer so the loader can finish its current batch before the next candidate is queued
+            this.scene.time.delayedCall(0, () => this.tryLoadImageVariants(key, urls, onLoaded, index + 1));
+        };
+
+        this.pendingLoadCleanups.add(cleanup);
+        loader.on(successEvent, onSuccess);
+        loader.on(Phaser.Loader.Events.FILE_LOAD_ERROR, onError);
+        loader.image(key, urls[index]);
+        if (!loader.isLoading()) loader.start();
+    }
+
+    /** Rebuilds the whole screen inside the same container (keeps the selected site). */
+    private rebuild() {
+        if (this.destroyed || !this.container.active) return;
+        this.activeTweens.forEach((tween) => tween.stop());
+        this.activeTweens = [];
+        this.container.removeAll(true);
+        this.siteCards.clear();
+        this.fullscreenText = undefined;
+        this.init();
     }
 
     private init() {
@@ -436,13 +527,14 @@ export class LandingSiteSelector {
         thumbFrame.strokeRoundedRect(thumbX - thumbSize / 2 - 2, thumbY - thumbSize / 2 - 2, thumbSize + 4, thumbSize + 4, 12);
         visuals.add(thumbFrame);
 
-        if (this.hasValidTexture(summary.textureKey)) {
+        const thumbKey = this.resolveTerrainKey(id);
+        if (thumbKey) {
             const thumbImg = this.createCoverTerrainImage(
                 thumbX,
                 thumbY,
                 thumbSize - 2,
                 thumbSize - 2,
-                summary.textureKey
+                thumbKey
             );
             visuals.add(thumbImg);
         } else {
@@ -460,7 +552,8 @@ export class LandingSiteSelector {
         const textLeft = -w / 2 + 20 + thumbSize + 18;
         const textWrapWidth = w / 2 - textLeft - 46;
 
-        const titleText = this.scene.add.text(textLeft, -h / 2 + 28, data.name, {
+        const titleY = -h / 2 + 28;
+        const titleText = this.scene.add.text(textLeft, titleY, data.name, {
             fontFamily: UITheme.fonts.heading,
             fontSize: "21px",
             color: "#FFFFFF",
@@ -469,7 +562,8 @@ export class LandingSiteSelector {
         });
         visuals.add(titleText);
 
-        const subtitleText = this.scene.add.text(textLeft, -h / 2 + 62, summary.subtitle, {
+        const subtitleY = titleY + titleText.height + 8;
+        const subtitleText = this.scene.add.text(textLeft, subtitleY, summary.subtitle, {
             fontFamily: UITheme.fonts.body,
             fontSize: "15px",
             color: "#C4D8F2",
@@ -478,7 +572,7 @@ export class LandingSiteSelector {
         visuals.add(subtitleText);
 
         // Highlight pill badge (High Science Value / High Water Potential)
-        const pillY = -h / 2 + 98;
+        const pillY = subtitleY + subtitleText.height + 12;
         const badgePill = this.scene.add.graphics();
         badgePill.fillStyle(id === "jezero" ? 0x072b42 : 0x361e09, 0.9);
         badgePill.fillRoundedRect(textLeft, pillY, Math.min(textWrapWidth + 18, 210), 30, 15);
@@ -646,18 +740,9 @@ export class LandingSiteSelector {
 
         const innerSize = mapSize - 8;
 
-        if (data.id === "jezero" && this.hasValidTexture("jezero-mosaic")) {
-            const img = this.createCoverTerrainImage(mapCenterX, mapCenterY, innerSize, innerSize, "jezero-mosaic");
-            img.setAlpha(0);
-            this.previewDynamicContainer.add(img);
-            this.scene.tweens.add({
-                targets: img,
-                alpha: 1,
-                duration: 200,
-                ease: "Quad.easeOut"
-            });
-        } else if (data.id === "arcadia" && this.hasValidTexture("arcadia-mosaic")) {
-            const img = this.createCoverTerrainImage(mapCenterX, mapCenterY, innerSize, innerSize, "arcadia-mosaic");
+        const terrainKey = this.resolveTerrainKey(data.id);
+        if (terrainKey) {
+            const img = this.createCoverTerrainImage(mapCenterX, mapCenterY, innerSize, innerSize, terrainKey);
             img.setAlpha(0);
             this.previewDynamicContainer.add(img);
             this.scene.tweens.add({
@@ -1031,6 +1116,9 @@ export class LandingSiteSelector {
     }
 
     public destroy() {
+        this.destroyed = true;
+        this.pendingLoadCleanups.forEach((cleanup) => cleanup());
+        this.pendingLoadCleanups.clear();
         this.scene.input.keyboard?.off("keydown", this.handleKeyboard, this);
         this.scene.scale.off("fullscreenchange", this.updateFullscreenLabel, this);
         this.activeTweens.forEach(tween => tween.stop());

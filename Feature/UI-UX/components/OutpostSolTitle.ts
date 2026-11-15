@@ -45,7 +45,7 @@ const LANDING_SITE_CONFIGS: Record<string, LandingSiteVisualConfig> = {
     },
     arcadia: {
         label: "ARCADIA PLANITIA",
-        textureKeys: ["arcadia-mosaic", "arcadia-tile", "mars_terrain"],
+        textureKeys: ["arcadia-mosaic", "mars_terrain"],
         tint: 0xd98a70,
         distantColor: 0x5c3b52,
         highlightColor: 0x9e635b,
