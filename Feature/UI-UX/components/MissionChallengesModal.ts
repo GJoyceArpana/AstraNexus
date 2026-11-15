@@ -25,7 +25,7 @@ export interface SolChallengeDetail {
     secondaryActionText?: string;
 }
 
-/** Shared modal frame size (the frame is drawn in init(); Sol 1–4 lay themselves out inside it). */
+/** Shared modal frame size (the frame is drawn in init(); Sol 1–5 lay themselves out inside it). */
 const MODAL_W = 1160;
 const MODAL_H = 640;
 /** Tabs occupy frameY+70 .. frameY+110, so custom Sol briefing areas start below them. */
@@ -43,7 +43,10 @@ type StagePillIcon =
     | "dustdevil"
     | "relay"
     | "roverCmd"
-    | "transmit";
+    | "transmit"
+    | "inspectHabitat"
+    | "repairSystems"
+    | "saveColony";
 
 export class MissionChallengesModal {
     private scene: Phaser.Scene;
@@ -56,17 +59,18 @@ export class MissionChallengesModal {
         2: { currentVal: 0, completed: false },    // 0 / 4 solar panels cleaned
         3: { currentVal: 0, completed: false },    // 0 / 3 signal mission stages
         4: { currentVal: 1, completed: false },    // ISRU systems active
-        5: { currentVal: 2, completed: false },    // 2 commands queued
+        5: { currentVal: 0, completed: false },    // 0 / 4 habitat systems repaired
     };
 
     private contentContainer!: Phaser.GameObjects.Container;
     private tabButtons: Phaser.GameObjects.Container[] = [];
     private fullscreenText?: Phaser.GameObjects.Text;
 
-    // Sol 1, Sol 2 & Sol 3 briefing tweens
+    // Sol 1, Sol 2, Sol 3 & Sol 5 briefing tweens
     private sol1Tweens: Phaser.Tweens.Tween[] = [];
     private sol2Tweens: Phaser.Tweens.Tween[] = [];
     private sol3Tweens: Phaser.Tweens.Tween[] = [];
+    private sol5Tweens: Phaser.Tweens.Tween[] = [];
 
     // Sol 4 briefing state
     private sol4WeatherTitle?: Phaser.GameObjects.Text;
@@ -144,19 +148,19 @@ export class MissionChallengesModal {
         },
         5: {
             solNumber: 5,
-            title: "SOL 5: THE 12-MINUTE SILENCE",
-            codename: "SOLAR STORM & COMMS LAG",
-            icon: "📡",
-            hazardBadge: "CME PROTON FLARE (+85 mSv) & COMMS BLACKOUT",
-            briefing: "NASA DONKI space weather reports an X-class solar flare launching an energetic Coronal Mass Ejection (CME) toward Mars. Because radio signals take 12 minutes one-way, you must pre-program autonomous rover actions!",
-            nasaFact: "Radio signals between Earth and Mars take 4 to 24 minutes depending on planetary orbits. Mars rovers must execute pre-programmed drive sequences autonomously.",
-            primaryTarget: "Shelter crew inside regolith bunker and queue autonomous rover actions.",
-            progressMetric: "Command Queue Slots",
-            currentVal: 2,
-            targetVal: 3,
-            unit: "Slots",
-            actionButtonText: "🤖 EXECUTE PRE-PROGRAMMED BUFFER",
-            secondaryActionText: "🛡️ MOVE CREW TO STORM BUNKER"
+            title: "SOL 5: THE LAST SAFE HABITAT",
+            codename: "MARS HABITAT EMERGENCY REPAIR",
+            icon: "🏠",
+            hazardBadge: "CRITICAL LIFE-SUPPORT FAILURE",
+            briefing: "A powerful Martian storm has damaged the colony habitat! Oxygen is leaking, electrical systems are offline, and pressure is unstable. Explore the habitat, solve engineering repair puzzles, and save the crew before oxygen pressure reaches a critical level!",
+            nasaFact: "Human missions to Mars will require reliable life-support systems that regulate cabin pressure, oxygen, electrical power, and habitat integrity. These systems must continue operating even in harsh Martian conditions.",
+            primaryTarget: "Repair all four critical habitat systems and restore safe operating conditions.",
+            progressMetric: "REPAIRS COMPLETED",
+            currentVal: 0,
+            targetVal: 4,
+            unit: "Systems",
+            actionButtonText: "🚀 ENTER HABITAT REPAIR MISSION",
+            secondaryActionText: "🛠️ INSPECT HABITAT SYSTEMS"
         }
     };
 
@@ -366,7 +370,7 @@ export class MissionChallengesModal {
 
             tabContainer.on("pointerout", () => {
                 if (i !== this.currentSolTab) {
-                    this.drawTabBackground(bg, tabW, tabH, false, false);
+                    this.drawTabBackground(bg, tabW, tabH, false, false, false, this.activeSolData[i].completed);
                 }
             });
 
@@ -437,6 +441,7 @@ export class MissionChallengesModal {
         this.clearSol2Tweens();
         this.clearSol3Tweens();
         this.clearSol4Tweens();
+        this.clearSol5Tweens();
         this.sol4WeatherTitle = undefined;
         this.sol4WeatherDetail = undefined;
         this.contentContainer.removeAll(true);
@@ -458,6 +463,11 @@ export class MissionChallengesModal {
         }
         if (sol === 4) {
             this.renderSol4Briefing();
+            this.animateContentIn();
+            return;
+        }
+        if (sol === 5) {
+            this.renderSol5Briefing();
             this.animateContentIn();
             return;
         }
@@ -741,7 +751,7 @@ export class MissionChallengesModal {
     }
 
     // =====================================================================
-    // SHARED ILLUSTRATED STAGE BRIEFING SHELL (SOL 1, SOL 2, SOL 3, SOL 4)
+    // SHARED ILLUSTRATED STAGE BRIEFING SHELL (SOL 1, SOL 2, SOL 3, SOL 4, SOL 5)
     // =====================================================================
 
     private buildThreeStageBriefingBase(opts: {
@@ -1918,6 +1928,392 @@ export class MissionChallengesModal {
         }
     }
 
+    // =====================================================================
+    // SOL 5 BRIEFING: THE LAST SAFE HABITAT (3-STAGE VISUAL BRIEFING)
+    // =====================================================================
+
+    private clearSol5Tweens() {
+        this.sol5Tweens.forEach((t) => t.remove());
+        this.sol5Tweens = [];
+    }
+
+    private renderSol5Briefing() {
+        const { root, colX, stageBottom, pillY } = this.buildThreeStageBriefingBase({
+            solNumber: 5,
+            titleText: "THE LAST SAFE HABITAT",
+            subtitleText: "Repair the damaged habitat, restore life-support systems, and save the Mars colony!",
+            deployText: "🚀 DEPLOY TO SOL 5 – SAVE THE HABITAT →",
+            attributionText: "NASA Mars Habitat Life-Support & Structural Integrity Protocol",
+            tweensList: this.sol5Tweens
+        });
+
+        // Stage 1: Storm-damaged Mars habitat with hull cracks, leaking O2 pipe, red warning lights & astronaut inspector
+        this.drawDamagedHabitat(root, colX[0], stageBottom - 6);
+
+        // Stage 2: Four-system engineering repair station (pipes, circuit board, pressure valve, hull patches)
+        this.drawHabitatRepairStation(root, colX[1], stageBottom - 6);
+
+        // Stage 3: Fully restored habitat dome with green status lights, flowing O2, stable pressure & celebrating astronaut
+        this.drawRestoredHabitat(root, colX[2], stageBottom - 6);
+
+        this.renderStagePillsAndCaptions(root, colX, pillY, [
+            {
+                label: "INSPECT HABITAT",
+                caption: "Identify damaged systems\nand locate critical failures.",
+                icon: "inspectHabitat"
+            },
+            {
+                label: "REPAIR SYSTEMS",
+                caption: "Fix air leaks, reconnect\ncircuits, regulate pressure,\nand repair structural damage.",
+                icon: "repairSystems"
+            },
+            {
+                label: "SAVE THE COLONY",
+                caption: "Restore life support and\nstabilize the Mars habitat.",
+                icon: "saveColony"
+            }
+        ]);
+    }
+
+    /**
+     * Sol 5 Stage 1: Storm-damaged Mars habitat with hull cracks, leaking O2 pipe, red emergency lights & inspecting astronaut
+     */
+    private drawDamagedHabitat(parent: Phaser.GameObjects.Container, x: number, bottom: number) {
+        const g = this.scene.add.graphics();
+
+        // Dust storm debris & wind-blown Martian regolith around habitat base
+        g.fillStyle(0xb4532a, 0.72);
+        g.fillEllipse(x - 52, bottom - 6, 44, 14);
+        g.fillEllipse(x + 48, bottom - 5, 50, 14);
+        g.fillStyle(0xd97742, 0.55);
+        g.fillEllipse(x - 10, bottom - 4, 88, 12);
+
+        // Damaged habitat dome & reinforced lower bulkhead
+        g.fillStyle(0x2a3b52, 1);
+        g.beginPath();
+        g.arc(x - 10, bottom - 18, 52, Math.PI, 0, false);
+        g.closePath();
+        g.fillPath();
+        g.lineStyle(2.5, 0x94a3b8, 0.9);
+        g.beginPath();
+        g.arc(x - 10, bottom - 18, 52, Math.PI, 0, false);
+        g.strokePath();
+
+        // Habitat metallic base ring & airlock door
+        g.fillStyle(0x475569, 1);
+        g.fillRoundedRect(x - 64, bottom - 22, 108, 18, 5);
+        g.lineStyle(2, 0x64748b, 1);
+        g.strokeRoundedRect(x - 64, bottom - 22, 108, 18, 5);
+
+        // Damaged airlock window (dim / flickering)
+        g.fillStyle(0x1e293b, 1);
+        g.fillRoundedRect(x - 24, bottom - 44, 24, 22, 4);
+        g.lineStyle(1.5, 0xf87171, 0.9);
+        g.strokeRoundedRect(x - 24, bottom - 44, 24, 22, 4);
+
+        // Jagged structural cracks across habitat dome walls
+        g.lineStyle(2.5, 0x0f172a, 1);
+        g.beginPath();
+        g.moveTo(x - 42, bottom - 46);
+        g.lineTo(x - 32, bottom - 36);
+        g.lineTo(x - 37, bottom - 27);
+        g.lineTo(x - 28, bottom - 20);
+        g.strokePath();
+
+        g.beginPath();
+        g.moveTo(x + 12, bottom - 54);
+        g.lineTo(x + 4, bottom - 42);
+        g.lineTo(x + 11, bottom - 34);
+        g.lineTo(x + 3, bottom - 24);
+        g.strokePath();
+
+        // Ruptured external oxygen pipe on left wall
+        g.fillStyle(0x64748b, 1);
+        g.fillRect(x - 74, bottom - 40, 14, 8);
+        g.fillRect(x - 74, bottom - 40, 7, 22);
+        g.lineStyle(2, 0x38bdf8, 0.9);
+        g.lineBetween(x - 74, bottom - 36, x - 62, bottom - 36);
+
+        // Damaged sparking electrical panel on right side of habitat
+        g.fillStyle(0x1e293b, 1);
+        g.fillRoundedRect(x + 24, bottom - 42, 20, 22, 3);
+        g.lineStyle(1.5, 0xf59e0b, 1);
+        g.strokeRoundedRect(x + 24, bottom - 42, 20, 22, 3);
+        // Loose dangling wire
+        g.lineStyle(1.5, 0xfacc15, 1);
+        g.beginPath();
+        g.moveTo(x + 34, bottom - 28);
+        g.lineTo(x + 42, bottom - 22);
+        g.lineTo(x + 38, bottom - 15);
+        g.strokePath();
+
+        // Compact astronaut figure inspecting the habitat on the right
+        const ax = x + 62;
+        // Backpack & spacesuit torso
+        g.fillStyle(0xcbd5e1, 1);
+        g.fillRoundedRect(ax - 9, bottom - 32, 6, 14, 2);
+        g.fillStyle(0xf8fafc, 1);
+        g.fillRoundedRect(ax - 5, bottom - 34, 13, 18, 4);
+        // Legs
+        g.fillRect(ax - 4, bottom - 16, 5, 13);
+        g.fillRect(ax + 2, bottom - 16, 5, 13);
+        // Helmet & gold visor facing left toward habitat
+        g.fillCircle(ax + 1, bottom - 41, 8);
+        g.fillStyle(0xf59e0b, 1);
+        g.fillRoundedRect(ax - 6, bottom - 44, 9, 6, 2);
+        // Scanner beam from astronaut's hand toward crack
+        g.lineStyle(1.5, 0x38bdf8, 0.75);
+        g.lineBetween(ax - 6, bottom - 26, x + 28, bottom - 32);
+
+        parent.add(g);
+
+        // Animated red emergency warning beacon + glow
+        const alertGlow = this.scene.add.circle(x - 10, bottom - 73, 12, 0xff3b30, 0.35);
+        const alertLight = this.scene.add.circle(x - 10, bottom - 73, 5, 0xff3b30, 1);
+        parent.add([alertGlow, alertLight]);
+
+        this.sol5Tweens.push(this.scene.tweens.add({
+            targets: [alertGlow, alertLight],
+            alpha: { from: 1, to: 0.2 },
+            scale: { from: 1.15, to: 0.8 },
+            duration: 550,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut"
+        }));
+
+        // Animated escaping oxygen gas puffs from ruptured pipe
+        const leakCloud = this.scene.add.graphics();
+        leakCloud.fillStyle(0x7dd3fc, 0.78);
+        leakCloud.fillCircle(x - 78, bottom - 44, 4);
+        leakCloud.fillCircle(x - 84, bottom - 52, 5.5);
+        leakCloud.fillCircle(x - 76, bottom - 60, 4.5);
+        parent.add(leakCloud);
+
+        this.sol5Tweens.push(this.scene.tweens.add({
+            targets: leakCloud,
+            y: -7,
+            alpha: { from: 0.9, to: 0.2 },
+            duration: 950,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut"
+        }));
+    }
+
+    /**
+     * Sol 5 Stage 2: Engineering repair station with 4 visible subsystems:
+     * 1) Oxygen pipes, 2) Circuit board, 3) Pressure control valve, 4) Structural repair patches
+     */
+    private drawHabitatRepairStation(parent: Phaser.GameObjects.Container, x: number, bottom: number) {
+        const g = this.scene.add.graphics();
+
+        // Engineering repair console frame
+        const bx = x - 78;
+        const by = bottom - 98;
+        const bw = 156;
+        const bh = 90;
+
+        g.fillStyle(0x0b1f3a, 0.96);
+        g.fillRoundedRect(bx, by, bw, bh, 9);
+        g.lineStyle(2, 0x00e5ff, 0.95);
+        g.strokeRoundedRect(bx, by, bw, bh, 9);
+
+        // Center divider cross separating the 4 engineering subsystems
+        g.lineStyle(1, 0x1e4976, 0.9);
+        g.lineBetween(x, by + 6, x, by + bh - 6);
+        g.lineBetween(bx + 6, by + bh / 2, bx + bw - 6, by + bh / 2);
+
+        // --- Quadrant 1 (Top-Left): Oxygen Pipes & Coupler ---
+        const q1x = bx + 39;
+        const q1y = by + 23;
+        g.fillStyle(0x475569, 1);
+        g.fillRoundedRect(q1x - 28, q1y - 5, 22, 10, 2);
+        g.fillRoundedRect(q1x + 6, q1y - 5, 22, 10, 2);
+        // Glowing cyan O2 flow inside pipes
+        g.fillStyle(0x38bdf8, 1);
+        g.fillRect(q1x - 25, q1y - 2, 16, 4);
+        g.fillRect(q1x + 9, q1y - 2, 16, 4);
+        // Yellow repair connector collar in middle
+        g.fillStyle(0xf59e0b, 1);
+        g.fillRoundedRect(q1x - 7, q1y - 8, 14, 16, 3);
+        g.lineStyle(1.5, 0xfef08a, 1);
+        g.strokeRoundedRect(q1x - 7, q1y - 8, 14, 16, 3);
+
+        // --- Quadrant 2 (Top-Right): Electrical Circuit Board ---
+        const q2x = bx + 117;
+        const q2y = by + 23;
+        g.fillStyle(0x064e3b, 1);
+        g.fillRoundedRect(q2x - 26, q2y - 14, 52, 28, 4);
+        g.lineStyle(1.5, 0x34d399, 0.9);
+        g.strokeRoundedRect(q2x - 26, q2y - 14, 52, 28, 4);
+        // Gold circuit traces & microchip
+        g.lineStyle(1.5, 0xfbbf24, 1);
+        g.lineBetween(q2x - 20, q2y - 6, q2x - 6, q2y - 6);
+        g.lineBetween(q2x + 6, q2y + 6, q2x + 20, q2y + 6);
+        g.lineBetween(q2x - 16, q2y + 7, q2x - 6, q2y + 7);
+        g.fillStyle(0x1e293b, 1);
+        g.fillRect(q2x - 7, q2y - 7, 14, 14);
+        g.lineStyle(1, 0x38bdf8, 1);
+        g.strokeRect(q2x - 7, q2y - 7, 14, 14);
+
+        // --- Quadrant 3 (Bottom-Left): Oxygen Pressure Control Valve ---
+        const q3x = bx + 39;
+        const q3y = by + 67;
+        // Pipe & circular pressure gauge + red/amber valve wheel
+        g.fillStyle(0x64748b, 1);
+        g.fillRect(q3x - 26, q3y + 4, 52, 7);
+        g.fillStyle(0x0f172a, 1);
+        g.fillCircle(q3x - 10, q3y - 4, 11);
+        g.lineStyle(2, 0x38bdf8, 1);
+        g.strokeCircle(q3x - 10, q3y - 4, 11);
+        // Gauge needle pointing to green zone
+        g.lineStyle(2, 0x22c55e, 1);
+        g.lineBetween(q3x - 10, q3y - 4, q3x - 4, q3y - 10);
+        // Valve handwheel
+        g.lineStyle(2.5, 0xf97316, 1);
+        g.strokeCircle(q3x + 15, q3y - 3, 9);
+        g.lineBetween(q3x + 6, q3y - 3, q3x + 24, q3y - 3);
+        g.lineBetween(q3x + 15, q3y - 12, q3x + 15, q3y + 6);
+
+        // --- Quadrant 4 (Bottom-Right): Structural Repair Patches & Wrench ---
+        const q4x = bx + 117;
+        const q4y = by + 67;
+        // Metal hull patch plate with corner rivets
+        g.fillStyle(0x94a3b8, 1);
+        g.fillRoundedRect(q4x - 24, q4y - 12, 34, 24, 3);
+        g.lineStyle(1.5, 0xe2e8f0, 1);
+        g.strokeRoundedRect(q4x - 24, q4y - 12, 34, 24, 3);
+        g.fillStyle(0x1e293b, 1);
+        [[-19, -8], [5, -8], [-19, 8], [5, 8]].forEach(([rx, ry]) => {
+            g.fillCircle(q4x + rx, q4y + ry, 1.8);
+        });
+        // Repair wrench beside patch
+        g.lineStyle(3.5, 0xfbbf24, 1);
+        g.lineBetween(q4x + 16, q4y + 10, q4x + 24, q4y - 8);
+        g.fillStyle(0xfbbf24, 1);
+        g.fillCircle(q4x + 24, q4y - 9, 4.5);
+
+        parent.add(g);
+
+        // Subtle animated cyan electrical spark on circuit board
+        const spark = this.scene.add.graphics();
+        spark.lineStyle(2, 0x00f0ff, 1);
+        spark.lineBetween(q2x + 10, q2y - 10, q2x + 16, q2y - 4);
+        spark.lineBetween(q2x + 16, q2y - 10, q2x + 10, q2y - 4);
+        parent.add(spark);
+
+        this.sol5Tweens.push(this.scene.tweens.add({
+            targets: spark,
+            alpha: { from: 1, to: 0.15 },
+            duration: 420,
+            yoyo: true,
+            repeat: -1,
+            ease: "Quad.easeInOut"
+        }));
+    }
+
+    /**
+     * Sol 5 Stage 3: Restored, pressurized Mars habitat dome with green indicators, flowing O2 & celebrating astronaut
+     */
+    private drawRestoredHabitat(parent: Phaser.GameObjects.Container, x: number, bottom: number) {
+        const g = this.scene.add.graphics();
+
+        // Outer protective shield dome glow
+        g.fillStyle(0x38bdf8, 0.16);
+        g.beginPath();
+        g.arc(x - 10, bottom - 16, 64, Math.PI, 0, false);
+        g.closePath();
+        g.fillPath();
+        g.lineStyle(2, 0x38bdf8, 0.85);
+        g.beginPath();
+        g.arc(x - 10, bottom - 16, 64, Math.PI, 0, false);
+        g.strokePath();
+
+        // Repaired futuristic habitat shell
+        g.fillStyle(0x1e3a5f, 1);
+        g.beginPath();
+        g.arc(x - 10, bottom - 18, 52, Math.PI, 0, false);
+        g.closePath();
+        g.fillPath();
+        g.lineStyle(2.5, 0x7dd3fc, 1);
+        g.beginPath();
+        g.arc(x - 10, bottom - 18, 52, Math.PI, 0, false);
+        g.strokePath();
+
+        // Reinforced base platform
+        g.fillStyle(0x334155, 1);
+        g.fillRoundedRect(x - 66, bottom - 22, 112, 18, 5);
+        g.lineStyle(2, 0x22c55e, 0.95);
+        g.strokeRoundedRect(x - 66, bottom - 22, 112, 18, 5);
+
+        // Warmly illuminated habitat windows & airlock
+        g.fillStyle(0xfef08a, 0.92);
+        g.fillRoundedRect(x - 24, bottom - 44, 24, 22, 4);
+        g.lineStyle(2, 0x22c55e, 1);
+        g.strokeRoundedRect(x - 24, bottom - 44, 24, 22, 4);
+
+        g.fillStyle(0x7dd3fc, 0.9);
+        g.fillCircle(x - 40, bottom - 34, 6);
+        g.fillCircle(x + 18, bottom - 34, 6);
+
+        // Transparent intact oxygen supply pipe on left with glowing O2 stream
+        g.lineStyle(6, 0x94a3b8, 0.85);
+        g.beginPath();
+        g.moveTo(x - 76, bottom - 16);
+        g.lineTo(x - 76, bottom - 40);
+        g.lineTo(x - 58, bottom - 40);
+        g.strokePath();
+        g.lineStyle(3, 0x00f0ff, 1);
+        g.beginPath();
+        g.moveTo(x - 76, bottom - 16);
+        g.lineTo(x - 76, bottom - 40);
+        g.lineTo(x - 58, bottom - 40);
+        g.strokePath();
+
+        // Green operational beacon on roof & stable pressure gauge badge on right
+        g.fillStyle(0x22c55e, 1);
+        g.fillCircle(x - 10, bottom - 74, 5.5);
+
+        // Stable green pressure gauge indicator on right wall
+        g.fillStyle(0x06281e, 1);
+        g.fillCircle(x + 34, bottom - 34, 10);
+        g.lineStyle(2, 0x22c55e, 1);
+        g.strokeCircle(x + 34, bottom - 34, 10);
+        g.lineStyle(2, 0x4ade80, 1);
+        g.lineBetween(x + 34, bottom - 34, x + 34, bottom - 41);
+
+        parent.add(g);
+
+        // Celebrating astronaut with raised arms beside the restored habitat
+        const celebAstro = this.scene.add.container(x + 64, bottom - 22);
+        const ag = this.scene.add.graphics();
+        // Spacesuit body & legs
+        ag.fillStyle(0xf8fafc, 1);
+        ag.fillRoundedRect(-6, -12, 12, 17, 4);
+        ag.fillRect(-5, 5, 4, 13);
+        ag.fillRect(1, 5, 4, 13);
+        // Raised celebrating arms
+        ag.lineStyle(3.5, 0xf8fafc, 1);
+        ag.lineBetween(-6, -8, -14, -19);
+        ag.lineBetween(6, -8, 14, -19);
+        // Helmet & gold visor
+        ag.fillCircle(0, -19, 8);
+        ag.fillStyle(0xf59e0b, 1);
+        ag.fillRoundedRect(-5, -22, 10, 6, 2);
+        celebAstro.add(ag);
+        parent.add(celebAstro);
+
+        this.sol5Tweens.push(this.scene.tweens.add({
+            targets: celebAstro,
+            y: celebAstro.y - 5,
+            duration: 850,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut"
+        }));
+    }
+
     private drawStageIcon(g: Phaser.GameObjects.Graphics, icon: StagePillIcon, x: number, y: number) {
         if (icon === "oxygen") {
             g.lineStyle(3, 0x75e8ff, 1);
@@ -1985,6 +2381,30 @@ export class MissionChallengesModal {
             g.lineBetween(x + 6, y + 7, x + 6, y - 7);
             g.lineBetween(x + 2, y - 3, x + 6, y - 7);
             g.lineBetween(x + 10, y - 3, x + 6, y - 7);
+        } else if (icon === "inspectHabitat") {
+            // Magnifying glass + red emergency alert dot
+            g.lineStyle(2.5, 0x75e8ff, 1);
+            g.strokeCircle(x - 3, y - 2, 7);
+            g.lineBetween(x + 2, y + 3, x + 10, y + 10);
+            g.fillStyle(0xff4d4f, 1);
+            g.fillCircle(x - 3, y - 2, 3);
+        } else if (icon === "repairSystems") {
+            // Engineering wrench icon
+            g.lineStyle(3, 0xffc928, 1);
+            g.lineBetween(x - 8, y + 8, x + 7, y - 7);
+            g.fillStyle(0xffc928, 1);
+            g.fillCircle(x + 8, y - 8, 4.5);
+            g.fillStyle(0x062346, 1);
+            g.fillCircle(x + 9, y - 9, 2);
+        } else if (icon === "saveColony") {
+            // Protected habitat dome with green operational check/dot
+            g.lineStyle(2.5, 0x52e26a, 1);
+            g.beginPath();
+            g.arc(x, y + 5, 11, Math.PI, 0, false);
+            g.strokePath();
+            g.lineBetween(x - 12, y + 5, x + 12, y + 5);
+            g.fillStyle(0x52e26a, 1);
+            g.fillCircle(x, y - 1, 3.5);
         } else {
             g.fillStyle(0x52e26a, 1);
             g.fillEllipse(x - 5, y - 3, 14, 9);
@@ -2150,7 +2570,8 @@ export class MissionChallengesModal {
                 stateRecord.currentVal = Math.min(3, stateRecord.currentVal + 1);
                 break;
             case 5:
-                stateRecord.currentVal = 3;
+                stateRecord.currentVal = Math.min(4, stateRecord.currentVal + 1);
+                stateRecord.completed = stateRecord.currentVal >= 4;
                 break;
         }
 
@@ -2231,6 +2652,7 @@ export class MissionChallengesModal {
         this.clearSol2Tweens();
         this.clearSol3Tweens();
         this.clearSol4Tweens();
+        this.clearSol5Tweens();
         this.sol4WeatherAbort?.abort();
         this.sol4WeatherTitle = undefined;
         this.sol4WeatherDetail = undefined;
