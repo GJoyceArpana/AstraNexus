@@ -517,7 +517,7 @@ export class MarsWorldScene extends Phaser.Scene {
             this.openSwitchboard();
         });
 
-        // Open 7-Sol Mission Challenges on M
+        // Open 5-Sol Mission Challenges on M
         this.keys.M.on("down", () => {
             SoundFX.playClick();
             this.toggleMissionChallenges();
@@ -572,7 +572,7 @@ export class MarsWorldScene extends Phaser.Scene {
             width: 210,
             height: 38,
             fontSize: "11px",
-            text: "7 SOL CHALLENGES [M]",
+            text: "5 SOL CHALLENGES [M]",
             primaryColor: UITheme.colors.primaryCyan,
             secondaryColor: 0x061528,
             textColor: UITheme.colors.primaryCyanStr,
@@ -647,8 +647,8 @@ export class MarsWorldScene extends Phaser.Scene {
             container.add(line);
         });
 
-        // 7-Sol Mission Challenges link
-        const challengesLink = this.add.text(14, 146, "✦ VIEW 7-SOL CHALLENGES [M] ✦", {
+        // 5-Sol Mission Challenges link
+        const challengesLink = this.add.text(14, 146, "✦ VIEW 5-SOL CHALLENGES [M] ✦", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "11px",
             color: UITheme.colors.primaryCyanStr,
@@ -1000,15 +1000,25 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     // =========================================================
-    // 9B. 7-SOL MISSION CHALLENGES OVERLAY
+    // 9B. 5-SOL MISSION CHALLENGES OVERLAY
     // =========================================================
-    public toggleMissionChallenges() {
+    public toggleMissionChallenges(initialSol?: number) {
         if (this.missionChallengesModal) {
             this.missionChallengesModal.close();
             this.missionChallengesModal = undefined;
             return;
         }
 
+        this.openMissionChallenges(initialSol);
+    }
+
+    public openMissionChallenges(initialSol?: number) {
+        if (this.missionChallengesModal) {
+            this.missionChallengesModal.close();
+            this.missionChallengesModal = undefined;
+        }
+
+        const solToOpen = initialSol ?? this.solLevel;
         this.missionChallengesModal = new MissionChallengesModal(
             this,
             {
@@ -1024,7 +1034,7 @@ export class MarsWorldScene extends Phaser.Scene {
                     });
                 },
                 onAdvanceSol: (nextSol: number) => {
-                    this.solLevel = Math.min(7, nextSol);
+                    this.solLevel = Math.min(5, nextSol);
                     this.registry.set("solLevel", this.solLevel);
                     this.warningSystem.show({
                         type: "SUCCESS",
@@ -1034,7 +1044,7 @@ export class MarsWorldScene extends Phaser.Scene {
                     });
                 }
             },
-            this.solLevel
+            solToOpen
         );
     }
 

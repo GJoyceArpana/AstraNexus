@@ -38,6 +38,7 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
     // Sleek EVA Visor HUD elements
     protected visorBg!: Phaser.GameObjects.Graphics;
     protected progressText!: Phaser.GameObjects.Text;
+    protected progressPercentText!: Phaser.GameObjects.Text;
     protected progressFill!: Phaser.GameObjects.Graphics;
     protected statusBadge!: Phaser.GameObjects.Text;
     protected actionFeedbackText!: Phaser.GameObjects.Text;
@@ -215,9 +216,9 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
     private createVisorHUD() {
         // -------------------------------------------------------------
         // TOP VISOR: Mission Directive & Live Objective Progress
-        // Width: 1020 (ends at x = 1040, completely clear of #fullscreen-btn)
+        // Width: 1000 (ends at x = 1020, completely clear of #fullscreen-btn & power HUD)
         // -------------------------------------------------------------
-        const visorW = 1020;
+        const visorW = 1000;
         this.visorBg = this.add.graphics();
         this.visorBg.fillStyle(0x050C1B, 0.92);
         this.visorBg.fillRoundedRect(20, 14, visorW, 58, 12);
@@ -225,28 +226,30 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
         this.visorBg.strokeRoundedRect(20, 14, visorW, 58, 12);
         this.visorBg.setDepth(100);
 
-        // Sol Title
-        this.add.text(38, 24, `✦ ${this.challengeConfig.title}`, {
+        // Sol Title (strictly wrapped to 620px to prevent ever reaching the progress gauge)
+        this.add.text(38, 22, `✦ ${this.challengeConfig.title}`, {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "14.5px",
+            fontSize: "14px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold",
-            letterSpacing: 1.2
+            letterSpacing: 1.2,
+            wordWrap: { width: 620 }
         }).setDepth(101);
 
-        // Sol Directive Target
-        this.add.text(38, 46, `DIRECTIVE: ${this.challengeConfig.primaryTarget}`, {
+        // Sol Directive Target (strictly wrapped to 620px)
+        this.add.text(38, 44, `DIRECTIVE: ${this.challengeConfig.primaryTarget}`, {
             fontFamily: UITheme.fonts.heading,
             fontSize: "10.5px",
             color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
+            fontStyle: "bold",
+            wordWrap: { width: 620 }
         }).setDepth(101);
 
-        // Objective Progress Gauge inside the Visor (x = 790 to 1010)
-        const gaugeW = 220;
-        const gaugeH = 18;
-        const gaugeX = 20 + visorW - 20 - gaugeW; // 800
-        const gaugeY = 38;
+        // Objective Progress Gauge inside the Visor (x = 730 to 1000)
+        const gaugeW = 270;
+        const gaugeH = 16;
+        const gaugeX = 20 + visorW - 20 - gaugeW; // 730
+        const gaugeY = 42;
 
         const track = this.add.graphics();
         track.fillStyle(0x020712, 0.95);
@@ -257,18 +260,28 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
 
         this.progressFill = this.add.graphics().setDepth(102);
 
-        this.progressText = this.add.text(gaugeX, gaugeY - 15, "", {
+        // Above the gauge: Left aligned progress text (e.g., "4 / 4 Panels Cleaned")
+        this.progressText = this.add.text(gaugeX, 23, "", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "10px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
         }).setDepth(102);
 
-        this.statusBadge = this.add.text(gaugeX + gaugeW, gaugeY - 15, "", {
+        // Above the gauge: Right aligned status badge (e.g., "✔ COMPLETED"), leaving 90px+ clear gap
+        this.statusBadge = this.add.text(gaugeX + gaugeW, 23, "", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "10px",
             fontStyle: "bold"
         }).setOrigin(1, 0).setDepth(102);
+
+        // Inside the bar: Centered percentage label
+        this.progressPercentText = this.add.text(gaugeX + gaugeW / 2, gaugeY + gaugeH / 2, "", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "9px",
+            color: "#FFFFFF",
+            fontStyle: "bold"
+        }).setOrigin(0.5, 0.5).setDepth(103);
 
         this.updateVisorProgress(this.currentVal, this.challengeConfig.targetVal, this.challengeConfig.unit);
 
@@ -327,7 +340,7 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
             textColor: "#FFFFFF",
             onClick: () => {
                 SoundFX.playClick();
-                this.completeChallengeAndAdvance();
+                this.completeChallengeAndAdvance(true);
             }
         });
         this.advanceBtnContainer.setDepth(102);
@@ -356,16 +369,22 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
 
         if (!this.progressText || !this.statusBadge || !this.progressFill) return;
 
-        const visorW = 1020;
-        const gaugeW = 220;
-        const gaugeH = 18;
+        const visorW = 1000;
+        const gaugeW = 270;
+        const gaugeH = 16;
         const gaugeX = 20 + visorW - 20 - gaugeW;
-        const gaugeY = 38;
+        const gaugeY = 42;
 
-        this.progressText.setText(`DIRECTIVE: ${current.toFixed(1)} / ${target.toFixed(1)} ${unit}`);
+        const curStr = Number.isInteger(current) ? current.toString() : current.toFixed(1);
+        const tarStr = Number.isInteger(target) ? target.toString() : target.toFixed(1);
+        this.progressText.setText(`${curStr} / ${tarStr} ${unit}`);
 
-        this.statusBadge.setText(met ? "✔ DIRECTIVE SATISFIED" : "⏳ IN PROGRESS");
+        this.statusBadge.setText(met ? "✔ COMPLETED" : "⏳ IN PROGRESS");
         this.statusBadge.setColor(met ? UITheme.colors.bioGreenStr : UITheme.colors.solarGoldStr);
+
+        if (this.progressPercentText) {
+            this.progressPercentText.setText(`${Math.round(pct * 100)}%`);
+        }
 
         this.progressFill.clear();
         this.progressFill.fillStyle(met ? UITheme.colors.bioGreen : UITheme.colors.primaryCyan, 1);
@@ -505,7 +524,7 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
         });
     }
 
-    protected completeChallengeAndAdvance() {
+    protected completeChallengeAndAdvance(openListing = false) {
         if (!this.isTargetMet()) {
             SoundFX.playAlert();
             this.setActionFeedback("⚠ PRIMARY OBJECTIVE NOT MET YET! INTERACT WITH MARTIAN SURFACE OBJECTS.", false);
@@ -518,19 +537,28 @@ export abstract class SolChallengeBaseScene extends Phaser.Scene {
 
         SoundFX.playToggle(true);
 
-        const marsScene = this.scene.get("MarsWorldScene");
+        const marsScene = this.scene.get("MarsWorldScene") as any;
         if (marsScene) {
             marsScene.events.emit("solLevelUpdated", nextSol);
         }
-        this.returnToMars();
+        this.returnToMars(openListing, nextSol);
     }
 
-    protected returnToMars() {
+    protected returnToMars(openListing = false, targetSol?: number) {
         this.scene.stop();
-        const marsScene = this.scene.get("MarsWorldScene");
+        const marsScene = this.scene.get("MarsWorldScene") as any;
         if (marsScene) {
             marsScene.scene.wake();
             marsScene.scene.bringToTop();
+            if (openListing) {
+                marsScene.time?.delayedCall(120, () => {
+                    if (typeof marsScene.openMissionChallenges === "function") {
+                        marsScene.openMissionChallenges(targetSol ?? marsScene.solLevel);
+                    } else if (typeof marsScene.toggleMissionChallenges === "function") {
+                        marsScene.toggleMissionChallenges(targetSol ?? marsScene.solLevel);
+                    }
+                });
+            }
         } else {
             this.scene.start("MarsWorldScene");
         }

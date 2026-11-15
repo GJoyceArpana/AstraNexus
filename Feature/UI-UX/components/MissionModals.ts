@@ -227,7 +227,7 @@ export class MissionModals {
             color: "#FFFFFF",
             wordWrap: { width: modalW - 100 }
         });
-        const ctrlText3 = scene.add.text(modalX + 50, modalY + 174, "• [ P ]: Power Switchboard   |   [ M ]: 7-Sol Challenges", {
+        const ctrlText3 = scene.add.text(modalX + 50, modalY + 174, "• [ P ]: Power Switchboard   |   [ M ]: 5-Sol Challenges", {
             fontFamily: UITheme.fonts.body,
             fontSize: "12.5px",
             color: UITheme.colors.solarGoldStr,
