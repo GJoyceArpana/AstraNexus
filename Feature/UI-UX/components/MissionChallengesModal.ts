@@ -616,9 +616,8 @@ export class MissionChallengesModal {
                 stateRecord.currentVal = Math.min(3, stateRecord.currentVal + 1);
                 break;
             case 5:
-                // Repair habitat subsystem
-                stateRecord.currentVal = Math.min(4, stateRecord.currentVal + 1);
-                stateRecord.completed = stateRecord.currentVal >= 4;
+                // Execute command buffer
+                stateRecord.currentVal = 3;
                 break;
         }
 
