@@ -235,7 +235,7 @@ export class MissionChallengesModal {
         this.container.add(frameBg);
 
         // Header Title
-        const headerTitle = this.scene.add.text(frameX + 24, frameY + 10, "ASTRANEXUS – SOL SURVIVOR", {
+        const headerTitle = this.scene.add.text(frameX + 24, frameY + 10, "SOL SURVIVOR", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "21px",
             color: "#FFFFFF",
@@ -873,7 +873,7 @@ export class MissionChallengesModal {
         root.add(subtitle);
 
         // ---------- Characters (Astronaut on left, Mars Rover on bottom-right) ----------
-        const astronaut = this.addFittedImage(root, "girl-astronaut", 118, 440, 200, 300);
+        const astronaut = this.addFittedImage(root, this.getSelectedAstronautTextureKey(), 118, 440, 200, 300);
         const rover = this.addFittedImage(root, "rover", W - 108, 440, 160, 112);
         [astronaut, rover].forEach((img, i) => {
             if (!img) return;
@@ -1611,6 +1611,60 @@ export class MissionChallengesModal {
         this.sol4Tweens = [];
     }
 
+    /**
+     * Resolve the cadet and suit selected in AstronautCustomizer.
+     *
+     * AstronautCustomizer stores the same selection in the Phaser registry
+     * (`astronautCustomization`) and localStorage (`astra_astronaut_suit`).
+     * The avatar texture convention is boy_avatar_1..5 / girl_avatar_1..5.
+     *
+     * Prefer the live registry value, then use the persisted value when this
+     * modal is opened before the registry has been populated. Never default
+     * to the girl sprite: the default cadet is the boy.
+     */
+    private getSelectedAstronautTextureKey(): string {
+        type AstronautCustomization = {
+            gender?: string;
+            avatarFrame?: number;
+        };
+
+        let customization = this.scene.registry.get(
+            "astronautCustomization"
+        ) as AstronautCustomization | undefined;
+
+        if (!customization && typeof window !== "undefined") {
+            try {
+                const saved = window.localStorage.getItem("astra_astronaut_suit");
+                if (saved) {
+                    customization = JSON.parse(saved) as AstronautCustomization;
+                }
+            } catch (error) {
+                console.warn("Unable to read saved astronaut customization:", error);
+            }
+        }
+
+        const gender: "boy" | "girl" = customization?.gender === "girl" ? "girl" : "boy";
+        const parsedFrame = Number(customization?.avatarFrame);
+        const avatarFrame = Number.isInteger(parsedFrame) && parsedFrame >= 1 && parsedFrame <= 5
+            ? parsedFrame
+            : 1;
+
+        const selectedTexture = `${gender}_avatar_${avatarFrame}`;
+        const genericGenderTexture = `${gender}-astronaut`;
+
+        if (this.scene.textures.exists(selectedTexture)) {
+            return selectedTexture;
+        }
+        if (this.scene.textures.exists(genericGenderTexture)) {
+            return genericGenderTexture;
+        }
+
+        // Do not fall back to the opposite gender. If the selected gender's
+        // assets are missing, skip the portrait rather than show the wrong cadet.
+        // addFittedImage() safely skips missing textures.
+        return selectedTexture;
+    }
+
     /** Add an image scaled (aspect preserved) to fit maxW x maxH, anchored bottom-centre. */
     private addFittedImage(
         parent: Phaser.GameObjects.Container,
@@ -1769,7 +1823,7 @@ export class MissionChallengesModal {
         root.add(subtitle);
 
         // ---------- Characters ----------
-        const astronaut = this.addFittedImage(root, "girl-astronaut", 118, 440, 200, 300);
+        const astronaut = this.addFittedImage(root, this.getSelectedAstronautTextureKey(), 118, 440, 200, 300);
         const rover = this.addFittedImage(root, "rover", W - 108, 440, 160, 112);
         [astronaut, rover].forEach((img, i) => {
             if (!img) return;

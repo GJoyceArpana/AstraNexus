@@ -9,8 +9,13 @@ import ButtonFactory from "../components/ButtonFactory.ts";
 
 export type OutpostFlowState = "TITLE" | "SITE" | "CUSTOMIZE" | "BASE_MATERIAL" | "BRIEFING" | "HOW_TO_PLAY" | "TELEMETRY_ARCHIVE";
 
+interface OutpostSceneData {
+    openCustomizer?: boolean;
+}
+
 export class OutpostSolScene extends Phaser.Scene {
     private currentState: OutpostFlowState = "TITLE";
+    private openCustomizerOnCreate = false;
 
     public getCurrentFlowState(): OutpostFlowState {
         return this.currentState;
@@ -26,54 +31,66 @@ export class OutpostSolScene extends Phaser.Scene {
         super("OutpostSolScene");
     }
 
-    preload() {
-        this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
-            if (file.key === "arcadia-mosaic" && this.textures.exists("arcadia-mosaic")) {
-                this.textures.remove("arcadia-mosaic");
-            }
-        });
+    init(data: OutpostSceneData = {}) {
+        this.openCustomizerOnCreate = data.openCustomizer === true;
+    }
 
-        // Preload any essential base images if not already preloaded by BootScene
+    preload() {
+        // Preload essential base images if they have not already been loaded by BootScene.
         if (!this.textures.exists("sand-base-station")) {
             this.load.image("sand-base-station", "/assets/game/base/sand-base-station.png");
         }
+
         if (!this.textures.exists("base-station")) {
             this.load.image("base-station", "/assets/game/base/base-station.png");
         }
+
         if (!this.textures.exists("mars-habitat")) {
             this.load.image("mars-habitat", "/assets/game/base/lunar-habitat.png");
         }
+
         if (!this.textures.exists("solar-panels")) {
             this.load.image("solar-panels", "/assets/game/base/solar-panels.png");
         }
+
         if (!this.textures.exists("dish-antenna")) {
             this.load.image("dish-antenna", "/assets/game/base/dish-antenna.png");
         }
+
         if (!this.textures.exists("rover")) {
             this.load.image("rover", "/assets/game/base/rover.png");
         }
+
         if (!this.textures.exists("greenhouse")) {
             this.load.image("greenhouse", "/assets/game/base/greenhouse.png");
         }
+
         if (!this.textures.exists("boy-astronaut")) {
             this.load.image("boy-astronaut", "/assets/game/characters/boy-astronaut.png");
         }
+
         if (!this.textures.exists("girl-astronaut")) {
             this.load.image("girl-astronaut", "/assets/game/characters/girl-astronaut.png");
         }
+
         if (!this.textures.exists("jezero-mosaic")) {
             this.load.image("jezero-mosaic", "/assets/game/mars/jezero-ctx-mosaic-3x3.png");
         }
-        if (!this.textures.exists("arcadia-mosaic")) {
-            this.load.image("arcadia-mosaic", "/assets/game/mars/arcadia-planitia-mosaic.png");
-        }
-        // Role selection panels are rendered as live Phaser UI using transparent astronaut portraits.
 
-        // Preload Avatar Frames (1 to 5)
+        // IMPORTANT: Use the exact Arcadia mosaic filename everywhere.
+        if (!this.textures.exists("arcadia-mosaic")) {
+            this.load.image(
+                "arcadia-mosaic",
+                "/assets/game/mars/arcadia-planitia-ctx-mosaic-3x3.png"
+            );
+        }
+
+        // Preload Avatar Frames (1 to 5).
         for (let i = 1; i <= 5; i++) {
             if (!this.textures.exists(`boy_avatar_${i}`)) {
                 this.load.image(`boy_avatar_${i}`, `/assets/customization/boy_avatar_${i}.png`);
             }
+
             if (!this.textures.exists(`girl_avatar_${i}`)) {
                 this.load.image(`girl_avatar_${i}`, `/assets/customization/girl_avatar_${i}.png`);
             }
@@ -82,19 +99,29 @@ export class OutpostSolScene extends Phaser.Scene {
 
     create() {
         this.cameras.main.setBackgroundColor(UITheme.colors.marsSky);
+
         if (!this.registry.has("playerRole")) {
             this.registry.set("playerRole", "cadet");
         }
-        // Ensure default base construction material is always glass
+
+        // Ensure default base construction material is always glass.
         this.registry.set("baseConstructionMaterial", "glass");
+
         if (typeof window !== "undefined" && window.localStorage) {
             try {
                 if (localStorage.getItem("astra_base_material") === "sand") {
                     localStorage.setItem("astra_base_material", "glass");
                 }
-            } catch {}
+            } catch {
+                // Ignore localStorage access errors.
+            }
         }
-        this.showTitleScreen();
+
+        if (this.openCustomizerOnCreate) {
+            this.showCustomizer();
+        } else {
+            this.showTitleScreen();
+        }
     }
 
     /**
@@ -105,13 +132,21 @@ export class OutpostSolScene extends Phaser.Scene {
         this.currentState = "TITLE";
 
         this.titleComponent = new OutpostSolTitle(this, {
-            onStartMission: () => this.showCustomizer(),
-            onSelectRole: () => this.showCustomizer(),
+            onStartMission: () => this.startIntroduction(),
+            onSelectRole: () => this.startIntroduction(),
             onSelectLandingSite: () => this.showLandingSiteSelector(),
-            onCustomization: () => this.showCustomizer(),
+            onCustomization: () => this.startIntroduction(),
             onOpenTelemetry: () => this.showTelemetryArchive(),
             onHowToPlay: () => this.showHowToPlay()
         });
+    }
+
+    private startIntroduction() {
+        if (this.registry.get("solIntroductionSeen") === true) {
+            this.showCustomizer();
+            return;
+        }
+        this.scene.start("SolIntroductionScene");
     }
 
     /**
@@ -130,7 +165,7 @@ export class OutpostSolScene extends Phaser.Scene {
     }
 
     /**
-     * STATE 3: Jezero Crater vs Arcadia Planitia Landing Site (Selection of Craters Scene)
+     * STATE 3: Jezero Crater vs Arcadia Planitia Landing Site
      */
     private showLandingSiteSelector() {
         this.clearActiveComponents();
@@ -145,7 +180,7 @@ export class OutpostSolScene extends Phaser.Scene {
     }
 
     /**
-     * STATE 4: Mars Base Construction Material Selector (Glass Biosphere vs Sand Regolith Vault)
+     * STATE 4: Mars Base Construction Material Selector
      */
     private showBaseMaterialSelector() {
         this.clearActiveComponents();
@@ -169,6 +204,7 @@ export class OutpostSolScene extends Phaser.Scene {
         this.modalContainer = MissionModals.createBriefingModal(this, {
             onStart: () => {
                 this.cameras.main.fade(600, 0, 0, 0);
+
                 this.time.delayedCall(650, () => {
                     this.scene.start("MarsWorldScene");
                 });
@@ -190,6 +226,7 @@ export class OutpostSolScene extends Phaser.Scene {
 
         const boxW = 680;
         const boxH = 460;
+
         const box = this.add.graphics();
         box.fillStyle(UITheme.colors.panelBg, 0.98);
         box.fillRoundedRect((width - boxW) / 2, (height - boxH) / 2, boxW, boxH, 16);
@@ -197,12 +234,17 @@ export class OutpostSolScene extends Phaser.Scene {
         box.strokeRoundedRect((width - boxW) / 2, (height - boxH) / 2, boxW, boxH, 16);
         modal.add(box);
 
-        const title = this.add.text(width / 2, (height - boxH) / 2 + 40, "CADET MISSION MANUAL", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "24px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold"
-        }).setOrigin(0.5);
+        const title = this.add.text(
+            width / 2,
+            (height - boxH) / 2 + 40,
+            "CADET MISSION MANUAL",
+            {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "24px",
+                color: UITheme.colors.primaryCyanStr,
+                fontStyle: "bold"
+            }
+        ).setOrigin(0.5);
 
         const guideText = this.add.text(
             (width - boxW) / 2 + 40,
@@ -253,6 +295,7 @@ export class OutpostSolScene extends Phaser.Scene {
 
         const boxW = 720;
         const boxH = 460;
+
         const box = this.add.graphics();
         box.fillStyle(UITheme.colors.panelBg, 0.98);
         box.fillRoundedRect((width - boxW) / 2, (height - boxH) / 2, boxW, boxH, 16);
@@ -260,12 +303,17 @@ export class OutpostSolScene extends Phaser.Scene {
         box.strokeRoundedRect((width - boxW) / 2, (height - boxH) / 2, boxW, boxH, 16);
         modal.add(box);
 
-        const title = this.add.text(width / 2, (height - boxH) / 2 + 38, "NASA OPEN DATA ARCHIVE", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "22px",
-            color: UITheme.colors.bioGreenStr,
-            fontStyle: "bold"
-        }).setOrigin(0.5);
+        const title = this.add.text(
+            width / 2,
+            (height - boxH) / 2 + 38,
+            "NASA OPEN DATA ARCHIVE",
+            {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "22px",
+                color: UITheme.colors.bioGreenStr,
+                fontStyle: "bold"
+            }
+        ).setOrigin(0.5);
 
         const desc = this.add.text(
             (width - boxW) / 2 + 40,
@@ -305,18 +353,22 @@ export class OutpostSolScene extends Phaser.Scene {
             this.titleComponent.destroy();
             this.titleComponent = undefined;
         }
+
         if (this.siteComponent) {
             this.siteComponent.destroy();
             this.siteComponent = undefined;
         }
+
         if (this.customizerComponent) {
             this.customizerComponent.destroy();
             this.customizerComponent = undefined;
         }
+
         if (this.baseMaterialComponent) {
             this.baseMaterialComponent.destroy();
             this.baseMaterialComponent = undefined;
         }
+
         if (this.modalContainer) {
             this.modalContainer.destroy();
             this.modalContainer = undefined;
