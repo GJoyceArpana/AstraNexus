@@ -11,9 +11,7 @@ import {
     Sol3RedGaleScene,
     Sol4ISRUProductionScene,
     Sol5SilenceCommsLagScene,
-    Sol5LastSafeHabitatScene,
-    Sol6ColonyGridlockScene,
-    Sol7JourneyHomeMAVScene
+    Sol5LastSafeHabitatScene
 } from "../Feature/UI-UX/index.ts";
 import StartScene from "./scenes/StartScene";
 import StoryScene from "./scenes/StoryScene";
@@ -201,8 +199,6 @@ const config: Phaser.Types.Core.GameConfig = {
         Sol4ISRUProductionScene,
         Sol5SilenceCommsLagScene,
         Sol5LastSafeHabitatScene,
-        Sol6ColonyGridlockScene,
-        Sol7JourneyHomeMAVScene,
         StartScene,
         StoryScene,
         CustomizationScene,

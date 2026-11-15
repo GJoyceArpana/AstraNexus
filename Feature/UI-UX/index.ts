@@ -26,5 +26,4 @@ export * from "./scenes/challenges/Sol3RedGaleScene.ts";
 export * from "./scenes/challenges/Sol4ISRUProductionScene.ts";
 export * from "./scenes/challenges/Sol5SilenceCommsLagScene.ts";
 export * from "./scenes/challenges/sol5/index.ts";
-export * from "./scenes/challenges/Sol6ColonyGridlockScene.ts";
-export * from "./scenes/challenges/Sol7JourneyHomeMAVScene.ts";
+

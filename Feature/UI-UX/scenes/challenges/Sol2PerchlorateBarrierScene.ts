@@ -6,9 +6,7 @@ import SolChallengeBaseScene from "./SolChallengeBaseScene.ts";
 type Sol2GameState =
     | "ACTION_GAMEPLAY"
     | "ARRAY_PUZZLE"
-    | "MISSION_COMPLETE"
-    | "NIGHT_DECISION"
-    | "NIGHT_ACTIVE";
+    | "MISSION_COMPLETE";
 
 interface ArrayChallenge {
     stationId: number;
@@ -60,6 +58,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     private astronautSprite!: Phaser.GameObjects.Image;
     private astronautSpeed = 220;
     private isMoving = false;
+    private isEnteringScene = false;
     private targetX: number | null = null;
     private targetY: number | null = null;
     private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -80,7 +79,6 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     private equipmentPanelContainer!: Phaser.GameObjects.Container;
     private puzzleModalContainer?: Phaser.GameObjects.Container;
     private missionCompleteModalContainer?: Phaser.GameObjects.Container;
-    private nightDecisionModalContainer?: Phaser.GameObjects.Container;
     private powerMeterContainer!: Phaser.GameObjects.Container;
     private powerMeterFill!: Phaser.GameObjects.Graphics;
     private powerMeterText!: Phaser.GameObjects.Text;
@@ -181,12 +179,12 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     constructor() {
         super("Sol2PerchlorateBarrierScene", {
             solNumber: 2,
-            title: "SOL 2: DUST DEVIL CLEANUP AT ARCADIA PLANITIA",
-            codename: "ARCADIA SOLAR RESTORATION",
-            hazardBadge: "PLAYFUL DUST DEVIL WHIRLWINDS",
-            briefing: "A cheeky Martian whirlwind covered our solar panels in sticky red sand! Walk across Arcadia Planitia below the panels, dodge the bouncy dust devils, solve the science puzzle at each array, and restore 100% base power!",
-            nasaFact: "Did you know? Dust devils on Mars can grow taller than Mount Everest! The dry red sand sticks like static cling until neutral gas blows it clean.",
-            primaryTarget: "Solve puzzles & blast dust off all 4 solar panels before dark!",
+            title: "SOL 2: DUST DEVIL CLEANUP",
+            codename: "DUST DEVIL CLEANUP",
+            hazardBadge: "BOUNCY DUST DEVILS",
+            briefing: "A bouncy Martian dust devil covered our solar panels in red dust! Use your wind-blower to clean all 4 panels and bring power back to the base.",
+            nasaFact: "Mars dust devils can grow taller than Mount Everest! High-speed air blowers easily sweep the static red dust away.",
+            primaryTarget: "Clean all 4 solar panels with your wind-blower.",
             unit: "Panels Cleaned",
             targetVal: 4,
             initialVal: 0
@@ -369,10 +367,10 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     // TOP EQUIPMENT PANEL (Tools & Instruments)
     // =========================================================================
     private createTopEquipmentPanel() {
-        this.equipmentPanelContainer = this.add.container(640, 85).setDepth(40);
+        this.equipmentPanelContainer = this.add.container(640, 96).setDepth(40);
 
         const panelW = 960;
-        const panelH = 34;
+        const panelH = 32;
 
         const bg = this.add.graphics();
         bg.fillStyle(0x0A1322, 0.95);
@@ -686,8 +684,8 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     // PLAYER CADET CREATION (BELOW THE GRID: y = 570, NO ROTATION!)
     // =========================================================================
     private createPlayerAstronaut() {
-        // Starts at x = 110, y = 570 - strictly BELOW the solar arrays (y = 390)
-        this.astronautContainer = this.add.container(110, 570).setDepth(30);
+        // Starts offscreen on the left at x = -60, y = 570 - strictly BELOW the solar arrays (y = 390)
+        this.astronautContainer = this.add.container(-60, 570).setDepth(30);
 
         const custom = this.registry.get("astronautCustomization") as any;
         const avatarKey = custom?.gender === "girl" ? "girl-astronaut" : "boy-astronaut";
@@ -726,7 +724,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
 
         // Pointer click to move cadet along the walking path below the grids
         this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-            if (this.gameState === "ACTION_GAMEPLAY" && !this.isPuzzleModalOpen && pointer.y >= 460) {
+            if (this.gameState === "ACTION_GAMEPLAY" && !this.isEnteringScene && !this.isPuzzleModalOpen && pointer.y >= 460) {
                 this.targetX = pointer.x;
                 this.targetY = pointer.y;
             }
@@ -734,11 +732,26 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
     }
 
     // =========================================================================
-    // DIRECT GAMEPLAY START (No annoying pop-ups blocking the screen!)
+    // DIRECT GAMEPLAY START: CADET ENTERS THE SCENE FIRST!
     // =========================================================================
     private startDirectActionGameplay() {
         this.gameState = "ACTION_GAMEPLAY";
-        this.setActionFeedback("🏃 WALK TO SOLAR ARRAY 01 TO SOLVE ITS SCIENCE PUZZLE & RESTORE POWER!", true);
+        this.isEnteringScene = true;
+        this.isMoving = true;
+
+        // Smoothly walk the cadet into the scene from the left to x = 70
+        this.tweens.add({
+            targets: this.astronautContainer,
+            x: 70,
+            duration: 1100,
+            ease: "Quad.easeOut",
+            onComplete: () => {
+                this.isEnteringScene = false;
+                this.isMoving = false;
+                this.setActionFeedback("🏃 MOVE RIGHT TOWARDS SOLAR ARRAY 01 TO SOLVE ITS SCIENCE PUZZLE!", true);
+                this.showSurfaceFloatingText(70, 520, "👉 MOVE RIGHT TOWARDS SOLAR ARRAY 01!", UITheme.colors.solarGoldStr);
+            }
+        });
 
         // Clean guidance pill banner at top
         const banner = this.add.container(640, 128).setDepth(35);
@@ -1168,7 +1181,7 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             letterSpacing: 2
         }).setOrigin(0.5);
 
-        const subtitle = this.add.text(0, -modalH / 2 + 70, "ARCADIA PLANITIA SOLAR FIELD RESTORED!", {
+        const subtitle = this.add.text(0, -modalH / 2 + 70, "ALL 4 SOLAR PANELS CLEANED & RESTORED!", {
             fontFamily: UITheme.fonts.heading,
             fontSize: "12px",
             color: UITheme.colors.solarGoldStr,
@@ -1212,187 +1225,26 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             }
         ).setOrigin(0.5);
 
-        // Proceed to Night Shift Button
-        const nextBtn = ButtonFactory.createButton({
+        // Validation Button: Returns directly to Sol listing window with Sol 2 validated!
+        const validateBtn = ButtonFactory.createButton({
             scene: this,
             x: 0,
             y: modalH / 2 - 44,
-            width: 320,
-            height: 44,
-            text: "PROCEED TO NIGHT SHIFT ➔",
+            width: 360,
+            height: 46,
+            text: "VALIDATE & RETURN TO MISSION LIST ➔",
             fontSize: "13px",
-            primaryColor: UITheme.colors.solarGold,
-            textColor: "#050C18",
-            icon: "🌙",
+            primaryColor: UITheme.colors.bioGreen,
+            textColor: "#041408",
+            icon: "✔",
             onClick: () => {
                 SoundFX.playClick();
                 this.missionCompleteModalContainer?.destroy();
-                this.showNightDecisionEvent();
+                this.completeChallengeAndAdvance(true);
             }
         });
 
-        this.missionCompleteModalContainer.add([title, subtitle, summaryText, nextBtn]);
-    }
-
-    // =========================================================================
-    // THE NIGHT SHIFT EVENT DECISION (Simple, Kid-Friendly Words)
-    // =========================================================================
-    private showNightDecisionEvent() {
-        this.gameState = "NIGHT_DECISION";
-        SoundFX.playAlert();
-
-        this.nightDecisionModalContainer = this.add.container(640, 365).setDepth(80);
-
-        const modalW = 860;
-        const modalH = 470;
-
-        const shade = this.add.rectangle(0, 0, this.W * 2, this.H * 2, 0x000000, 0.82);
-        this.nightDecisionModalContainer.add(shade);
-
-        const bg = this.add.graphics();
-        bg.fillStyle(0x0C1220, 0.98);
-        bg.fillRoundedRect(-modalW / 2, -modalH / 2, modalW, modalH, 16);
-        bg.lineStyle(3, UITheme.colors.solarGold, 1);
-        bg.strokeRoundedRect(-modalW / 2, -modalH / 2, modalW, modalH, 16);
-        this.nightDecisionModalContainer.add(bg);
-
-        // Header Title
-        const header = this.add.text(0, -modalH / 2 + 28, "⚡ NIGHT SHIFT SURVIVAL EVENT ⚡", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "16px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold",
-            letterSpacing: 1.5
-        }).setOrigin(0.5);
-
-        const eventText = this.add.text(
-            0,
-            -modalH / 2 + 66,
-            "\"A Martian dust devil just coated our radiator fins in toxic perchlorate salt and jammed the outdoor ice-pipe valve!\"\n" +
-            "Night is falling over Mars (-95°C freezing cold!). Choose your plan for the night:",
-            {
-                fontFamily: UITheme.fonts.heading,
-                fontSize: "11px",
-                color: "#FFFFFF",
-                align: "center",
-                lineSpacing: 5
-            }
-        ).setOrigin(0.5);
-
-        this.nightDecisionModalContainer.add([header, eventText]);
-
-        const cardW = 385;
-        const cardH = 290;
-        const cardY = 40;
-
-        // Choice A Card
-        this.createNightChoiceCard(
-            -modalW / 4 - 8,
-            cardY,
-            cardW,
-            cardH,
-            "CHOICE A: GO OUTSIDE TO CLEAR ICE PIPE",
-            "THE GOOD:\n• Subsurface Ice Melter stays at 100% FULL SPEED (+50% Water Production)!\n\n" +
-            "THE CATCH:\n• Your space suit gets covered in salty red dust!\n" +
-            "• Must keep 1 power plug locked to clean your suit.\n" +
-            "• Leaves you with 2 FREE POWER PLUGS for MOXIE, Melter, and Greenhouse!",
-            UITheme.colors.primaryCyan,
-            () => this.executeNightChoice("A")
-        );
-
-        // Choice B Card
-        this.createNightChoiceCard(
-            modalW / 4 + 8,
-            cardY,
-            cardW,
-            cardH,
-            "CHOICE B: STAY INSIDE & KEEP WARM",
-            "THE GOOD:\n• Stay cozy inside! Nobody gets covered in dust.\n" +
-            "• Keep all 3 POWER PLUGS FREE for your habitat systems!\n\n" +
-            "THE CATCH:\n• The outdoor ice pipe freezes solid!\n" +
-            "• Subsurface Ice Melter runs at HALF SPEED (+25% water instead of +50%).",
-            UITheme.colors.solarGold,
-            () => this.executeNightChoice("B")
-        );
-    }
-
-    private createNightChoiceCard(
-        x: number,
-        y: number,
-        w: number,
-        h: number,
-        title: string,
-        desc: string,
-        accentColor: number,
-        onSelect: () => void
-    ) {
-        const c = this.add.container(x, y);
-        this.nightDecisionModalContainer?.add(c);
-
-        const bg = this.add.graphics();
-        bg.fillStyle(0x131C2D, 1);
-        bg.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
-        bg.lineStyle(2, accentColor, 0.9);
-        bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
-        c.add(bg);
-
-        const titleText = this.add.text(0, -h / 2 + 24, title, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10.5px",
-            color: accentColor === UITheme.colors.primaryCyan ? UITheme.colors.primaryCyanStr : UITheme.colors.solarGoldStr,
-            fontStyle: "bold",
-            align: "center",
-            wordWrap: { width: w - 24 }
-        }).setOrigin(0.5);
-
-        const descText = this.add.text(0, 5, desc, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
-            color: "#E2EDFC",
-            align: "left",
-            wordWrap: { width: w - 30 },
-            lineSpacing: 5
-        }).setOrigin(0.5);
-
-        const btn = this.add.graphics();
-        btn.fillStyle(accentColor, 1);
-        btn.fillRoundedRect(-90, h / 2 - 38, 180, 28, 6);
-
-        const btnLabel = this.add.text(0, h / 2 - 24, "CHOOSE THIS PLAN ➔", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
-            color: "#050B14",
-            fontStyle: "bold"
-        }).setOrigin(0.5);
-
-        c.add([titleText, descText, btn, btnLabel]);
-
-        const hit = this.add.rectangle(0, 0, w, h, 0x000000, 0.001);
-        hit.setInteractive({ useHandCursor: true });
-        c.add(hit);
-
-        hit.on("pointerover", () => {
-            this.tweens.add({ targets: c, scale: 1.02, duration: 120 });
-            bg.clear();
-            bg.fillStyle(0x1B263D, 1);
-            bg.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
-            bg.lineStyle(2.5, accentColor, 1);
-            bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
-        });
-
-        hit.on("pointerout", () => {
-            this.tweens.add({ targets: c, scale: 1.0, duration: 120 });
-            bg.clear();
-            bg.fillStyle(0x131C2D, 1);
-            bg.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
-            bg.lineStyle(2, accentColor, 0.9);
-            bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
-        });
-
-        hit.on("pointerdown", () => {
-            SoundFX.playClick();
-            onSelect();
-        });
+        this.missionCompleteModalContainer.add([title, subtitle, summaryText, validateBtn]);
     }
 
     private fetchNasaDustTelemetry() {
@@ -1418,11 +1270,11 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
             this.nasaTelemetryPill.destroy();
         }
 
-        const pill = this.add.container(640, 118).setDepth(38);
+        const pill = this.add.container(640, 134).setDepth(38);
         this.nasaTelemetryPill = pill;
 
         const pW = 680;
-        const pH = 24;
+        const pH = 22;
 
         const bg = this.add.graphics();
         bg.fillStyle(0x061122, 0.9);
@@ -1441,158 +1293,11 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         pill.add(lbl);
     }
 
-    private executeNightChoice(choice: "A" | "B") {
-        SoundFX.playToggle(true);
-
-        fetch("http://localhost:3001/api/nasa/sol2/event-decision", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ choice })
-        }).catch(err => {
-            console.warn("Backend API sync offline, running in local fallback mode:", err);
-        });
-
-        if (choice === "A") {
-            this.registry.set("lockedSuitportPlug", true);
-            this.registry.set("modules_suitport_locked", true);
-            this.registry.set("modules_suitport", true);
-            this.registry.set("freePowerPlugs", 2);
-            this.registry.set("iceMelterEfficiency", 1.0);
-            this.registry.set("icePipeFrozen", false);
-            this.registry.set("sol2Choice", "CLEAR_ICE_PIPE");
-        } else {
-            this.registry.set("lockedSuitportPlug", false);
-            this.registry.set("modules_suitport_locked", false);
-            this.registry.set("freePowerPlugs", 3);
-            this.registry.set("iceMelterEfficiency", 0.5);
-            this.registry.set("icePipeFrozen", true);
-            this.registry.set("sol2Choice", "LET_PIPE_FREEZE");
-        }
-
-        this.registry.set("phase", "NIGHT");
-
-        if (typeof window !== "undefined" && window.localStorage) {
-            try {
-                localStorage.setItem("astra_sol2_event", JSON.stringify({
-                    choice,
-                    lockedSuitportPlug: this.registry.get("lockedSuitportPlug"),
-                    freePowerPlugs: this.registry.get("freePowerPlugs"),
-                    icePipeFrozen: this.registry.get("icePipeFrozen"),
-                    phase: "NIGHT"
-                }));
-            } catch {
-                // Ignore storage limits
-            }
-        }
-
-        if (this.nightDecisionModalContainer) {
-            this.tweens.add({
-                targets: this.nightDecisionModalContainer,
-                scale: 0.9,
-                alpha: 0,
-                duration: 250,
-                onComplete: () => {
-                    this.nightDecisionModalContainer?.destroy();
-                    this.showNightShiftCompleteCelebration(choice);
-                }
-            });
-        }
-    }
-
-    private showNightShiftCompleteCelebration(choice: "A" | "B") {
-        this.gameState = "NIGHT_ACTIVE";
-
-        this.sunsetOverlay.clear();
-        this.sunsetOverlay.fillStyle(0x060312, 0.78);
-        this.sunsetOverlay.fillRect(0, 0, this.W, this.H);
-
-        const debriefC = this.add.container(640, 360).setDepth(90);
-        const dW = 680;
-        const dH = 380;
-
-        const bg = this.add.graphics();
-        bg.fillStyle(0x0A1424, 0.98);
-        bg.fillRoundedRect(-dW / 2, -dH / 2, dW, dH, 16);
-        bg.lineStyle(3, UITheme.colors.bioGreen, 1);
-        bg.strokeRoundedRect(-dW / 2, -dH / 2, dW, dH, 16);
-        debriefC.add(bg);
-
-        const stamp = this.add.text(0, -dH / 2 + 35, "⭐ SOL 02 ACCOMPLISHED: NIGHT SHIFT COMMENCED ⭐", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "15px",
-            color: UITheme.colors.bioGreenStr,
-            fontStyle: "bold",
-            letterSpacing: 1.5
-        }).setOrigin(0.5);
-
-        const sub = this.add.text(0, -dH / 2 + 70, "Arcadia Planitia solar arrays restored to 100% power. Night phase engineering state active.", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: "#FFFFFF"
-        }).setOrigin(0.5);
-
-        for (let s = 0; s < 3; s++) {
-            const star = this.add.text(-60 + s * 60, -dH / 2 + 115, "⭐", { fontSize: "32px" }).setOrigin(0.5);
-            debriefC.add(star);
-            this.tweens.add({
-                targets: star,
-                scale: 1.25,
-                duration: 400,
-                yoyo: true,
-                delay: s * 150
-            });
-        }
-
-        const summaryG = this.add.graphics();
-        summaryG.fillStyle(0x111E33, 0.95);
-        summaryG.fillRoundedRect(-dW / 2 + 40, -15, dW - 80, 125, 8);
-        summaryG.lineStyle(1.5, UITheme.colors.panelBorder, 1);
-        summaryG.strokeRoundedRect(-dW / 2 + 40, -15, dW - 80, 125, 8);
-        debriefC.add(summaryG);
-
-        const choiceSummary = choice === "A"
-            ? "• DIRECTIVE: Astronaut cleared exterior ice-pipe.\n" +
-              "• ICE MELTER: 100% full speed (+50% Water Production during Night Shift).\n" +
-              "• POWER PLUGS: 2 Free Plugs remaining (Suitport locked active for suit cleaning).\n" +
-              "• CURRENT PHASE: NIGHT (-95°C Survival Active)."
-            : "• DIRECTIVE: Crew stayed cozy inside habitat. Zero suit contamination.\n" +
-              "• ICE MELTER: 50% speed (+25% Water Production due to frozen pipe).\n" +
-              "• POWER PLUGS: All 3 Plugs completely free to allocate across life support.\n" +
-              "• CURRENT PHASE: NIGHT (-95°C Survival Active).";
-
-        const summaryText = this.add.text(-dW / 2 + 65, 45, choiceSummary, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10.5px",
-            color: "#E0ECFF",
-            lineSpacing: 8
-        }).setOrigin(0, 0.5);
-
-        const advanceBtn = ButtonFactory.createButton({
-            scene: this,
-            x: 0,
-            y: dH / 2 - 42,
-            width: 320,
-            height: 44,
-            text: "✦ ADVANCE TO SOL 03 ➔",
-            fontSize: "13px",
-            primaryColor: UITheme.colors.solarGold,
-            textColor: "#08101E",
-            icon: "🚀",
-            onClick: () => {
-                SoundFX.playClick();
-                debriefC.destroy();
-                this.completeChallengeAndAdvance();
-            }
-        });
-
-        debriefC.add([stamp, sub, summaryText, advanceBtn]);
-    }
-
     // =========================================================================
     // GAME LOOP: UPDATE (Movement, Proximity Check, No Rotation!)
     // =========================================================================
     update(_time: number, delta: number) {
-        if (this.gameState !== "ACTION_GAMEPLAY") return;
+        if (this.gameState !== "ACTION_GAMEPLAY" || this.isEnteringScene) return;
 
         const dt = delta / 1000;
 
@@ -1652,13 +1357,13 @@ export class Sol2PerchlorateBarrierScene extends SolChallengeBaseScene {
         this.astronautContainer.x = Phaser.Math.Clamp(this.astronautContainer.x, 60, this.W - 60);
         this.astronautContainer.y = Phaser.Math.Clamp(this.astronautContainer.y, 520, 640);
 
-        // 2. Proximity Check: As cadet goes near an unsolved grid, the problem pops up!
-        if (!this.isPuzzleModalOpen) {
+        // 2. Proximity Check: ONLY as cadet is made to walk near an unsolved grid (distH < 75), the problem pops up!
+        if (!this.isEnteringScene && !this.isPuzzleModalOpen) {
             for (let idx = 0; idx < this.solarStations.length; idx++) {
                 const st = this.solarStations[idx];
                 if (!st.questionSolved && !st.isCleaned) {
                     const distH = Math.abs(this.astronautContainer.x - st.x);
-                    if (distH < 140) {
+                    if (distH < 75) {
                         this.openArrayPuzzleModal(idx);
                         break;
                     }
