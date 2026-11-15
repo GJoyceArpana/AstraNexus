@@ -154,7 +154,6 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
     private uiLayer!: Phaser.GameObjects.Container;
     private speakerLabel!: Phaser.GameObjects.Text;
     private dialogueBody!: Phaser.GameObjects.Text;
-    private headerTelemetryText!: Phaser.GameObjects.Text;
 
     constructor() {
         super("Sol3RedGaleScene", {
@@ -184,34 +183,14 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
             stars.fillCircle((i * 197) % this.W, (i * 73) % Math.round(this.H * 0.36), i % 4 === 0 ? 1.8 : 1);
         }
 
-        // Top Mission Header Bar (Preserves Sol navigation identity)
-        const headerBg = this.add.graphics().setDepth(20);
-        headerBg.fillStyle(0x081d3d, 0.96);
-        headerBg.fillRoundedRect(16, 12, this.W - 32, 62, 12);
-        headerBg.lineStyle(2, 0x00e5ff, 0.9);
-        headerBg.strokeRoundedRect(16, 12, this.W - 32, 62, 12);
-
-        this.add.text(32, 20, "ASTRANEXUS – SOL SURVIVOR  |  SOL 3: ECHOES FROM MARS", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "17px",
-            fontStyle: "bold",
-            color: "#FFD23F"
-        }).setDepth(21);
-
-        this.headerTelemetryText = this.add.text(32, 46, "", {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "12px",
-            fontStyle: "bold",
-            color: "#9CEEFF"
-        }).setDepth(21);
-
-        // Fullscreen & Return Controls (Top-Right)
+        // The shared visor HUD owns the mission title and progress area. Keep
+        // Sol 3 controls in the reserved top-right space beside it.
         const fsBtn = ButtonFactory.createButton({
             scene: this,
-            x: this.W - 245,
+            x: this.W - 182,
             y: 43,
             text: "⛶ FULLSCREEN",
-            width: 126,
+            width: 110,
             height: 36,
             primaryColor: 0x0e2f5c,
             secondaryColor: 0x00e5ff,
@@ -226,10 +205,10 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
 
         const closeBtn = ButtonFactory.createButton({
             scene: this,
-            x: this.W - 105,
+            x: this.W - 62,
             y: 43,
             text: "✖ MARS BASE",
-            width: 136,
+            width: 110,
             height: 36,
             primaryColor: 0x5c1926,
             secondaryColor: 0xff6b7a,
@@ -238,26 +217,28 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
         }).setDepth(22);
         this.add.existing(closeBtn);
 
-        // Bottom Character Dialogue Strip (Commander Maya & Bleep)
-        const diagY = this.H - 94;
+        // Character dialogue sits between the mission content and the shared
+        // bottom visor, so it cannot cover navigation controls.
+        const diagY = this.H - 108;
         const diagCard = this.add.graphics().setDepth(20);
         diagCard.fillStyle(0x071a38, 0.97);
-        diagCard.fillRoundedRect(16, diagY, this.W - 32, 80, 12);
+        diagCard.fillRoundedRect(16, diagY, this.W - 32, 44, 12);
         diagCard.lineStyle(2, 0x00e5ff, 0.9);
-        diagCard.strokeRoundedRect(16, diagY, this.W - 32, 80, 12);
+        diagCard.strokeRoundedRect(16, diagY, this.W - 32, 44, 12);
 
         this.speakerLabel = this.add.text(34, diagY + 12, "", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "13px",
+            fontSize: "11px",
             fontStyle: "bold",
             color: "#FFD23F"
         }).setDepth(21);
 
-        this.dialogueBody = this.add.text(34, diagY + 34, "", {
+        this.dialogueBody = this.add.text(190, diagY + 14, "", {
             fontFamily: UITheme.fonts.body,
-            fontSize: "14px",
+            fontSize: "11px",
             color: "#FFFFFF",
-            wordWrap: { width: this.W - 72 }
+            wordWrap: { width: this.W - 230 },
+            maxLines: 2
         }).setDepth(21);
 
         this.uiLayer = this.add.container(0, 0).setDepth(15);
@@ -330,24 +311,8 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
         }
     }
 
-    private refreshHeaderTelemetry() {
-        if (!this.headerTelemetryText?.active) return;
-        const stageTitles: Record<MissionStage, string> = {
-            INTRO: "MISSION BRIEFING: THE SIGNAL MISSION",
-            PHASE1_RELAY: "STAGE 1 / 3: CONNECT RELAY",
-            PHASE2_ROVER: "STAGE 2 / 3: PLAN & TRANSMIT ROVER COMMANDS",
-            PHASE3_TRANSMIT: "STAGE 3 / 3: TRANSMIT SCIENTIFIC DATA",
-            QUIZ: "FINAL CHECK: MARS COMMUNICATIONS QUIZ",
-            COMPLETE: "MISSION COMPLETE: MARS COMMUNICATION EXPERT"
-        };
-        this.headerTelemetryText.setText(
-            `${stageTitles[this.stage]}   •   SIGNAL LINK: ${this.relayLinked ? `${this.signalStrengthPct}% (${this.selectedRelay.delaySeconds.toFixed(1)}s LAG)` : "OFFLINE"}   •   ROVER: ${this.controlsLocked ? "EXECUTING" : "IDLE"}   •   DATA PACKETS: ${this.packetsDelivered}/3`
-        );
-    }
-
     private renderStage() {
         this.uiLayer.removeAll(true);
-        this.refreshHeaderTelemetry();
 
         switch (this.stage) {
             case "INTRO":
@@ -376,7 +341,7 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
     // =========================================================================
     private renderIntroStage() {
         const panelY = 86;
-        const panelH = this.H - 192;
+        const panelH = this.H - 206;
         const leftW = Math.round((this.W - 48) * 0.62);
         const rightX = 16 + leftW + 16;
         const rightW = this.W - rightX - 16;
@@ -586,7 +551,7 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
     // =========================================================================
     private renderPhase1Relay() {
         const panelY = 86;
-        const panelH = this.H - 192;
+        const panelH = this.H - 206;
         const leftW = Math.round((this.W - 48) * 0.54);
         const rightX = 16 + leftW + 16;
         const rightW = this.W - rightX - 16;
@@ -862,7 +827,7 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
     // =========================================================================
     private renderPhase2Rover() {
         const panelY = 86;
-        const panelH = this.H - 192;
+        const panelH = this.H - 206;
         const leftW = Math.round((this.W - 48) * 0.54);
         const rightX = 16 + leftW + 16;
         const rightW = this.W - rightX - 16;
@@ -1278,7 +1243,7 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
 
     private renderPhase3Transmit() {
         const panelY = 86;
-        const panelH = this.H - 192;
+        const panelH = this.H - 206;
 
         const card = this.add.graphics();
         card.fillStyle(0x081d3d, 0.96);
@@ -1430,7 +1395,7 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
     // =========================================================================
     private renderQuizStage() {
         const panelY = 86;
-        const panelH = this.H - 192;
+        const panelH = this.H - 206;
         const item = QUIZ_ITEMS[this.quizIndex];
 
         const box = this.add.graphics();
@@ -1538,7 +1503,7 @@ export class Sol3RedGaleScene extends SolChallengeBaseScene {
     // =========================================================================
     private renderCompleteStage() {
         const panelY = 86;
-        const panelH = this.H - 192;
+        const panelH = this.H - 206;
 
         const box = this.add.graphics();
         box.fillStyle(0x081d3d, 0.96);
