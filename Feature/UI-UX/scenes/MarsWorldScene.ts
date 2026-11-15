@@ -230,10 +230,7 @@ export class MarsWorldScene extends Phaser.Scene {
         // 5. Initialize HUD Systems (Tasks 5, 6, 7, 9, 10)
         this.setupMarsHUD();
 
-        // 6. Objective Checklist Box
-        this.createObjectivesCard();
-
-        // 7. Interaction Prompt HUD
+        // 6. Interaction Prompt HUD
         this.createInteractionPrompt();
 
         // 8. Welcome Notification Toast
@@ -595,83 +592,10 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     // =========================================================
-    // 6. OBJECTIVES CARD
+    // 6. OBJECTIVES CARD (Removed for simplified, kid-friendly HUD)
     // =========================================================
     private createObjectivesCard() {
-        const cardW = 340;
-        const cardH = 205;
-        const cardX = 24;
-        const cardY = 190;
-
-        const container = this.add.container(cardX, cardY).setDepth(100);
-
-        const bg = this.add.graphics();
-        bg.fillStyle(UITheme.colors.panelBg, 0.92);
-        bg.fillRoundedRect(0, 0, cardW, cardH, 10);
-        bg.lineStyle(1.5, UITheme.colors.panelBorder, 0.9);
-        bg.strokeRoundedRect(0, 0, cardW, cardH, 10);
-        container.add(bg);
-
-        const title = this.add.text(14, 12, `SOL 0${this.solLevel} MISSION OBJECTIVES:`, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
-        });
-        container.add(title);
-
-        this.objectives.forEach((obj, idx) => {
-            const line = this.add.text(14, 32 + idx * 24, obj.text, {
-                fontFamily: UITheme.fonts.body,
-                fontSize: "12px",
-                color: obj.done ? UITheme.colors.bioGreenStr : "#FFFFFF",
-                wordWrap: { width: cardW - 28 }
-            });
-
-            // Make Switchboard objective directly clickable
-            if (obj.id === "power") {
-                line.setInteractive({ useHandCursor: true });
-                line.on("pointerover", () => {
-                    line.setColor(UITheme.colors.solarGoldStr);
-                });
-                line.on("pointerout", () => {
-                    line.setColor(obj.done ? UITheme.colors.bioGreenStr : "#FFFFFF");
-                });
-                line.on("pointerdown", () => {
-                    SoundFX.playClick();
-                    this.openSwitchboard();
-                });
-            }
-
-            this.objectiveListTexts.push(line);
-            container.add(line);
-        });
-
-        // 5-Sol Mission Challenges link
-        const challengesLink = this.add.text(14, 146, "✦ VIEW 5-SOL CHALLENGES [M] ✦", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold"
-        });
-        challengesLink.setInteractive({ useHandCursor: true });
-        challengesLink.on("pointerover", () => challengesLink.setColor("#FFFFFF"));
-        challengesLink.on("pointerout", () => challengesLink.setColor(UITheme.colors.primaryCyanStr));
-        challengesLink.on("pointerdown", () => {
-            SoundFX.playClick();
-            this.toggleMissionChallenges();
-        });
-        container.add(challengesLink);
-
-        // Equipped suit model & callsign badge at bottom of objectives card
-        const suitTag = this.add.text(14, 176, `✦ ACTIVE SUIT: ${this.equippedSuitName.replace("ASTRONAUT ", "")} ✦`, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold",
-            wordWrap: { width: cardW - 28 }
-        });
-        container.add(suitTag);
+        // Sol objective tab removed to keep screen spacious and clutter-free for young cadets
     }
 
     private markObjectiveDone(id: string) {

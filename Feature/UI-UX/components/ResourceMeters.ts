@@ -35,13 +35,14 @@ export class ResourceMeters {
         container: Phaser.GameObjects.Container;
     }> = new Map();
 
-    private meterWidth = 150;
+    private meterWidth = 145;
     private meterHeight = 16;
+    private trackX = 210;
 
     constructor(config: ResourceMeterConfig) {
         this.scene = config.scene;
         this.onOpenSwitchboard = config.onOpenSwitchboard;
-        this.container = this.scene.add.container(config.x ?? 20, config.y ?? 18);
+        this.container = this.scene.add.container(config.x ?? 22, config.y ?? 16);
         this.container.setDepth(100); // Always on top of game world
         this.init();
     }
@@ -51,61 +52,67 @@ export class ResourceMeters {
     }
 
     private init() {
-        // Base HUD Dock Panel
-        const dockW = 470;
-        const dockH = 158;
+        // Base HUD Dock Panel (A bit smaller, compact, clean and balanced)
+        const dockW = 445;
+        const dockH = 175;
 
         const bg = this.scene.add.graphics();
-        bg.fillStyle(UITheme.colors.panelBg, 0.94);
-        bg.fillRoundedRect(0, 0, dockW, dockH, 12);
-        bg.lineStyle(2, UITheme.colors.panelBorder, 0.9);
-        bg.strokeRoundedRect(0, 0, dockW, dockH, 12);
+        // Deep space blue frosted glass
+        bg.fillStyle(0x07152B, 0.96);
+        bg.fillRoundedRect(0, 0, dockW, dockH, 16);
+        bg.lineStyle(2, 0x00E5FF, 0.95);
+        bg.strokeRoundedRect(0, 0, dockW, dockH, 16);
+
+        // Header subtle highlight bar
+        bg.fillStyle(0x00E5FF, 0.12);
+        bg.fillRoundedRect(0, 0, dockW, 36, { tl: 16, tr: 16, bl: 0, br: 0 });
         this.container.add(bg);
 
-        // Header
-        const header = this.scene.add.text(16, 12, "OUTPOST SOL · VITALS & INTEGRITY", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold"
+        // Header Title (Large, clear, kid-friendly)
+        const header = this.scene.add.text(16, 10, "✦ BASE VITALS & POWER ✦", {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "12.5px",
+            color: "#00E5FF",
+            fontStyle: "bold",
+            letterSpacing: 1.5
         });
         this.container.add(header);
 
-        // Quick Switchboard Button on Header Right (Ultra-responsive & prominent)
+        // Quick Switchboard Button on Header Right (Prominent & interactive)
         if (this.onOpenSwitchboard) {
-            const btnW = 160;
+            const btnW = 150;
             const btnH = 26;
-            const switchBtn = this.scene.add.container(dockW - 95, 18);
+            const switchBtn = this.scene.add.container(dockW - 86, 18);
 
             const visuals = this.scene.add.container(0, 0);
             switchBtn.add(visuals);
 
             const sBg = this.scene.add.graphics();
-            sBg.fillStyle(0x0C223D, 0.95);
+            sBg.fillStyle(0x0E2644, 0.95);
             sBg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
-            sBg.lineStyle(1.8, UITheme.colors.solarGold, 0.95);
+            sBg.lineStyle(1.8, 0xFFD54F, 0.95);
             sBg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
             visuals.add(sBg);
 
             // Luminous hover glow
             const hoverGlow = this.scene.add.graphics();
-            hoverGlow.fillStyle(UITheme.colors.solarGold, 0.28);
+            hoverGlow.fillStyle(0xFFD54F, 0.3);
             hoverGlow.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
-            hoverGlow.lineStyle(2.5, 0xFFFFFF, 1);
+            hoverGlow.lineStyle(2, 0xFFFFFF, 1);
             hoverGlow.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
             hoverGlow.setAlpha(0);
             visuals.add(hoverGlow);
 
             const sText = this.scene.add.text(0, 0, "⚡ SWITCHBOARD [P]", {
-                fontFamily: UITheme.fonts.heading,
+                fontFamily: "Nunito, Montserrat, sans-serif",
                 fontSize: "11px",
-                color: UITheme.colors.solarGoldStr,
+                color: "#FFD54F",
                 fontStyle: "bold"
             }).setOrigin(0.5);
             visuals.add(sText);
 
-            // Top-layer hit shield: full coverage and extended proximity (+10px w, +8px h)
-            const hitShield = this.scene.add.rectangle(0, 0, btnW + 10, btnH + 8, 0x000000, 0.001);
+            // Top-layer hit shield
+            const hitShield = this.scene.add.rectangle(0, 0, btnW + 8, btnH + 6, 0x000000, 0.001);
             hitShield.setOrigin(0.5, 0.5);
             hitShield.setInteractive({ useHandCursor: true });
             switchBtn.add(hitShield);
@@ -132,11 +139,6 @@ export class ResourceMeters {
                 sText.setColor("#FFFFFF");
             });
 
-            hitShield.on("pointermove", () => {
-                if (hoverGlow.alpha < 0.95) hoverGlow.setAlpha(1);
-                if (visuals.scaleX < 1.04) visuals.setScale(1.05);
-            });
-
             hitShield.on("pointerout", () => {
                 this.scene.tweens.killTweensOf(visuals);
                 this.scene.tweens.killTweensOf(hoverGlow);
@@ -155,7 +157,7 @@ export class ResourceMeters {
                     duration: 85
                 });
 
-                sText.setColor(UITheme.colors.solarGoldStr);
+                sText.setColor("#FFD54F");
             });
 
             hitShield.on("pointerdown", () => {
@@ -175,92 +177,92 @@ export class ResourceMeters {
             this.container.add(switchBtn);
         }
 
-        // 1. Life Support (O₂ & Water)
+        // 1. Oxygen & Water (Life Support)
         this.createMeterRow({
             key: "lifeSupport",
-            label: "LIFE SUPPORT",
-            subLabel: "O₂ & H₂O Reserves",
+            label: "OXYGEN & WATER",
+            subLabel: "Fresh Air & Water Reserves",
             icon: "🫧",
             value: 95,
-            color: UITheme.colors.primaryCyan,
-            colorStr: UITheme.colors.primaryCyanStr,
-            tooltip: "Recycles atmospheric oxygen and supplies pressurized water for the habitat."
-        }, 34);
+            color: 0x00E5FF,
+            colorStr: "#00E5FF",
+            tooltip: "Supplies clean breathing air and water across your Mars base."
+        }, 42);
 
-        // 2. Crew Health & Shielding
+        // 2. Shield & Health (Crew Health)
         this.createMeterRow({
             key: "crewHealth",
-            label: "CREW & SHIELD",
-            subLabel: "Radiation Protection",
-            icon: "🛡",
+            label: "SHIELD & HEALTH",
+            subLabel: "Suit & Radiation Armor",
+            icon: "🛡️",
             value: 100,
-            color: UITheme.colors.bioGreen,
-            colorStr: UITheme.colors.bioGreenStr,
-            tooltip: "Defends against solar radiation flares and tracks astronaut physical health."
-        }, 76);
+            color: 0x00E676,
+            colorStr: "#00E676",
+            tooltip: "Protects your astronaut from space radiation flares."
+        }, 85);
 
-        // 3. Hull & Power Integrity
+        // 3. Base Power (Hull Power)
         this.createMeterRow({
             key: "hullPower",
-            label: "HULL & POWER",
-            subLabel: "Solar & RTG Grid",
+            label: "BASE POWER",
+            subLabel: "Solar & Battery Station Grid",
             icon: "⚡",
             value: 88,
-            color: UITheme.colors.solarGold,
-            colorStr: UITheme.colors.solarGoldStr,
-            tooltip: "Tracks base structural stability and energy reserves from solar/nuclear cells."
-        }, 118);
+            color: 0xFFD54F,
+            colorStr: "#FFD54F",
+            tooltip: "Keeps all lights, heaters, and base systems running."
+        }, 128);
     }
 
     private createMeterRow(data: MeterData, yOffset: number) {
-        const row = this.scene.add.container(16, yOffset);
+        const row = this.scene.add.container(14, yOffset);
 
-        // Icon Graphic Container
-        const iconCircle = this.scene.add.circle(14, 12, 12, 0x0A182E);
-        iconCircle.setStrokeStyle(1.5, data.color, 0.9);
+        // Icon Circle
+        const iconCircle = this.scene.add.circle(16, 17, 14, 0x06152B);
+        iconCircle.setStrokeStyle(1.8, data.color, 0.9);
         row.add(iconCircle);
 
-        const icon = this.scene.add.text(14, 12, data.icon, {
-            fontSize: "12px"
+        const icon = this.scene.add.text(16, 17, data.icon, {
+            fontSize: "15px"
         }).setOrigin(0.5);
         row.add(icon);
 
-        // Labels
-        const title = this.scene.add.text(34, 0, data.label, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
+        // Labels (Clean, Large, Kid-Friendly)
+        const title = this.scene.add.text(38, 3, data.label, {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "13px",
             color: "#FFFFFF",
             fontStyle: "bold"
         });
-        const sub = this.scene.add.text(34, 14, data.subLabel, {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "9px",
-            color: UITheme.colors.textMuted
+        const sub = this.scene.add.text(38, 20, data.subLabel, {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "10.5px",
+            color: "#A2BCD8",
+            fontStyle: "bold"
         });
         row.add([title, sub]);
 
-        // Percentage Text (Right aligned)
-        const valText = this.scene.add.text(440, 4, `${data.value}%`, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "12px",
-            color: data.colorStr,
-            fontStyle: "bold"
-        }).setOrigin(1, 0);
-        row.add(valText);
-
         // Progress Bar Track
-        const trackX = 225;
-        const trackY = 6;
+        const trackY = 9;
         const track = this.scene.add.graphics();
-        track.fillStyle(0x061122, 1);
-        track.fillRoundedRect(trackX, trackY, this.meterWidth, this.meterHeight, 4);
-        track.lineStyle(1, 0x1A355A, 0.8);
-        track.strokeRoundedRect(trackX, trackY, this.meterWidth, this.meterHeight, 4);
+        track.fillStyle(0x040D1C, 1);
+        track.fillRoundedRect(this.trackX, trackY, this.meterWidth, this.meterHeight, 5);
+        track.lineStyle(1.5, 0x16345A, 0.9);
+        track.strokeRoundedRect(this.trackX, trackY, this.meterWidth, this.meterHeight, 5);
         row.add(track);
 
         // Fill Bar
         const barFill = this.scene.add.graphics();
         row.add(barFill);
+
+        // Percentage Text (Cleanly spaced to the right of the bar with ZERO overlap!)
+        const valText = this.scene.add.text(420, 17, `${data.value}%`, {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "14px",
+            color: data.colorStr,
+            fontStyle: "bold"
+        }).setOrigin(1, 0.5);
+        row.add(valText);
 
         this.meters.set(data.key, {
             data,
@@ -280,8 +282,7 @@ export class ResourceMeters {
         if (!item) return;
 
         const { data, barFill, valText } = item;
-        const trackX = 225;
-        const trackY = 6;
+        const trackY = 9;
         const fillW = Math.max(0, Math.min(this.meterWidth, (data.value / 100) * this.meterWidth));
 
         barFill.clear();
@@ -291,16 +292,21 @@ export class ResourceMeters {
         let activeColorStr = data.colorStr;
 
         if (data.value <= 25) {
-            activeColor = UITheme.colors.emergencyRed;
-            activeColorStr = UITheme.colors.emergencyRedStr;
+            activeColor = 0xFF5252;
+            activeColorStr = "#FF5252";
         } else if (data.value <= 50) {
-            activeColor = UITheme.colors.marsAmber;
-            activeColorStr = UITheme.colors.marsAmberStr;
+            activeColor = 0xFFB300;
+            activeColorStr = "#FFB300";
         }
 
         if (fillW > 0) {
+            // Main fill
             barFill.fillStyle(activeColor, 0.95);
-            barFill.fillRoundedRect(trackX + 1, trackY + 1, fillW - 2, this.meterHeight - 2, 3);
+            barFill.fillRoundedRect(this.trackX + 1, trackY + 1, fillW - 2, this.meterHeight - 2, 4);
+
+            // Subtle glossy top highlight
+            barFill.fillStyle(0xFFFFFF, 0.25);
+            barFill.fillRoundedRect(this.trackX + 2, trackY + 2, fillW - 4, (this.meterHeight - 4) / 2, 2);
         }
 
         valText.setText(`${Math.round(data.value)}%`);
