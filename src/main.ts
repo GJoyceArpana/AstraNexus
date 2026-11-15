@@ -35,7 +35,7 @@ await Promise.all([
 ]);
 
 // =============================================
-// GLOBAL FULLSCREEN SYSTEM (Hotkeys F & F11 + Button)
+// GLOBAL FULLSCREEN SYSTEM (Keyboard shortcut)
 // =============================================
 
 function toggleFullscreen() {
@@ -58,31 +58,6 @@ function toggleFullscreen() {
         }
     }
 }
-
-function updateFullscreenVisuals() {
-    const fsBtn = document.getElementById("fullscreen-btn");
-    const fsIcon = document.getElementById("fs-icon");
-    const fsText = document.getElementById("fs-text");
-
-    const isFs = Boolean(document.fullscreenElement);
-    if (fsIcon) fsIcon.textContent = isFs ? "🗗" : "⛶";
-    if (fsText) fsText.textContent = isFs ? "EXIT FULLSCREEN [F]" : "FULLSCREEN [F]";
-    if (fsBtn) {
-        fsBtn.style.borderColor = isFs ? "#FFD600" : "#00E5FF";
-        fsBtn.style.color = isFs ? "#FFD600" : "#00E5FF";
-        fsBtn.style.boxShadow = isFs ? "0 0 16px rgba(255, 214, 0, 0.4)" : "0 0 16px rgba(0, 229, 255, 0.35)";
-    }
-}
-
-const fsBtn = document.getElementById("fullscreen-btn");
-if (fsBtn) {
-    fsBtn.addEventListener("click", () => {
-        toggleFullscreen();
-    });
-}
-
-document.addEventListener("fullscreenchange", updateFullscreenVisuals);
-document.addEventListener("webkitfullscreenchange", updateFullscreenVisuals);
 
 window.addEventListener("keydown", (e) => {
     if ((e.key === "f" || e.key === "F") && !e.ctrlKey && !e.metaKey && !e.altKey) {

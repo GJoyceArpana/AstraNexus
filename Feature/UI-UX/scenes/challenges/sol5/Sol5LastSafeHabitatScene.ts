@@ -74,6 +74,8 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
     private resultsModal?: Sol5ResultsModal;
     private pauseModal?: Phaser.GameObjects.Container;
     private guideModal?: Phaser.GameObjects.Container;
+    private introModal?: Phaser.GameObjects.Container;
+    private tutorialModal?: Phaser.GameObjects.Container;
 
     // Interactive Stations & Crates
     private stations: DamagedStation[] = [];
@@ -108,6 +110,18 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         }
         if (!this.textures.exists("oxygen-cylinder")) {
             this.load.image("oxygen-cylinder", "/assets/game/base/oxygen-cylinder.png");
+        }
+        if (!this.textures.exists("sol5-air-manifold")) {
+            this.load.image("sol5-air-manifold", "/assets/game/base/sol5-air-distribution-manifold.png");
+        }
+        if (!this.textures.exists("sol5-electrical-junction")) {
+            this.load.image("sol5-electrical-junction", "/assets/game/base/sol5-electrical-grid-junction.png");
+        }
+        if (!this.textures.exists("sol5-pressure-regulator")) {
+            this.load.image("sol5-pressure-regulator", "/assets/game/base/sol5-oxygen-pressure-regulator.png");
+        }
+        if (!this.textures.exists("sol5-hull-breaches")) {
+            this.load.image("sol5-hull-breaches", "/assets/game/base/sol5-exterior-hull-breaches.png");
         }
         if (!this.textures.exists("mars_terrain")) {
             this.load.image("mars_terrain", "/assets/game/mars/jezero-ctx-mosaic-3x3.png");
@@ -205,6 +219,8 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         // Initial HUD values
         this.hud.updateResources(this.resourceManager.getState());
         this.hud.updateInventory(this.inventoryManager.getInventory());
+
+        this.showMissionIntroduction();
 
         // 9. Initial Emergency Dispatch Warning Toast
         this.time.delayedCall(800, () => {
@@ -346,46 +362,60 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
             }
         ];
 
+        const machineTextures: Record<SubsystemId, string> = {
+            air_distribution: "sol5-air-manifold",
+            electrical_grid: "sol5-electrical-junction",
+            oxygen_regulation: "sol5-pressure-regulator",
+            structural_hull: "sol5-hull-breaches"
+        };
+        const stationAccents: Record<SubsystemId, number> = {
+            air_distribution: 0x35D9E8,
+            electrical_grid: 0xFFC857,
+            oxygen_regulation: 0x61D8A6,
+            structural_hull: 0xFF827D
+        };
+
         for (const cfg of stationConfigs) {
             const c = this.add.container(cfg.x, cfg.y).setDepth(15);
+            const accent = stationAccents[cfg.id];
 
-            // Tech Console Pedestal Body
-            const body = this.add.graphics();
-            body.fillStyle(0x0C223A, 1);
-            body.fillRoundedRect(-45, -50, 90, 100, 10);
-            body.lineStyle(2, UITheme.colors.primaryCyan, 0.9);
-            body.strokeRoundedRect(-45, -50, 90, 100, 10);
-            c.add(body);
+            // A compact habitat service bay frames each machine without covering its controls.
+            const surround = this.add.graphics();
+            surround.fillStyle(0x08182B, 0.96);
+            surround.fillRoundedRect(-104, -91, 208, 190, 14);
+            surround.lineStyle(2, accent, 0.72);
+            surround.strokeRoundedRect(-104, -91, 208, 190, 14);
+            surround.fillStyle(accent, 0.13);
+            surround.fillRoundedRect(-94, -81, 188, 5, 2);
+            surround.lineStyle(1, 0x294766, 0.85);
+            surround.lineBetween(-88, 68, 88, 68);
+            c.add(surround);
 
-            // Screen glow
-            const screen = this.add.rectangle(0, -22, 70, 38, 0x051322);
-            screen.setStrokeStyle(1.5, 0xFF1744);
-            c.add(screen);
+            // Low cyan floor glow visually anchors the machine to the habitat deck.
+            const floorGlow = this.add.ellipse(0, 84, 178, 24, accent, 0.2);
+            c.add(floorGlow);
 
-            // Icon
-            const iconTxt = this.add.text(0, -22, cfg.icon, {
-                fontSize: "20px"
-            }).setOrigin(0.5);
-            c.add(iconTxt);
+            const machine = this.add.image(0, -14, machineTextures[cfg.id]);
+            machine.setDisplaySize(174, 136);
+            c.add(machine);
 
-            // Beacon LED Light (Pulses red until fixed)
-            const beaconLight = this.add.circle(0, -60, 6, UITheme.colors.emergencyRed);
+            // Beacon LED and status remain readable above the sprite.
+            const beaconLight = this.add.circle(88, -71, 5, UITheme.colors.emergencyRed);
             c.add(beaconLight);
 
-            // Station Name Tag
-            const nameTag = this.add.text(0, 22, cfg.name, {
+            const nameTag = this.add.text(0, 49, cfg.name, {
                 fontFamily: UITheme.fonts.heading,
                 fontSize: "8.5px",
-                color: "#FFFFFF",
+                color: "#E8F3FC",
                 align: "center",
-                fontStyle: "bold"
+                fontStyle: "bold",
+                wordWrap: { width: 188, useAdvancedWrap: true }
             }).setOrigin(0.5);
             c.add(nameTag);
 
-            // Status Badge
-            const statusBadge = this.add.text(0, -78, "⚠ OFFLINE", {
+            const statusBadge = this.add.text(0, -72, "⚠ OFFLINE", {
                 fontFamily: UITheme.fonts.heading,
-                fontSize: "9px",
+                fontSize: "8.5px",
                 color: UITheme.colors.emergencyRedStr,
                 fontStyle: "bold",
                 backgroundColor: "#030B18EE",
@@ -504,7 +534,7 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
 
         // Interact on E
         this.keys.E.on("down", () => {
-            if (this.activePuzzle || this.pauseModal || this.resultsModal || this.guideModal) return;
+            if (this.activePuzzle || this.pauseModal || this.resultsModal || this.guideModal || this.introModal || this.tutorialModal) return;
 
             if (this.nearbyStation && !this.nearbyStation.isRepaired) {
                 this.launchStationPuzzle(this.nearbyStation.id);
@@ -530,6 +560,285 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         });
     }
 
+    private showMissionIntroduction() {
+        const briefings = [
+            "Houston CAPCOM, we've got a serious emergency at the Mars habitat!",
+            "A dust gale ruptured the air-distribution manifold. Oxygen is leaking out of the habitat.",
+            "The electrical grid is shorted, pressure regulation is unstable, and the exterior hull has several breaches.",
+            "Reach the four damaged stations and solve their repair challenges. Search supply lockers for spare pipes, relays, valves, and hull patches.",
+            "Restore all four systems before the emergency countdown reaches zero. Critical resource readings are warnings; the countdown is the mission deadline."
+        ];
+
+        const renderPage = (page: number) => {
+            this.introModal?.destroy();
+            const modal = this.add.container(0, 0).setDepth(300);
+            this.introModal = modal;
+
+            const shade = this.add.rectangle(0, 0, this.W, this.H, 0x030611, 0.84).setOrigin(0);
+            shade.setInteractive();
+            modal.add(shade);
+
+            const cardW = 960;
+            const cardH = 420;
+            const cardX = (this.W - cardW) / 2;
+            const cardY = (this.H - cardH) / 2;
+            const frame = this.add.graphics();
+            frame.fillStyle(UITheme.colors.panelBg, 0.99);
+            frame.fillRoundedRect(cardX, cardY, cardW, cardH, 16);
+            frame.lineStyle(2, UITheme.colors.primaryCyan, 1);
+            frame.strokeRoundedRect(cardX, cardY, cardW, cardH, 16);
+            modal.add(frame);
+
+            const portraitX = cardX + 24;
+            const portraitY = cardY + 38;
+            const portraitFrame = this.add.graphics();
+            portraitFrame.fillStyle(0x0A1B30, 1);
+            portraitFrame.fillRoundedRect(portraitX, portraitY, 220, 320, 12);
+            portraitFrame.lineStyle(2, UITheme.colors.solarGold, 1);
+            portraitFrame.strokeRoundedRect(portraitX, portraitY, 220, 320, 12);
+            modal.add(portraitFrame);
+
+            const suitKey = `${this.equippedGender}_avatar_${this.equippedSuitFrame}`;
+            const portrait = this.add.image(portraitX + 110, portraitY + 142,
+                this.textures.exists(suitKey) ? suitKey : `${this.equippedGender}_avatar_1`);
+            portrait.setDisplaySize(164, 218);
+            modal.add(portrait);
+
+            const callsign = this.add.text(portraitX + 110, portraitY + 286, this.equippedCallsign.toUpperCase(), {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "12px",
+                color: UITheme.colors.solarGoldStr,
+                fontStyle: "bold"
+            }).setOrigin(0.5);
+            modal.add(callsign);
+
+            const bodyX = cardX + 254;
+            const bodyY = cardY + 42;
+            const bodyW = cardW - 278;
+            const bodyH = 282;
+            const body = this.add.graphics();
+            body.fillStyle(0x0B1E34, 1);
+            body.fillRoundedRect(bodyX, bodyY, bodyW, bodyH, 12);
+            body.lineStyle(1.5, UITheme.colors.panelBorder, 1);
+            body.strokeRoundedRect(bodyX, bodyY, bodyW, bodyH, 12);
+            modal.add(body);
+
+            const heading = this.add.text(bodyX + 30, bodyY + 28, "EMERGENCY COMMAND BRIEFING", {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "18px",
+                color: UITheme.colors.primaryCyanStr,
+                fontStyle: "bold"
+            });
+            modal.add(heading);
+
+            const message = this.add.text(bodyX + 30, bodyY + 92, briefings[page], {
+                fontFamily: UITheme.fonts.body,
+                fontSize: "17px",
+                color: "#E2EDF8",
+                wordWrap: { width: bodyW - 60 },
+                lineSpacing: 8
+            });
+            modal.add(message);
+
+            const pageCount = this.add.text(bodyX + bodyW - 28, bodyY + bodyH - 24, `${page + 1} / ${briefings.length}`, {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "10px",
+                color: UITheme.colors.textMuted
+            }).setOrigin(1, 0.5);
+            modal.add(pageCount);
+
+            const skip = this.add.text(cardX + cardW - 22, cardY + 15, "SKIP INTRODUCTION", {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "9px",
+                color: UITheme.colors.textSecondary,
+                fontStyle: "bold"
+            }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+            skip.on("pointerdown", () => this.showMissionTutorial(true, 0));
+            modal.add(skip);
+
+            const next = ButtonFactory.createButton({
+                scene: this,
+                x: bodyX + bodyW / 2,
+                y: cardY + cardH - 40,
+                width: 210,
+                height: 42,
+                text: page === briefings.length - 1 ? "LEARN REPAIR STEPS  ➔" : "CONTINUE  ➔",
+                primaryColor: UITheme.colors.primaryCyan,
+                onClick: () => {
+                    SoundFX.playClick();
+                    if (page === briefings.length - 1) this.showMissionTutorial(true, 0);
+                    else renderPage(page + 1);
+                }
+            });
+            modal.add(next);
+
+            this.tweens.add({
+                targets: modal,
+                alpha: { from: 0, to: 1 },
+                scale: { from: 0.98, to: 1 },
+                duration: 180,
+                ease: "Quad.easeOut"
+            });
+        };
+
+        renderPage(0);
+    }
+
+    private showMissionTutorial(startMissionFromEnd: boolean, page = 0, isGuide = false) {
+        const lessons: { id: SubsystemId; title: string; icon: string; description: string; tip: string }[] = [
+            {
+                id: "air_distribution",
+                title: "AIR DISTRIBUTION",
+                icon: "💨",
+                description: "Reconnect the pipe network from the air source to the habitat target to stop the oxygen leak.",
+                tip: "FIELD TIP: Rotate each pipe tile until one continuous path is complete."
+            },
+            {
+                id: "electrical_grid",
+                title: "ELECTRICAL GRID",
+                icon: "⚡",
+                description: "Route power through the damaged circuit and reconnect the habitat's critical systems.",
+                tip: "FIELD TIP: Follow the circuit from the power source to every required system without creating a short."
+            },
+            {
+                id: "oxygen_regulation",
+                title: "OXYGEN REGULATION",
+                icon: "🎛️",
+                description: "Calibrate the pressure valves to stabilize the habitat atmosphere in the safe zone.",
+                tip: "FIELD TIP: Balance inflow and bleed, then hold pressure between 56 and 64 kPa."
+            },
+            {
+                id: "structural_hull",
+                title: "STRUCTURAL HULL",
+                icon: "🛡️",
+                description: "Seal each exterior breach with the correct composite patch from your repair inventory.",
+                tip: "FIELD TIP: Match the patch material to the breach, then secure its locking anchors."
+            }
+        ];
+
+        const renderPage = (pageIndex: number) => {
+            this.introModal?.destroy();
+            this.introModal = undefined;
+            this.tutorialModal?.destroy();
+
+            const modal = this.add.container(0, 0).setDepth(300);
+            this.tutorialModal = modal;
+            if (isGuide) this.guideModal = modal;
+
+            const shade = this.add.rectangle(0, 0, this.W, this.H, 0x030611, 0.84).setOrigin(0);
+            shade.setInteractive();
+            modal.add(shade);
+
+            const cardW = 880;
+            const cardH = 400;
+            const cardX = (this.W - cardW) / 2;
+            const cardY = (this.H - cardH) / 2;
+            const frame = this.add.graphics();
+            frame.fillStyle(UITheme.colors.panelBg, 0.99);
+            frame.fillRoundedRect(cardX, cardY, cardW, cardH, 16);
+            frame.lineStyle(2, UITheme.colors.primaryCyan, 1);
+            frame.strokeRoundedRect(cardX, cardY, cardW, cardH, 16);
+            modal.add(frame);
+
+            const lesson = lessons[pageIndex];
+            const header = this.add.text(this.W / 2, cardY + 34, "LEARN BEFORE PLAYING", {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "13px",
+                color: UITheme.colors.solarGoldStr,
+                fontStyle: "bold",
+                letterSpacing: 1
+            }).setOrigin(0.5);
+            modal.add(header);
+
+            const title = this.add.text(this.W / 2, cardY + 76, lesson.title, {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "22px",
+                color: UITheme.colors.primaryCyanStr,
+                fontStyle: "bold",
+                letterSpacing: 1
+            }).setOrigin(0.5);
+            modal.add(title);
+
+            const icon = this.add.text(this.W / 2, cardY + 132, lesson.icon, {
+                fontFamily: UITheme.fonts.body,
+                fontSize: "34px",
+                color: "#FFFFFF"
+            }).setOrigin(0.5);
+            modal.add(icon);
+
+            const description = this.add.text(this.W / 2, cardY + 200, lesson.description, {
+                fontFamily: UITheme.fonts.body,
+                fontSize: "16px",
+                color: "#E2EDF8",
+                align: "center",
+                wordWrap: { width: cardW - 120 },
+                lineSpacing: 6
+            }).setOrigin(0.5, 0);
+            modal.add(description);
+
+            const tip = this.add.text(this.W / 2, cardY + 275, lesson.tip, {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "11px",
+                color: UITheme.colors.solarGoldStr,
+                fontStyle: "bold",
+                align: "center",
+                wordWrap: { width: cardW - 100 }
+            }).setOrigin(0.5, 0);
+            modal.add(tip);
+
+            const pageText = this.add.text(cardX + 28, cardY + cardH - 30, `CHECK ${pageIndex + 1} / ${lessons.length}`, {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "10px",
+                color: UITheme.colors.textMuted
+            }).setOrigin(0, 0.5);
+            modal.add(pageText);
+
+            const finish = () => {
+                this.tutorialModal?.destroy();
+                this.tutorialModal = undefined;
+                if (isGuide) this.guideModal = undefined;
+                if (startMissionFromEnd) this.resourceManager.start();
+            };
+
+            const skip = this.add.text(cardX + cardW - 22, cardY + 14, "SKIP TUTORIAL", {
+                fontFamily: UITheme.fonts.heading,
+                fontSize: "9px",
+                color: UITheme.colors.textSecondary,
+                fontStyle: "bold"
+            }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+            skip.on("pointerdown", finish);
+            modal.add(skip);
+
+            const next = ButtonFactory.createButton({
+                scene: this,
+                x: cardX + cardW - 130,
+                y: cardY + cardH - 38,
+                width: 210,
+                height: 42,
+                text: pageIndex === lessons.length - 1
+                    ? (startMissionFromEnd ? "BEGIN REPAIRS  ➔" : "CLOSE MANUAL  ✓")
+                    : "NEXT STEP  ➔",
+                primaryColor: UITheme.colors.primaryCyan,
+                onClick: () => {
+                    SoundFX.playClick();
+                    if (pageIndex === lessons.length - 1) finish();
+                    else renderPage(pageIndex + 1);
+                }
+            });
+            modal.add(next);
+
+            this.tweens.add({
+                targets: modal,
+                alpha: { from: 0, to: 1 },
+                scale: { from: 0.98, to: 1 },
+                duration: 180,
+                ease: "Quad.easeOut"
+            });
+        };
+
+        renderPage(page);
+    }
+
     private createInteractionPrompt() {
         this.promptContainer = this.add.container(this.W / 2, this.H - 100).setDepth(140);
         this.promptContainer.setVisible(false);
@@ -551,8 +860,8 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
     }
 
     override update(_time: number, delta: number) {
-        // Update Resource Manager (only when no blocking pause / results modal)
-        if (!this.pauseModal && !this.resultsModal && !this.guideModal && !this.missionEnded) {
+        // The emergency countdown pauses only for the explicit pause menu.
+        if (!this.pauseModal && !this.missionEnded) {
             this.resourceManager.update(delta);
         }
 
@@ -563,7 +872,7 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         this.updateEmergencyLighting();
 
         // Player Movement (disabled during interactive puzzle or pause modal)
-        if (!this.missionEnded && !this.activePuzzle && !this.pauseModal && !this.resultsModal && !this.guideModal) {
+        if (!this.missionEnded && !this.activePuzzle && !this.pauseModal && !this.resultsModal && !this.guideModal && !this.introModal && !this.tutorialModal) {
             this.handlePlayerMovement(delta);
             this.checkProximities();
         }
@@ -857,74 +1166,24 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
     }
 
     private showMissionGuide() {
-        if (this.guideModal) {
-            this.guideModal.destroy();
+        if (this.introModal) return;
+
+        if (this.tutorialModal) {
+            this.tutorialModal.destroy();
+            this.tutorialModal = undefined;
             this.guideModal = undefined;
             return;
         }
-
-        const modal = this.add.container(0, 0).setDepth(260);
-        const bg = this.add.rectangle(0, 0, this.W, this.H, 0x030713, 0.92).setOrigin(0);
-        bg.setInteractive();
-        modal.add(bg);
-
-        const cardW = 680;
-        const cardH = 460;
-        const box = this.add.graphics();
-        box.fillStyle(UITheme.colors.panelBg, 0.98);
-        box.fillRoundedRect((this.W - cardW) / 2, (this.H - cardH) / 2, cardW, cardH, 16);
-        box.lineStyle(2, UITheme.colors.solarGold, 0.9);
-        box.strokeRoundedRect((this.W - cardW) / 2, (this.H - cardH) / 2, cardW, cardH, 16);
-        modal.add(box);
-
-        const title = this.add.text(this.W / 2, (this.H - cardH) / 2 + 38, "ENGINEERING EMERGENCY PROTOCOL MANUAL", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "16px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
-        }).setOrigin(0.5);
-
-        const manualText =
-            "1. EXPLORE & IDENTIFY DAMAGE:\n" +
-            "Walk through the 4 damaged research habitat wings using W, A, S, D or Arrow Keys. Walk up to broken stations and press [ E ] to enter technical repair consoles.\n\n" +
-            "2. THE 4 ENGINEERING CHALLENGES:\n" +
-            "• AIR LEAK REPAIR: Rotate pipe segments to form an airtight conduit from Cryo Air Source to ECLSS Intake.\n" +
-            "• POWER GRID CIRCUIT: Route 480V power through step-down transformers to power Life Support, Heaters & Turbine without tripping circuit breakers!\n" +
-            "• OXYGEN PRESSURE REGULATION: Adjust the Inflow, Bleed, and Equalizer valves to stabilize pressure inside the 56–64 kPa NASA safe zone for 5 seconds.\n" +
-            "• STRUCTURAL HULL SEALING: Select matching Aerogel, Carbon Fiber, or Titanium patches to weld hull fissures.\n\n" +
-            "3. EMERGENCY BUFFER & MATERIAL LOOTING:\n" +
-            "If pressure drops below 18 kPa or Oxygen hits 0%, the mission fails! Search supply lockers around the habitat to replenish spare pipes, relays, valves, and patches.";
-
-        const desc = this.add.text(
-            (this.W - cardW) / 2 + 36,
-            (this.H - cardH) / 2 + 75,
-            manualText,
-            {
-                fontFamily: UITheme.fonts.body,
-                fontSize: "11px",
-                color: "#E2EDF8",
-                wordWrap: { width: cardW - 72 },
-                lineSpacing: 4
-            }
-        );
-
-        const closeBtn = ButtonFactory.createButton({
-            scene: this,
-            x: this.W / 2,
-            y: (this.H - cardH) / 2 + cardH - 38,
-            width: 200,
-            height: 38,
-            text: "DISMISS MANUAL ✔",
-            primaryColor: UITheme.colors.primaryCyan,
-            onClick: () => {
-                SoundFX.playClick();
-                modal.destroy();
-                this.guideModal = undefined;
-            }
-        });
-
-        modal.add([title, desc, closeBtn]);
-        this.guideModal = modal;
+        const firstUnrepaired = ([
+            "air_distribution",
+            "electrical_grid",
+            "oxygen_regulation",
+            "structural_hull"
+        ] as SubsystemId[]).find((id) => !this.resourceManager.isRepaired(id));
+        const page = firstUnrepaired
+            ? (["air_distribution", "electrical_grid", "oxygen_regulation", "structural_hull"] as SubsystemId[]).indexOf(firstUnrepaired)
+            : 0;
+        this.showMissionTutorial(false, page, true);
     }
 
     private returnToMarsBase() {
