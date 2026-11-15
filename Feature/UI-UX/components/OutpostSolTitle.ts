@@ -295,7 +295,7 @@ export class OutpostSolTitle {
         });
     }
 
-    private createStatusFooter(width: number, height: number) {
+    private createStatusFooter(_width: number, height: number) {
         const footerY = height - 19;
         this.weatherIndicator = this.scene.add.text(40, footerY, "☀ NASA SPACE WEATHER ●", {
             fontFamily: "Nunito",
