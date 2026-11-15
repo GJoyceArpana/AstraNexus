@@ -1319,7 +1319,7 @@ export class MissionChallengesModal {
             solNumber: 3,
             titleText: "ECHOES FROM MARS",
             subtitleText: "Connect to the orbital relay, command your rover, and transmit discoveries from the Martian canyon!",
-            deployText: "🚀 BEGIN MISSION – SOL 3 →",
+            deployText: "🚀 DEPLOY TO SOL 3 MARTIAN SURFACE ➔",
             attributionText: "NASA Mars Relay Network • Autonomous Canyon Rover Telemetry",
             tweensList: this.sol3Tweens
         });
