@@ -115,6 +115,18 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         if (!this.textures.exists("oxygen-cylinder")) {
             this.load.image("oxygen-cylinder", "/assets/game/base/oxygen-cylinder.png");
         }
+        if (!this.textures.exists("sol5-air-manifold")) {
+            this.load.image("sol5-air-manifold", "/assets/game/base/sol5-air-distribution-manifold.png");
+        }
+        if (!this.textures.exists("sol5-electrical-junction")) {
+            this.load.image("sol5-electrical-junction", "/assets/game/base/sol5-electrical-grid-junction.png");
+        }
+        if (!this.textures.exists("sol5-pressure-regulator")) {
+            this.load.image("sol5-pressure-regulator", "/assets/game/base/sol5-oxygen-pressure-regulator.png");
+        }
+        if (!this.textures.exists("sol5-hull-breaches")) {
+            this.load.image("sol5-hull-breaches", "/assets/game/base/sol5-exterior-hull-breaches.png");
+        }
         if (!this.textures.exists("mars_terrain")) {
             this.load.image("mars_terrain", "/assets/game/mars/jezero-ctx-mosaic-3x3.png");
         }
@@ -218,10 +230,10 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         this.hud.updateResources(this.resourceManager.getState());
         this.hud.updateInventory(this.inventoryManager.getInventory());
 
-        // 9. Character introduction before the mission timer and controls activate
+        // Character introduction and repair tutorial start the mission timer only after the player is ready.
         this.showCharacterIntroduction();
 
-        // 10. Initial Emergency Dispatch Warning Toast
+        // Initial Emergency Dispatch Warning Toast
         this.time.delayedCall(800, () => {
             this.hud.showAlertToast("⚠ EMERGENCY PROTOCOL: DUST GALE DAMAGED CRITICAL HABITAT SYSTEMS! INVESTIGATE STATIONS.", true);
         });
@@ -361,46 +373,60 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
             }
         ];
 
+        const machineTextures: Record<SubsystemId, string> = {
+            air_distribution: "sol5-air-manifold",
+            electrical_grid: "sol5-electrical-junction",
+            oxygen_regulation: "sol5-pressure-regulator",
+            structural_hull: "sol5-hull-breaches"
+        };
+        const stationAccents: Record<SubsystemId, number> = {
+            air_distribution: 0x35D9E8,
+            electrical_grid: 0xFFC857,
+            oxygen_regulation: 0x61D8A6,
+            structural_hull: 0xFF827D
+        };
+
         for (const cfg of stationConfigs) {
             const c = this.add.container(cfg.x, cfg.y).setDepth(15);
+            const accent = stationAccents[cfg.id];
 
-            // Tech Console Pedestal Body
-            const body = this.add.graphics();
-            body.fillStyle(0x0C223A, 1);
-            body.fillRoundedRect(-45, -50, 90, 100, 10);
-            body.lineStyle(2, UITheme.colors.primaryCyan, 0.9);
-            body.strokeRoundedRect(-45, -50, 90, 100, 10);
-            c.add(body);
+            // A compact habitat service bay frames each machine without covering its controls.
+            const surround = this.add.graphics();
+            surround.fillStyle(0x08182B, 0.96);
+            surround.fillRoundedRect(-104, -91, 208, 190, 14);
+            surround.lineStyle(2, accent, 0.72);
+            surround.strokeRoundedRect(-104, -91, 208, 190, 14);
+            surround.fillStyle(accent, 0.13);
+            surround.fillRoundedRect(-94, -81, 188, 5, 2);
+            surround.lineStyle(1, 0x294766, 0.85);
+            surround.lineBetween(-88, 68, 88, 68);
+            c.add(surround);
 
-            // Screen glow
-            const screen = this.add.rectangle(0, -22, 70, 38, 0x051322);
-            screen.setStrokeStyle(1.5, 0xFF1744);
-            c.add(screen);
+            // Low cyan floor glow visually anchors the machine to the habitat deck.
+            const floorGlow = this.add.ellipse(0, 84, 178, 24, accent, 0.2);
+            c.add(floorGlow);
 
-            // Icon
-            const iconTxt = this.add.text(0, -22, cfg.icon, {
-                fontSize: "20px"
-            }).setOrigin(0.5);
-            c.add(iconTxt);
+            const machine = this.add.image(0, -14, machineTextures[cfg.id]);
+            machine.setDisplaySize(174, 136);
+            c.add(machine);
 
-            // Beacon LED Light (Pulses red until fixed)
-            const beaconLight = this.add.circle(0, -60, 6, UITheme.colors.emergencyRed);
+            // Beacon LED and status remain readable above the sprite.
+            const beaconLight = this.add.circle(88, -71, 5, UITheme.colors.emergencyRed);
             c.add(beaconLight);
 
-            // Station Name Tag
-            const nameTag = this.add.text(0, 22, cfg.name, {
+            const nameTag = this.add.text(0, 49, cfg.name, {
                 fontFamily: UITheme.fonts.heading,
                 fontSize: "8.5px",
-                color: "#FFFFFF",
+                color: "#E8F3FC",
                 align: "center",
-                fontStyle: "bold"
+                fontStyle: "bold",
+                wordWrap: { width: 188, useAdvancedWrap: true }
             }).setOrigin(0.5);
             c.add(nameTag);
 
-            // Status Badge
-            const statusBadge = this.add.text(0, -78, "⚠ OFFLINE", {
+            const statusBadge = this.add.text(0, -72, "⚠ OFFLINE", {
                 fontFamily: UITheme.fonts.heading,
-                fontSize: "9px",
+                fontSize: "8.5px",
                 color: UITheme.colors.emergencyRedStr,
                 fontStyle: "bold",
                 backgroundColor: "#030B18EE",
@@ -519,7 +545,7 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
 
         // Interact on E
         this.keys.E.on("down", () => {
-            if (this.activePuzzle || this.pauseModal || this.resultsModal || this.guideModal) return;
+            if (this.activePuzzle || this.pauseModal || this.resultsModal || this.guideModal || this.introductionActive || this.tutorialActive) return;
 
             if (this.nearbyStation && !this.nearbyStation.isRepaired) {
                 this.launchStationPuzzle(this.nearbyStation.id);
@@ -566,8 +592,8 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
     }
 
     override update(_time: number, delta: number) {
-        // Update Resource Manager (only when no blocking pause / results modal)
-        if (!this.introductionActive && !this.tutorialActive && !this.pauseModal && !this.resultsModal && !this.guideModal && !this.missionEnded) {
+        // The emergency countdown pauses only for the explicit pause menu.
+        if (!this.pauseModal && !this.missionEnded) {
             this.resourceManager.update(delta);
         }
 
@@ -589,7 +615,7 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
             "Hey Cadet! We've got a serious emergency at the Mars habitat!",
             "A powerful Martian storm has damaged our critical life-support systems. We're losing oxygen pressure, and several essential systems are offline.",
             "We need to repair four critical systems: air distribution pipes, the electrical grid, oxygen pressure regulators and the damaged exterior habitat walls.",
-            "Be careful! We have limited repair materials and a limited emergency buffer. Every repair matters.",
+            "The countdown is the mission deadline. Low oxygen, pressure, hull, or power readings are warnings, not separate game-over triggers.",
             "Complete all four repairs and stabilize the habitat. Our survival depends on you!",
             "Ready, Cadet? Let's save the habitat!"
         ];
@@ -1266,7 +1292,7 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
             "• OXYGEN PRESSURE REGULATION: Adjust the Inflow, Bleed, and Equalizer valves to stabilize pressure inside the 56–64 kPa NASA safe zone for 5 seconds.\n" +
             "• STRUCTURAL HULL SEALING: Select matching Aerogel, Carbon Fiber, or Titanium patches to weld hull fissures.\n\n" +
             "3. EMERGENCY BUFFER & MATERIAL LOOTING:\n" +
-            "If pressure drops below 18 kPa or Oxygen hits 0%, the mission fails! Search supply lockers around the habitat to replenish spare pipes, relays, valves, and patches.";
+            "The mission fails only when the emergency countdown reaches 00:00. Low oxygen, pressure, hull, or power readings warn you and may affect gameplay, but never end the mission by themselves. Search supply lockers for spare pipes, relays, valves, and patches.";
 
         const desc = this.add.text(
             (this.W - cardW) / 2 + 36,

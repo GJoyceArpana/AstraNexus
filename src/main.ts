@@ -37,7 +37,7 @@ await Promise.all([
 SoundFX.initGlobalUnlock();
 
 // =============================================
-// GLOBAL FULLSCREEN SYSTEM (Hotkey F)
+// GLOBAL FULLSCREEN SYSTEM (Hotkey F; no visible fullscreen button)
 // =============================================
 
 function toggleFullscreen() {
