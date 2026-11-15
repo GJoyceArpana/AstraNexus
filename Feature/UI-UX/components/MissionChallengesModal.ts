@@ -49,10 +49,6 @@ export class MissionChallengesModal {
 
     private contentContainer!: Phaser.GameObjects.Container;
     private tabButtons: Phaser.GameObjects.Container[] = [];
-    private frameElements: Phaser.GameObjects.GameObject[] = [];
-
-    // Sol 2 briefing state
-    private sol2Tweens: Phaser.Tweens.Tween[] = [];
 
     // Sol 4 briefing state
     private sol4WeatherTitle?: Phaser.GameObjects.Text;
@@ -224,7 +220,6 @@ export class MissionChallengesModal {
 
         // 3. Sol Navigation Carousel Tabs (Sols 1 - 5)
         this.createSolTabs(frameX + 300, frameY + 70, frameW - 324);
-        this.frameElements = [frameBg, headerTitle, closeBtn, ...this.tabButtons];
 
         // 4. Dynamic Content Container (re-drawn when switching Sols)
         this.contentContainer = this.scene.add.container(0, 0);
@@ -321,13 +316,6 @@ export class MissionChallengesModal {
     private selectSolTab(sol: number) {
         this.currentSolTab = sol;
 
-        const isSol2 = (sol === 2);
-        this.frameElements.forEach(el => {
-            if (el && (el as any).setVisible) {
-                (el as any).setVisible(!isSol2);
-            }
-        });
-
         // Redraw all tabs
         this.tabButtons.forEach((tabContainer, idx) => {
             const solNum = idx + 1;
@@ -349,25 +337,11 @@ export class MissionChallengesModal {
      * Renders the full 2-column detailed view for the active Sol
      */
     private renderSolChallenge(sol: number) {
-        // Stop any active Sol 2 & Sol 4 tweens BEFORE their targets are destroyed by removeAll(true)
-        this.clearSol2Tweens();
+        // Stop any Sol 4 tweens BEFORE their targets are destroyed by removeAll(true)
         this.clearSol4Tweens();
         this.sol4WeatherTitle = undefined;
         this.sol4WeatherDetail = undefined;
         this.contentContainer.removeAll(true);
-
-        const isSol2 = (sol === 2);
-        this.frameElements.forEach(el => {
-            if (el && (el as any).setVisible) {
-                (el as any).setVisible(!isSol2);
-            }
-        });
-
-        if (sol === 2) {
-            this.renderSol2Briefing();
-            return;
-        }
-
         if (sol === 4) {
             this.renderSol4Briefing();
             return;
@@ -715,280 +689,6 @@ export class MissionChallengesModal {
             g.fillRect(x, y + i * stripH, w, Math.ceil(stripH) + 1);
         }
         parent.add(g);
-    }
-
-    private clearSol2Tweens() {
-        this.sol2Tweens.forEach((t) => t.remove());
-        this.sol2Tweens = [];
-    }
-
-    // =====================================================================
-    // SOL 2 DUST DEVIL CLEANUP BRIEFING
-    // Matches the custom mockup: Astronaut cadet, 2 Cyan Mission cards,
-    // Solar Panel with animated dust devil tornado, Back to Map, and Start Mission.
-    // =====================================================================
-    private renderSol2Briefing() {
-        const { width, height } = this.scene.scale;
-        const cx = width / 2;
-        const cy = height / 2;
-
-        const root = this.scene.add.container(0, 0);
-        this.contentContainer.add(root);
-
-        // Ensure texture is loaded
-        if (!this.scene.textures.exists("sol2_mission_briefing")) {
-            this.scene.load.image("sol2_mission_briefing", "/assets/game/ui/sol2_mission_briefing.jpg");
-            this.scene.load.once("complete", () => {
-                if (this.currentSolTab === 2 && !this.isClosed) {
-                    this.renderSol2Briefing();
-                }
-            });
-            if (!this.scene.load.isLoading()) {
-                this.scene.load.start();
-            }
-            return;
-        }
-
-        const S = 1160 / 1024;
-        const imgW = 1024 * S;
-        const imgH = 576 * S;
-        const ox = cx - imgW / 2;
-        const oy = cy - imgH / 2;
-
-        // Visual backdrop
-        const bgImg = this.scene.add.image(cx, cy, "sol2_mission_briefing");
-        bgImg.setDisplaySize(imgW, imgH);
-        root.add(bgImg);
-
-        // Mask rounded corners
-        const maskG = this.scene.add.graphics();
-        maskG.fillStyle(0xffffff, 1);
-        maskG.fillRoundedRect(ox, oy, imgW, imgH, 16);
-        const mask = maskG.createGeometryMask();
-        bgImg.setMask(mask);
-        root.add(maskG);
-
-        // Subtle glowing cyan frame border
-        const frameBorder = this.scene.add.graphics();
-        frameBorder.lineStyle(2, UITheme.colors.primaryCyan, 0.9);
-        frameBorder.strokeRoundedRect(ox, oy, imgW, imgH, 16);
-        root.add(frameBorder);
-
-        // Ambient swirling dust particles over the tornado on the right
-        const tornadoCx = ox + 895 * S;
-        const tornadoCy = oy + 320 * S;
-        for (let i = 0; i < 18; i++) {
-            const px = tornadoCx + Phaser.Math.Between(-80, 80);
-            const py = tornadoCy + Phaser.Math.Between(-110, 110);
-            const p = this.scene.add.circle(
-                px,
-                py,
-                Phaser.Math.Between(2, 4.5),
-                Phaser.Math.RND.pick([0xE27845, 0xF59E0B, 0xFFE082, 0xD97706]),
-                Phaser.Math.FloatBetween(0.4, 0.85)
-            );
-            root.add(p);
-
-            this.sol2Tweens.push(this.scene.tweens.add({
-                targets: p,
-                x: px + Phaser.Math.Between(-45, 45),
-                y: py - Phaser.Math.Between(35, 90),
-                alpha: 0,
-                scale: 1.6,
-                duration: Phaser.Math.Between(1100, 2200),
-                repeat: -1,
-                delay: i * 110,
-                ease: "Sine.easeInOut"
-            }));
-        }
-
-        // Twinkling title star sparkles
-        for (let s = 0; s < 4; s++) {
-            const spark = this.scene.add.text(
-                cx + Phaser.Math.Between(-280, 280),
-                oy + 145 * S + Phaser.Math.Between(-15, 15),
-                "✦",
-                { fontSize: "14px", color: "#FDE68A" }
-            ).setOrigin(0.5);
-            root.add(spark);
-
-            this.sol2Tweens.push(this.scene.tweens.add({
-                targets: spark,
-                alpha: 0.2,
-                scale: 0.6,
-                duration: 800 + s * 250,
-                yoyo: true,
-                repeat: -1
-            }));
-        }
-
-        // -------------------------------------------------------------
-        // TOP 5 INTERACTIVE TABS OVERLAY
-        // -------------------------------------------------------------
-        const tabConfigs = [
-            { sol: 1, x: ox + 276 * S, y: oy + 35 * S, w: 120 * S, h: 42 * S },
-            { sol: 2, x: ox + 422 * S, y: oy + 35 * S, w: 130 * S, h: 44 * S },
-            { sol: 3, x: ox + 553 * S, y: oy + 35 * S, w: 120 * S, h: 42 * S },
-            { sol: 4, x: ox + 691 * S, y: oy + 35 * S, w: 120 * S, h: 42 * S },
-            { sol: 5, x: ox + 825 * S, y: oy + 35 * S, w: 120 * S, h: 42 * S },
-        ];
-
-        tabConfigs.forEach(tc => {
-            const tabHit = this.scene.add.rectangle(tc.x, tc.y, tc.w, tc.h, 0x000000, 0.001);
-            tabHit.setInteractive({ useHandCursor: tc.sol !== 2 });
-            root.add(tabHit);
-
-            if (tc.sol !== 2) {
-                const tabGlow = this.scene.add.graphics();
-                root.add(tabGlow);
-
-                tabHit.on("pointerover", () => {
-                    tabGlow.clear();
-                    tabGlow.lineStyle(2, UITheme.colors.primaryCyan, 0.9);
-                    tabGlow.strokeRoundedRect(tc.x - tc.w / 2, tc.y - tc.h / 2, tc.w, tc.h, 10);
-                });
-                tabHit.on("pointerout", () => {
-                    tabGlow.clear();
-                });
-                tabHit.on("pointerdown", () => {
-                    SoundFX.playClick();
-                    this.selectSolTab(tc.sol);
-                });
-            }
-        });
-
-        // -------------------------------------------------------------
-        // "← BACK TO MAP" INTERACTIVE BUTTON (Bottom-Left)
-        // -------------------------------------------------------------
-        const backX = ox + 115 * S;
-        const backY = oy + 527 * S;
-        const backW = 186 * S;
-        const backH = 50 * S;
-
-        const backGlow = this.scene.add.graphics();
-        root.add(backGlow);
-
-        const backHit = this.scene.add.rectangle(backX, backY, backW, backH, 0x000000, 0.001);
-        backHit.setInteractive({ useHandCursor: true });
-        root.add(backHit);
-
-        backHit.on("pointerover", () => {
-            backGlow.clear();
-            backGlow.fillStyle(UITheme.colors.primaryCyan, 0.22);
-            backGlow.fillRoundedRect(backX - backW / 2, backY - backH / 2, backW, backH, 25);
-            backGlow.lineStyle(2.5, UITheme.colors.primaryCyan, 1);
-            backGlow.strokeRoundedRect(backX - backW / 2, backY - backH / 2, backW, backH, 25);
-        });
-        backHit.on("pointerout", () => {
-            backGlow.clear();
-        });
-        backHit.on("pointerdown", () => {
-            SoundFX.playClick();
-            this.close();
-        });
-
-        // -------------------------------------------------------------
-        // "🚀 START MISSION" GLOWING CTA BUTTON (Center Bottom)
-        // -------------------------------------------------------------
-        const startX = cx; // 640
-        const startY = oy + 527 * S;
-        const startW = 310 * S;
-        const startH = 62 * S;
-
-        const startAura = this.scene.add.graphics();
-        root.add(startAura);
-
-        const drawAura = (alpha: number) => {
-            startAura.clear();
-            startAura.lineStyle(3, 0xFFE066, alpha);
-            startAura.strokeRoundedRect(startX - startW / 2 - 2, startY - startH / 2 - 2, startW + 4, startH + 4, 30);
-        };
-        drawAura(0.4);
-
-        this.sol2Tweens.push(this.scene.tweens.add({
-            targets: { a: 0.2 },
-            a: 0.85,
-            duration: 800,
-            yoyo: true,
-            repeat: -1,
-            onUpdate: (tw) => {
-                drawAura(tw.getValue() as number);
-            }
-        }));
-
-        const startHit = this.scene.add.rectangle(startX, startY, startW, startH, 0x000000, 0.001);
-        startHit.setInteractive({ useHandCursor: true });
-        root.add(startHit);
-
-        startHit.on("pointerover", () => {
-            this.scene.tweens.add({
-                targets: [startAura, startHit],
-                scaleX: 1.03,
-                scaleY: 1.03,
-                duration: 120
-            });
-        });
-        startHit.on("pointerout", () => {
-            this.scene.tweens.add({
-                targets: [startAura, startHit],
-                scaleX: 1.0,
-                scaleY: 1.0,
-                duration: 120
-            });
-        });
-        startHit.on("pointerdown", () => {
-            SoundFX.playClick();
-            this.launchSolScene(2);
-        });
-
-        // -------------------------------------------------------------
-        // TIP BADGE HOVER (Bottom-Right)
-        // -------------------------------------------------------------
-        const tipX = ox + 895 * S;
-        const tipY = oy + 527 * S;
-        const tipW = 200 * S;
-        const tipH = 50 * S;
-
-        const tipGlow = this.scene.add.graphics();
-        root.add(tipGlow);
-
-        const tipHit = this.scene.add.rectangle(tipX, tipY, tipW, tipH, 0x000000, 0.001);
-        tipHit.setInteractive({ useHandCursor: true });
-        root.add(tipHit);
-
-        tipHit.on("pointerover", () => {
-            tipGlow.clear();
-            tipGlow.lineStyle(2, 0xFDE68A, 0.7);
-            tipGlow.strokeRoundedRect(tipX - tipW / 2, tipY - tipH / 2, tipW, tipH, 20);
-        });
-        tipHit.on("pointerout", () => {
-            tipGlow.clear();
-        });
-
-        // Top-Right Quick Close "✖"
-        const closeBtnX = ox + imgW - 28;
-        const closeBtnY = oy + 26;
-        const closeHit = this.scene.add.circle(closeBtnX, closeBtnY, 18, 0x000000, 0.001);
-        closeHit.setInteractive({ useHandCursor: true });
-        root.add(closeHit);
-
-        const closeGlow = this.scene.add.graphics();
-        root.add(closeGlow);
-
-        closeHit.on("pointerover", () => {
-            closeGlow.clear();
-            closeGlow.fillStyle(0xEF4444, 0.3);
-            closeGlow.fillCircle(closeBtnX, closeBtnY, 16);
-            closeGlow.lineStyle(1.5, 0xEF4444, 1);
-            closeGlow.strokeCircle(closeBtnX, closeBtnY, 16);
-        });
-        closeHit.on("pointerout", () => {
-            closeGlow.clear();
-        });
-        closeHit.on("pointerdown", () => {
-            SoundFX.playClick();
-            this.close();
-        });
     }
 
     private renderSol4Briefing() {
@@ -1533,7 +1233,6 @@ export class MissionChallengesModal {
     public close() {
         if (this.isClosed) return;
         this.isClosed = true;
-        this.clearSol2Tweens();
         this.clearSol4Tweens();
         this.sol4WeatherAbort?.abort();
         this.sol4WeatherTitle = undefined;
