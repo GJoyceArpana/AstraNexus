@@ -77,6 +77,7 @@ export class AstronautCustomizer {
     private callsignText!: Phaser.GameObjects.Text;
     private suitModelTitleText!: Phaser.GameObjects.Text;
     private suitRoleTagText!: Phaser.GameObjects.Text;
+    private launchButton?: Phaser.GameObjects.Container;
 
     private boyBtn!: Phaser.GameObjects.Container;
     private girlBtn!: Phaser.GameObjects.Container;
@@ -263,6 +264,7 @@ export class AstronautCustomizer {
                 this.callbacks.onComplete(data);
             }
         });
+        this.launchButton = launchBtn;
         this.layoutContainer.add(launchBtn);
     }
 
@@ -755,6 +757,17 @@ export class AstronautCustomizer {
 
         this.layoutContainer.setScale(uniformScale);
         this.layoutContainer.setPosition(offsetX, offsetY);
+
+        if (this.launchButton) {
+            const displayW = this.scene.scale.displaySize.width;
+            const displayH = this.scene.scale.displaySize.height;
+            const isCompactViewport = displayW < 700 || displayH < 500;
+            this.launchButton.setPosition(
+                isCompactViewport ? DESIGN.WIDTH / 2 : DESIGN.WIDTH - DESIGN.MARGIN_X - 210,
+                DESIGN.HEIGHT - DESIGN.NAV_BOTTOM_MARGIN - DESIGN.NAV_HEIGHT / 2
+            );
+            this.launchButton.setScale(isCompactViewport ? 2.2 : 1);
+        }
     }
 
     public destroy() {

@@ -4,16 +4,22 @@ import ButtonFactory, { SoundFX } from "./ButtonFactory.ts";
 
 export type BaseMaterialType = "glass" | "sand";
 
+export interface BaseFeature {
+    icon: string;
+    title: string;
+    desc: string;
+}
+
 export interface BaseMaterialInfo {
     id: BaseMaterialType;
+    badge: string;
     name: string;
-    subtitle: string;
-    materialTag: string;
+    tagline: string;
     accentColor: number;
     accentColorStr: string;
-    description: string;
-    perks: { label: string; value: string; icon: string }[];
-    scienceFact: string;
+    bgAccent: number;
+    features: BaseFeature[];
+    funFact: string;
 }
 
 export interface BaseMaterialSelectorCallbacks {
@@ -31,39 +37,38 @@ export class BaseMaterialSelector {
     private cardBgs: Map<BaseMaterialType, Phaser.GameObjects.Graphics> = new Map();
     private actionPills: Map<BaseMaterialType, Phaser.GameObjects.Text> = new Map();
     private actionPillBgs: Map<BaseMaterialType, Phaser.GameObjects.Graphics> = new Map();
+    private checkMarks: Map<BaseMaterialType, Phaser.GameObjects.Container> = new Map();
 
     private readonly materialData: Record<BaseMaterialType, BaseMaterialInfo> = {
         glass: {
             id: "glass",
-            name: "SILICA GLASS BIOSPHERE",
-            subtitle: "Fused Quartz Silica & Pressurized Aerogel Dome",
-            materialTag: "OPTICAL BIOSPHERE DOME",
-            accentColor: UITheme.colors.primaryCyan,
-            accentColorStr: UITheme.colors.primaryCyanStr,
-            description: "High-transparency bio-canopy synthesized by melting pure Martian sand into fused quartz. Provides daylight illumination, optimal crop photosynthesis, and 360° panoramic surface monitoring.",
-            perks: [
-                { icon: "☀️", label: "Solar Influx", value: "92% Natural Lighting (-25% Grid Power)" },
-                { icon: "🌱", label: "Botanical Synergy", value: "+35% Hydroponic Crop Yield" },
-                { icon: "🔭", label: "Surface Visibility", value: "Panoramic Jezero Delta Observation" },
-                { icon: "🛡️", label: "Radiation Defense", value: "Requires Active Magnetic Shield Grid" }
+            badge: "✨ SHINY & BRIGHT",
+            name: "GLASS DOME",
+            tagline: "See the stars & grow yummy space food!",
+            accentColor: 0x00E5FF,
+            accentColorStr: "#00E5FF",
+            bgAccent: 0x051C30,
+            features: [
+                { icon: "☀️", title: "Warm Sunlight", desc: "Lots of bright, natural sunshine all day!" },
+                { icon: "🌱", title: "Space Garden", desc: "Grows fresh greens & yummy space tomatoes!" },
+                { icon: "🔭", title: "Star Windows", desc: "Watch Mars moons & rover right from your room!" }
             ],
-            scienceFact: "NASA In-Situ Research: High-temperature microwaves melt Martian silica sand into transparent quartz glass domes, allowing natural plant photosynthesis while shielding against dust."
+            funFact: "Astronauts grow real fresh salads and tomatoes in space!"
         },
         sand: {
             id: "sand",
-            name: "SINTERED SAND VAULT",
-            subtitle: "100% Sintered Martian Regolith Sand Architecture",
-            materialTag: "MONOLITHIC SAND BASE",
-            accentColor: UITheme.colors.solarGold,
-            accentColorStr: UITheme.colors.solarGoldStr,
-            description: "Monolithic habitat sculpted and sintered entirely out of Martian sand and basalt grains. Banked directly inside natural windblown sand dunes, providing impenetrable cosmic ray armor and sandstorm resistance.",
-            perks: [
-                { icon: "🛡️", label: "Radiation Shield", value: "+55% Passive Cosmic Ray Deflection" },
-                { icon: "🌪️", label: "Storm Armor", value: "100% Micro-Meteoroid & Sand Abrasion Proof" },
-                { icon: "🏜️", label: "Sand Dunes", value: "Covered in Natural Windblown Regolith Dunes" },
-                { icon: "🧱", label: "100% Sand Built", value: "Zero Earth Resupply (Pure Martian Sand)" }
+            badge: "🛡️ SUPER TOUGH",
+            name: "SAND FORTRESS",
+            tagline: "Super strong armor made from red Mars sand!",
+            accentColor: 0xFFA726,
+            accentColorStr: "#FFA726",
+            bgAccent: 0x241407,
+            features: [
+                { icon: "🛡️", title: "Super Shield", desc: "Thick walls protect you from space rays!" },
+                { icon: "🌪️", title: "Storm Proof", desc: "Safe and cozy even inside giant dust storms!" },
+                { icon: "🧱", title: "100% Mars Sand", desc: "Robots build it right from red Martian soil!" }
             ],
-            scienceFact: "NASA ISRU Architecture: Autonomous rovers microwave-sinter indigenous red Martian sand into monolithic interlocking sandcastles 3x stronger than concrete, shielded under natural regolith dunes."
+            funFact: "Mars sandcastles are 3 times stronger than concrete!"
         }
     };
 
@@ -89,14 +94,14 @@ export class BaseMaterialSelector {
         const { width, height } = this.scene.scale;
 
         // 1. Deep Space Atmospheric Backdrop
-        const bg = this.scene.add.rectangle(0, 0, width, height, UITheme.colors.spaceDark).setOrigin(0);
+        const bg = this.scene.add.rectangle(0, 0, width, height, 0x050C18).setOrigin(0);
         this.container.add(bg);
 
         // Mars Horizon Glow Nebula
-        const nebula = this.scene.add.circle(width * 0.5, height * 0.95, width * 0.65, UITheme.colors.marsSurface, 0.22);
+        const nebula = this.scene.add.circle(width * 0.5, height * 0.98, width * 0.7, 0x8C3224, 0.22);
         this.container.add(nebula);
 
-        for (let i = 0; i < 45; i++) {
+        for (let i = 0; i < 40; i++) {
             const star = this.scene.add.circle(
                 Phaser.Math.Between(0, width),
                 Phaser.Math.Between(0, height),
@@ -107,54 +112,55 @@ export class BaseMaterialSelector {
             this.container.add(star);
         }
 
-        // 2. Header
-        const headerPill = this.scene.add.text(width / 2, 24, "✦ HABITAT ENGINEERING DIRECTIVE ✦", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.primaryCyanStr,
+        // 2. Kid-Friendly Header: Big, Vibrant, Highly Legible
+        const headerPill = this.scene.add.text(width / 2, 26, "✦ CHOOSE YOUR MARS HOME ✦", {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "14px",
+            color: "#00E5FF",
             fontStyle: "bold",
             letterSpacing: 2
         }).setOrigin(0.5);
         this.container.add(headerPill);
 
-        const title = this.scene.add.text(width / 2, 50, "MARS BASE HABITAT ARCHITECTURE", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "24px",
+        const title = this.scene.add.text(width / 2, 58, "PICK YOUR BASE HABITAT!", {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "32px",
             color: "#FFFFFF",
             fontStyle: "bold",
             letterSpacing: 2
         }).setOrigin(0.5);
         this.container.add(title);
 
-        const sub = this.scene.add.text(width / 2, 74, "Select surface construction engineering material for Outpost Sol habitat modules and biosphere bays", {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "13px",
-            color: UITheme.colors.textSecondary
+        const sub = this.scene.add.text(width / 2, 92, "Where do you want your cadet to live and explore on Mars?", {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "16px",
+            color: "#D0E4FA",
+            fontStyle: "bold"
         }).setOrigin(0.5);
         this.container.add(sub);
 
-        // 3. Two Large Side-by-Side Interactive Architecture Cards
+        // 3. Two Spacious, Vibrant Interactive Cards
         const cardW = 500;
-        const cardH = 490;
-        const cardY = 352;
+        const cardH = 520;
+        const cardY = 372;
 
-        const leftX = width / 2 - cardW / 2 - 25; // 365
-        const rightX = width / 2 + cardW / 2 + 25; // 915
+        const leftX = width / 2 - cardW / 2 - 22; // 368
+        const rightX = width / 2 + cardW / 2 + 22; // 912
 
         this.createMaterialCard("glass", leftX, cardY, cardW, cardH);
         this.createMaterialCard("sand", rightX, cardY, cardW, cardH);
 
         this.updateCardSelectionVisuals();
 
-        // 4. Footer Buttons
+        // 4. Clean, High-Contrast Footer Buttons
         const backBtn = ButtonFactory.createButton({
             scene: this.scene,
-            x: 180,
-            y: height - 42,
-            width: 220,
-            height: 44,
-            fontSize: "13px",
-            text: "← BACK TO SUIT",
+            x: 140,
+            y: height - 38,
+            width: 170,
+            height: 46,
+            fontSize: "15px",
+            text: "← BACK",
             primaryColor: 0x6E85A8,
             onClick: () => {
                 SoundFX.playClick();
@@ -165,16 +171,16 @@ export class BaseMaterialSelector {
 
         const confirmBtn = ButtonFactory.createButton({
             scene: this.scene,
-            x: width - 210,
-            y: height - 42,
+            x: width - 180,
+            y: height - 38,
             width: 290,
-            height: 44,
-            fontSize: "13px",
-            text: "CONFIRM BASE ARCHITECTURE ➔",
+            height: 46,
+            fontSize: "15px",
+            text: "CONFIRM BASE ➔",
             primaryColor: UITheme.colors.solarGold,
             secondaryColor: 0x221808,
             textColor: UITheme.colors.solarGoldStr,
-            icon: "🏗️",
+            icon: "🚀",
             onClick: () => {
                 SoundFX.playClick();
                 this.scene.registry.set("baseConstructionMaterial", this.selectedMaterial);
@@ -205,106 +211,121 @@ export class BaseMaterialSelector {
         this.cardBgs.set(type, bg);
 
         // 1. Category Tag Pill at Top
-        const tag = this.scene.add.text(0, -h / 2 + 22, `✦ ${data.materialTag} ✦`, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
+        const tag = this.scene.add.text(0, -h / 2 + 26, data.badge, {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "13px",
             color: data.accentColorStr,
             fontStyle: "bold",
-            letterSpacing: 1
+            letterSpacing: 1.5
         }).setOrigin(0.5);
         card.add(tag);
 
-        // 2. Main Title & Subtitle
-        const titleText = this.scene.add.text(0, -h / 2 + 45, data.name, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "16px",
+        // 2. Big Cheerful Name & Tagline (Large, High Contrast)
+        const titleText = this.scene.add.text(0, -h / 2 + 56, data.name, {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "26px",
             color: "#FFFFFF",
             fontStyle: "bold",
-            letterSpacing: 1
+            letterSpacing: 1.5
         }).setOrigin(0.5);
 
-        const subText = this.scene.add.text(0, -h / 2 + 66, data.subtitle, {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "11px",
-            color: UITheme.colors.textSecondary,
+        const subText = this.scene.add.text(0, -h / 2 + 84, data.tagline, {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "14.5px",
+            color: "#E2F0FF",
             fontStyle: "bold"
         }).setOrigin(0.5);
         card.add([titleText, subText]);
 
-        // 3. Architectural Preview Graphic Box
-        const previewBoxY = -h / 2 + 135;
-        this.createPreviewGraphics(card, type, 0, previewBoxY, w - 48, 100);
+        // 3. Prominent Visual Showcase Box (Clean frame for the 3D base)
+        const previewBoxY = -h / 2 + 176;
+        const previewBoxH = 152;
+        this.createPreviewGraphics(card, type, 0, previewBoxY, w - 40, previewBoxH);
 
-        // 4. Description Paragraph
-        const descText = this.scene.add.text(0, -h / 2 + 208, data.description, {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "11px",
-            color: "#D0DEEE",
-            align: "center",
-            wordWrap: { width: w - 50 }
-        }).setOrigin(0.5);
-        card.add(descText);
+        // 4. Three Fun, Kid-Friendly Features (Large Emojis + Large High-Legibility Text)
+        const featureStartY = 28;
+        const featureSpacing = 44;
 
-        // 5. Four Key Engineering Specifications (2x2 Grid)
-        const gridStartY = -h / 2 + 270;
-        data.perks.forEach((perk, idx) => {
-            const col = idx % 2;
-            const row = Math.floor(idx / 2);
-            const perkX = col === 0 ? -w / 2 + 32 : 12;
-            const perkY = gridStartY + row * 44;
+        data.features.forEach((feat, idx) => {
+            const featY = featureStartY + idx * featureSpacing;
 
-            const icon = this.scene.add.text(perkX, perkY, perk.icon, { fontSize: "16px" });
-            const pLabel = this.scene.add.text(perkX + 26, perkY - 2, perk.label.toUpperCase(), {
-                fontFamily: UITheme.fonts.heading,
-                fontSize: "10px",
+            // Icon
+            const icon = this.scene.add.text(-w / 2 + 30, featY, feat.icon, {
+                fontSize: "24px"
+            }).setOrigin(0, 0.5);
+
+            // Title
+            const featTitle = this.scene.add.text(-w / 2 + 68, featY - 10, feat.title.toUpperCase(), {
+                fontFamily: "Nunito, Montserrat, sans-serif",
+                fontSize: "15px",
                 color: data.accentColorStr,
                 fontStyle: "bold"
             });
-            const pVal = this.scene.add.text(perkX + 26, perkY + 12, perk.value, {
-                fontFamily: UITheme.fonts.body,
-                fontSize: "10px",
+
+            // Description
+            const featDesc = this.scene.add.text(-w / 2 + 68, featY + 9, feat.desc, {
+                fontFamily: "Nunito, Montserrat, sans-serif",
+                fontSize: "14px",
                 color: "#FFFFFF",
-                wordWrap: { width: 200 }
+                fontStyle: "bold"
             });
 
-            card.add([icon, pLabel, pVal]);
+            card.add([icon, featTitle, featDesc]);
         });
 
-        // 6. NASA Science Callout Box
-        const sciBoxY = -h / 2 + 386;
-        const sciBox = this.scene.add.graphics();
-        sciBox.fillStyle(0x061426, 0.9);
-        sciBox.fillRoundedRect(-w / 2 + 24, sciBoxY - 22, w - 48, 44, 8);
-        sciBox.lineStyle(1, data.accentColor, 0.5);
-        sciBox.strokeRoundedRect(-w / 2 + 24, sciBoxY - 22, w - 48, 44, 8);
-        card.add(sciBox);
+        // 5. Fun Kid Fact Box (Expanded Height for Large 13.5px Font)
+        const factBoxY = 175;
+        const factBox = this.scene.add.graphics();
+        factBox.fillStyle(0x061426, 0.92);
+        factBox.fillRoundedRect(-w / 2 + 20, factBoxY - 21, w - 40, 42, 10);
+        factBox.lineStyle(1.5, data.accentColor, 0.5);
+        factBox.strokeRoundedRect(-w / 2 + 20, factBoxY - 21, w - 40, 42, 10);
+        card.add(factBox);
 
-        const sciText = this.scene.add.text(0, sciBoxY, `🔬 ${data.scienceFact}`, {
-            fontFamily: UITheme.fonts.body,
-            fontSize: "9.5px",
-            color: "#99B5D8",
+        const factText = this.scene.add.text(0, factBoxY, `💡 Fun Fact: ${data.funFact}`, {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "13.5px",
+            color: "#FFFFFF",
+            fontStyle: "bold",
             align: "center",
-            wordWrap: { width: w - 66 }
+            wordWrap: { width: w - 50 }
         }).setOrigin(0.5);
-        card.add(sciText);
+        card.add(factText);
 
-        // 7. Interactive Selection Button Pill at Bottom
-        const pillY = h / 2 - 32;
+        // 6. Interactive Selection Button Pill at Bottom (Large 15px Font)
+        const pillY = 228;
 
         const pillBg = this.scene.add.graphics();
         card.add(pillBg);
         this.actionPillBgs.set(type, pillBg);
 
-        const pillText = this.scene.add.text(0, pillY, "SELECT THIS BASE", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
+        const pillText = this.scene.add.text(0, pillY, "CHOOSE THIS BASE ➔", {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "15px",
             color: "#FFFFFF",
-            fontStyle: "bold"
+            fontStyle: "bold",
+            letterSpacing: 1
         }).setOrigin(0.5);
         card.add(pillText);
         this.actionPills.set(type, pillText);
 
-        // 8. 100% Full-Coverage Hit Shield
+        // 7. Corner Selection Badge (Top Right)
+        const checkContainer = this.scene.add.container(w / 2 - 28, -h / 2 + 28);
+        const checkCircle = this.scene.add.graphics();
+        checkCircle.fillStyle(data.accentColor, 1);
+        checkCircle.fillCircle(0, 0, 15);
+        const checkIcon = this.scene.add.text(0, 0, "✓", {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "15px",
+            color: "#000000",
+            fontStyle: "bold"
+        }).setOrigin(0.5);
+        checkContainer.add([checkCircle, checkIcon]);
+        checkContainer.setVisible(false);
+        card.add(checkContainer);
+        this.checkMarks.set(type, checkContainer);
+
+        // 8. Full-Card Click & Hover Interaction
         const hitShield = this.scene.add.rectangle(0, 0, w, h, 0x000000, 0.001);
         hitShield.setInteractive({ useHandCursor: true });
         card.add(hitShield);
@@ -314,9 +335,9 @@ export class BaseMaterialSelector {
             if (this.selectedMaterial !== type) {
                 this.scene.tweens.add({
                     targets: card,
-                    y: y - 5,
-                    duration: 120,
-                    ease: "Quad.easeOut"
+                    y: y - 6,
+                    duration: 140,
+                    ease: "Back.easeOut"
                 });
             }
         });
@@ -326,7 +347,7 @@ export class BaseMaterialSelector {
                 this.scene.tweens.add({
                     targets: card,
                     y: y,
-                    duration: 120,
+                    duration: 140,
                     ease: "Quad.easeOut"
                 });
             }
@@ -351,10 +372,10 @@ export class BaseMaterialSelector {
         h: number
     ) {
         const previewG = this.scene.add.graphics();
-        previewG.fillStyle(0x05101E, 0.95);
-        previewG.fillRoundedRect(x - w / 2, y - h / 2, w, h, 8);
-        previewG.lineStyle(1.5, type === "glass" ? 0x00E5FF : 0xFFD600, 0.6);
-        previewG.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 8);
+        previewG.fillStyle(0x061122, 0.95);
+        previewG.fillRoundedRect(x - w / 2, y - h / 2, w, h, 14);
+        previewG.lineStyle(1.5, type === "glass" ? 0x00E5FF : 0xFFA726, 0.5);
+        previewG.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 14);
         card.add(previewG);
 
         if (type === "glass") {
@@ -363,35 +384,40 @@ export class BaseMaterialSelector {
                 : (this.scene.textures.exists("mars-habitat") ? "mars-habitat" : undefined);
 
             if (habKey) {
-                const habImg = this.scene.add.image(x, y + 6, habKey);
-                habImg.setScale(0.24);
+                // Soft Cyan Ambient Biosphere Halo
+                const glassHalo = this.scene.add.ellipse(x, y - 8, 115, 70, 0x00E5FF, 0.22);
+                card.add(glassHalo);
+
+                const habImg = this.scene.add.image(x, y + 8, habKey);
+                habImg.setScale(0.32); // Large, clear, prominent base showcase!
                 habImg.setTint(0xC8F4FF);
-                const glassHalo = this.scene.add.ellipse(x, y - 6, 80, 52, 0x00E5FF, 0.22);
-                card.add([glassHalo, habImg]);
+                card.add(habImg);
 
                 this.scene.tweens.add({
                     targets: glassHalo,
-                    alpha: 0.38,
-                    duration: 2200,
+                    alpha: 0.42,
+                    scaleX: 1.08,
+                    scaleY: 1.08,
+                    duration: 2000,
                     yoyo: true,
                     repeat: -1,
                     ease: "Sine.easeInOut"
                 });
             }
         } else {
-            // Realistic Sand Base Station: structure sculpted out of sand and banked in dunes
+            // Sand Base Station asset on natural Mars sand dunes
             const sandKey = this.scene.textures.exists("sand-base-station")
                 ? "sand-base-station"
                 : (this.scene.textures.exists("base-station") ? "base-station" : undefined);
 
             if (sandKey) {
                 const isRealSand = sandKey === "sand-base-station";
-                const sandDune = this.scene.add.ellipse(x, y + 24, 160, 32, 0x98411D, 0.55);
+                const sandDune = this.scene.add.ellipse(x, y + 28, 200, 38, 0x98411D, 0.6);
                 sandDune.setStrokeStyle(1.5, 0xE0936C, 0.7);
                 card.add(sandDune);
 
-                const sandImg = this.scene.add.image(x, y + (isRealSand ? 2 : 6), sandKey);
-                sandImg.setScale(isRealSand ? 0.125 : 0.24);
+                const sandImg = this.scene.add.image(x, y + (isRealSand ? 4 : 8), sandKey);
+                sandImg.setScale(isRealSand ? 0.16 : 0.32); // Large, clear, prominent base showcase!
                 if (!isRealSand) {
                     sandImg.setTint(0xE0936C);
                 }
@@ -402,59 +428,64 @@ export class BaseMaterialSelector {
 
     private updateCardSelectionVisuals() {
         const cardW = 500;
-        const cardH = 490;
-        const pillW = 260;
-        const pillH = 34;
+        const cardH = 520;
+        const pillW = 300;
+        const pillH = 42;
 
         (["glass", "sand"] as BaseMaterialType[]).forEach(type => {
             const isSelected = this.selectedMaterial === type;
             const bg = this.cardBgs.get(type);
             const pillBg = this.actionPillBgs.get(type);
             const pillText = this.actionPills.get(type);
+            const check = this.checkMarks.get(type);
             const data = this.materialData[type];
+
+            if (check) {
+                check.setVisible(isSelected);
+            }
 
             if (bg) {
                 bg.clear();
                 if (isSelected) {
-                    // Selected Radiant Card Backing
-                    bg.fillStyle(0x0C2240, 0.98);
-                    bg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 14);
-                    bg.lineStyle(3, data.accentColor, 1);
-                    bg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 14);
+                    // Selected Radiant Card Backing with Glowing Rim
+                    bg.fillStyle(data.bgAccent, 0.98);
+                    bg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 18);
+                    bg.lineStyle(3.5, data.accentColor, 1);
+                    bg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 18);
 
                     // Top Accent Banner Highlight
-                    bg.fillStyle(data.accentColor, 0.2);
-                    bg.fillRoundedRect(-cardW / 2 + 10, -cardH / 2 + 6, cardW - 20, 28, 6);
+                    bg.fillStyle(data.accentColor, 0.18);
+                    bg.fillRoundedRect(-cardW / 2 + 10, -cardH / 2 + 8, cardW - 20, 32, 8);
                 } else {
-                    bg.fillStyle(UITheme.colors.cardBg, 0.85);
-                    bg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 14);
-                    bg.lineStyle(1.5, UITheme.colors.panelBorder, 0.7);
-                    bg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 14);
+                    bg.fillStyle(0x081628, 0.85);
+                    bg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 18);
+                    bg.lineStyle(2, 0x1A3452, 0.8);
+                    bg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 18);
                 }
             }
 
             if (pillBg) {
                 pillBg.clear();
-                const pillY = cardH / 2 - 32;
+                const pillY = 228;
                 if (isSelected) {
-                    pillBg.fillStyle(data.accentColor, 0.95);
-                    pillBg.fillRoundedRect(-pillW / 2, pillY - pillH / 2, pillW, pillH, 8);
-                    pillBg.lineStyle(2, 0xFFFFFF, 1);
-                    pillBg.strokeRoundedRect(-pillW / 2, pillY - pillH / 2, pillW, pillH, 8);
+                    pillBg.fillStyle(data.accentColor, 1);
+                    pillBg.fillRoundedRect(-pillW / 2, pillY - pillH / 2, pillW, pillH, 10);
+                    pillBg.lineStyle(2, 0xFFFFFF, 0.9);
+                    pillBg.strokeRoundedRect(-pillW / 2, pillY - pillH / 2, pillW, pillH, 10);
                 } else {
-                    pillBg.fillStyle(0x0A182E, 0.9);
-                    pillBg.fillRoundedRect(-pillW / 2, pillY - pillH / 2, pillW, pillH, 8);
-                    pillBg.lineStyle(1.5, UITheme.colors.panelBorder, 0.9);
-                    pillBg.strokeRoundedRect(-pillW / 2, pillY - pillH / 2, pillW, pillH, 8);
+                    pillBg.fillStyle(0x0C2036, 0.9);
+                    pillBg.fillRoundedRect(-pillW / 2, pillY - pillH / 2, pillW, pillH, 10);
+                    pillBg.lineStyle(1.5, data.accentColor, 0.6);
+                    pillBg.strokeRoundedRect(-pillW / 2, pillY - pillH / 2, pillW, pillH, 10);
                 }
             }
 
             if (pillText) {
                 if (isSelected) {
-                    pillText.setText(`✓ SELECTED ARCHITECTURE`);
+                    pillText.setText(`★ SELECTED HOME ★`);
                     pillText.setColor("#000000");
                 } else {
-                    pillText.setText(`SELECT ${data.name.split(" ")[0]} BASE`);
+                    pillText.setText(`CHOOSE ${data.name} ➔`);
                     pillText.setColor(data.accentColorStr);
                 }
             }

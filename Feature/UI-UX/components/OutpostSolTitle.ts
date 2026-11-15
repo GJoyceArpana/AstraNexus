@@ -19,6 +19,78 @@ interface WeatherResponse {
     };
 }
 
+interface LandingSiteVisualConfig {
+    label: string;
+    textureKeys: string[];
+    tint: number;
+    distantColor: number;
+    highlightColor: number;
+    midgroundColor: number;
+    groundColor: number;
+    rockNearColor: number;
+    rockFarColor: number;
+}
+
+const LANDING_SITE_CONFIGS: Record<string, LandingSiteVisualConfig> = {
+    jezero: {
+        label: "JEZERO CRATER",
+        textureKeys: ["jezero-mosaic", "jezero-tile", "mars_terrain"],
+        tint: 0xe1774e,
+        distantColor: 0x713844,
+        highlightColor: 0xb45443,
+        midgroundColor: 0x9b483e,
+        groundColor: 0xc65d3e,
+        rockNearColor: 0x9c453d,
+        rockFarColor: 0x783c3e
+    },
+    arcadia: {
+        label: "ARCADIA PLANITIA",
+        textureKeys: ["arcadia-mosaic", "mars_terrain"],
+        tint: 0xd98a70,
+        distantColor: 0x5c3b52,
+        highlightColor: 0x9e635b,
+        midgroundColor: 0x874b49,
+        groundColor: 0xb35d49,
+        rockNearColor: 0x8a4847,
+        rockFarColor: 0x673944
+    },
+    gale: {
+        label: "GALE CRATER",
+        textureKeys: ["gale-mosaic", "gale-tile", "jezero-mosaic", "mars_terrain"],
+        tint: 0xc96442,
+        distantColor: 0x68343d,
+        highlightColor: 0xa64d3c,
+        midgroundColor: 0x8f4136,
+        groundColor: 0xb85337,
+        rockNearColor: 0x8f3e34,
+        rockFarColor: 0x6e3436
+    },
+    olympus: {
+        label: "OLYMPUS MONS",
+        textureKeys: ["olympus-mosaic", "olympus-tile", "arcadia-mosaic", "mars_terrain"],
+        tint: 0xb8523b,
+        distantColor: 0x592c38,
+        highlightColor: 0x964238,
+        midgroundColor: 0x803732,
+        groundColor: 0xa84836,
+        rockNearColor: 0x823732,
+        rockFarColor: 0x612b32
+    },
+    hellas: {
+        label: "HELLAS BASIN",
+        textureKeys: ["hellas-mosaic", "hellas-tile", "jezero-mosaic", "mars_terrain"],
+        tint: 0xd46e48,
+        distantColor: 0x6b3642,
+        highlightColor: 0xad5242,
+        midgroundColor: 0x94453b,
+        groundColor: 0xbd593d,
+        rockNearColor: 0x94423b,
+        rockFarColor: 0x70383b
+    }
+};
+
+const DEFAULT_SITE_KEY = "jezero";
+
 const WEATHER_ENDPOINT = import.meta.env.DEV
     ? "http://localhost:3001/api/nasa/space-weather"
     : "/api/nasa/space-weather";
@@ -29,6 +101,16 @@ export class OutpostSolTitle {
     private readonly container: Phaser.GameObjects.Container;
     private readonly callbacks: OutpostSolTitleCallbacks;
     private weatherIndicator!: Phaser.GameObjects.Text;
+
+    private distantHill?: Phaser.GameObjects.Ellipse;
+    private distantHighlight?: Phaser.GameObjects.Ellipse;
+    private midgroundHill?: Phaser.GameObjects.Ellipse;
+    private groundRect?: Phaser.GameObjects.Rectangle;
+    private foregroundRocks?: Phaser.GameObjects.Graphics;
+    private terrainOverlay?: Phaser.GameObjects.Image;
+    private terrainIcon?: Phaser.GameObjects.Text;
+    private terrainLabel?: Phaser.GameObjects.Text;
+
     private weatherStatus: WeatherStatus = "loading";
     private weatherController?: AbortController;
     private destroyed = false;
@@ -53,7 +135,124 @@ export class OutpostSolTitle {
         this.createBranding(width, height);
         this.createLaunchButton(width, height);
         this.createStatusFooter(width, height);
+
+        this.scene.registry.events.on("changedata-landingSite", this.handleLandingSiteChange, this);
         void this.loadSpaceWeather();
+    }
+
+    private normalizeLandingSiteKey(rawSite?: unknown): string {
+        if (typeof rawSite !== "string" || !rawSite.trim()) return DEFAULT_SITE_KEY;
+        const normalized = rawSite.trim().toLowerCase();
+        if (normalized.includes("arcadia")) return "arcadia";
+        if (normalized.includes("gale")) return "gale";
+        if (normalized.includes("olympus")) return "olympus";
+        if (normalized.includes("hellas")) return "hellas";
+        if (normalized.includes("jezero")) return "jezero";
+        return LANDING_SITE_CONFIGS[normalized] ? normalized : DEFAULT_SITE_KEY;
+    }
+
+    private getSelectedSiteRaw(): unknown {
+        const fromRegistry = this.scene.registry.get("landingSite");
+        if (fromRegistry) return fromRegistry;
+
+        const sceneData = this.scene.sys.settings.data as Record<string, unknown> | undefined;
+        if (sceneData?.landingSite) return sceneData.landingSite;
+
+        try {
+            return window.localStorage?.getItem("landingSite") ?? undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    private getLandingSiteTileInfo(): {
+        siteKey: string;
+        config: LandingSiteVisualConfig;
+        textureKey: string | null;
+        isExactSiteTile: boolean;
+    } {
+        const siteKey = this.normalizeLandingSiteKey(this.getSelectedSiteRaw());
+        const config = LANDING_SITE_CONFIGS[siteKey] ?? LANDING_SITE_CONFIGS[DEFAULT_SITE_KEY];
+
+        for (let i = 0; i < config.textureKeys.length; i += 1) {
+            const candidateKey = config.textureKeys[i];
+            if (this.scene.textures.exists(candidateKey)) {
+                return {
+                    siteKey,
+                    config,
+                    textureKey: candidateKey,
+                    isExactSiteTile: i < 2
+                };
+            }
+        }
+
+        // Cross-site fallback if primary site textures are not loaded yet
+        const fallbackKeys = ["arcadia-mosaic", "jezero-mosaic", "gale-mosaic", "mars_terrain"];
+        for (const fallbackKey of fallbackKeys) {
+            if (this.scene.textures.exists(fallbackKey)) {
+                return {
+                    siteKey,
+                    config,
+                    textureKey: fallbackKey,
+                    isExactSiteTile: fallbackKey.startsWith(siteKey)
+                };
+            }
+        }
+
+        return {
+            siteKey,
+            config,
+            textureKey: null,
+            isExactSiteTile: false
+        };
+    }
+
+    /** Public helper in case parent scene manually updates landing site */
+    public setLandingSite(site: string) {
+        this.scene.registry.set("landingSite", site);
+        this.handleLandingSiteChange();
+    }
+
+    private handleLandingSiteChange() {
+        if (this.destroyed) return;
+        const { width, height } = this.scene.scale;
+        const tileInfo = this.getLandingSiteTileInfo();
+        const { config } = tileInfo;
+
+        this.distantHill?.setFillStyle(config.distantColor);
+        this.distantHighlight?.setFillStyle(config.highlightColor);
+        this.midgroundHill?.setFillStyle(config.midgroundColor);
+        this.groundRect?.setFillStyle(config.groundColor);
+        this.drawForegroundRocks(width, height, config);
+
+        if (tileInfo.textureKey) {
+            if (this.terrainOverlay) {
+                this.terrainOverlay.setTexture(tileInfo.textureKey);
+                this.terrainOverlay.setTint(config.tint);
+                this.terrainOverlay.setAlpha(tileInfo.siteKey === "arcadia" ? 0.24 : 0.18);
+                this.terrainOverlay.setVisible(true);
+            } else {
+                const terrain = this.scene.add.image(width * 0.5, height * 0.91, tileInfo.textureKey);
+                terrain.setDisplaySize(width, height * 0.23);
+                terrain.setAlpha(tileInfo.siteKey === "arcadia" ? 0.24 : 0.18);
+                terrain.setTint(config.tint);
+                this.terrainOverlay = terrain;
+                this.container.add(terrain);
+            }
+        } else if (this.terrainOverlay) {
+            this.terrainOverlay.setVisible(false);
+        }
+
+        this.updateTerrainFooter();
+    }
+
+    private drawForegroundRocks(width: number, height: number, config: LandingSiteVisualConfig) {
+        if (!this.foregroundRocks) return;
+        this.foregroundRocks.clear();
+        this.foregroundRocks.fillStyle(config.rockNearColor, 1);
+        this.foregroundRocks.fillTriangle(width * 0.62, height, width * 0.72, height * 0.82, width * 0.84, height);
+        this.foregroundRocks.fillStyle(config.rockFarColor, 1);
+        this.foregroundRocks.fillTriangle(width * 0.79, height, width * 0.89, height * 0.79, width, height);
     }
 
     private createBackground(width: number, height: number) {
@@ -108,26 +307,26 @@ export class OutpostSolTitle {
         const cheekRight = this.scene.add.circle(sunX + 39, sunY + 22, 12, 0xf18a64, 0.82);
         this.container.add([halo, innerHalo, sun, sunFace, cheekLeft, cheekRight]);
 
-        const distant = this.scene.add.ellipse(width * 0.3, height * 0.86, width * 1.35, 190, 0x713844);
-        const distantHighlight = this.scene.add.ellipse(width * 0.11, height * 0.82, width * 0.58, 105, 0xb45443);
-        const midground = this.scene.add.ellipse(width * 0.75, height * 0.9, width * 1.18, 210, 0x9b483e);
-        const ground = this.scene.add.rectangle(0, height * 0.86, width, height * 0.14, 0xc65d3e).setOrigin(0);
-        this.container.add([distant, distantHighlight, midground, ground]);
+        const tileInfo = this.getLandingSiteTileInfo();
+        const { config } = tileInfo;
 
-        if (this.scene.textures.exists("jezero-mosaic")) {
-            const terrain = this.scene.add.image(width * 0.5, height * 0.91, "jezero-mosaic");
-            terrain.setDisplaySize(width, height * 0.23);
-            terrain.setAlpha(0.18);
-            terrain.setTint(0xe1774e);
-            this.container.add(terrain);
+        this.distantHill = this.scene.add.ellipse(width * 0.3, height * 0.86, width * 1.35, 190, config.distantColor);
+        this.distantHighlight = this.scene.add.ellipse(width * 0.11, height * 0.82, width * 0.58, 105, config.highlightColor);
+        this.midgroundHill = this.scene.add.ellipse(width * 0.75, height * 0.9, width * 1.18, 210, config.midgroundColor);
+        this.groundRect = this.scene.add.rectangle(0, height * 0.86, width, height * 0.14, config.groundColor).setOrigin(0);
+        this.container.add([this.distantHill, this.distantHighlight, this.midgroundHill, this.groundRect]);
+
+        if (tileInfo.textureKey) {
+            this.terrainOverlay = this.scene.add.image(width * 0.5, height * 0.91, tileInfo.textureKey);
+            this.terrainOverlay.setDisplaySize(width, height * 0.23);
+            this.terrainOverlay.setAlpha(tileInfo.siteKey === "arcadia" ? 0.24 : 0.18);
+            this.terrainOverlay.setTint(config.tint);
+            this.container.add(this.terrainOverlay);
         }
 
-        const foregroundRocks = this.scene.add.graphics();
-        foregroundRocks.fillStyle(0x9c453d, 1);
-        foregroundRocks.fillTriangle(width * 0.62, height, width * 0.72, height * 0.82, width * 0.84, height);
-        foregroundRocks.fillStyle(0x783c3e, 1);
-        foregroundRocks.fillTriangle(width * 0.79, height, width * 0.89, height * 0.79, width, height);
-        this.container.add(foregroundRocks);
+        this.foregroundRocks = this.scene.add.graphics();
+        this.drawForegroundRocks(width, height, config);
+        this.container.add(this.foregroundRocks);
     }
 
     private createHabitat(width: number, height: number) {
@@ -295,7 +494,7 @@ export class OutpostSolTitle {
         });
     }
 
-    private createStatusFooter(width: number, height: number) {
+    private createStatusFooter(_width: number, height: number) {
         const footerY = height - 19;
         this.weatherIndicator = this.scene.add.text(40, footerY, "☀ NASA SPACE WEATHER ●", {
             fontFamily: "Nunito",
@@ -306,23 +505,35 @@ export class OutpostSolTitle {
         }).setOrigin(0, 1);
 
         const separator = this.scene.add.rectangle(367, footerY - 11, 2, 32, 0xffe0a0, 0.82);
-        const terrainIcon = this.scene.add.text(395, footerY, "⛰", {
+        this.terrainIcon = this.scene.add.text(395, footerY, "⛰", {
             fontFamily: "Nunito",
             fontSize: "22px",
-            color: this.scene.textures.exists("jezero-mosaic") ? "#8be0b0" : "#b8b8b8"
+            color: "#8be0b0"
         }).setOrigin(0, 1);
-        const terrainConnected = this.scene.textures.exists("jezero-mosaic");
-        const terrain = this.scene.add.text(426, footerY, "MARS TERRAIN ●", {
+        this.terrainLabel = this.scene.add.text(426, footerY, "MARS TERRAIN ●", {
             fontFamily: "Nunito",
             fontSize: "15px",
             fontStyle: "bold",
-            color: terrainConnected ? "#fff0d6" : "#b8b8b8",
+            color: "#fff0d6",
             letterSpacing: 1
         }).setOrigin(0, 1);
-        if (!terrainConnected) {
-            terrain.setText("MARS TERRAIN FALLBACK ●");
+
+        this.updateTerrainFooter();
+        this.container.add([this.weatherIndicator, separator, this.terrainIcon, this.terrainLabel]);
+    }
+
+    private updateTerrainFooter() {
+        const tileInfo = this.getLandingSiteTileInfo();
+        const terrainConnected = tileInfo.textureKey !== null;
+
+        if (this.terrainIcon) {
+            this.terrainIcon.setColor(terrainConnected ? "#8be0b0" : "#b8b8b8");
         }
-        this.container.add([this.weatherIndicator, separator, terrainIcon, terrain]);
+        if (this.terrainLabel) {
+            this.terrainLabel
+                .setText(terrainConnected ? `MARS TERRAIN: ${tileInfo.config.label} ●` : `MARS TERRAIN FALLBACK (${tileInfo.config.label}) ●`)
+                .setColor(terrainConnected ? "#fff0d6" : "#b8b8b8");
+        }
     }
 
     private async loadSpaceWeather() {
@@ -372,6 +583,7 @@ export class OutpostSolTitle {
     public destroy() {
         this.destroyed = true;
         this.weatherController?.abort();
+        this.scene.registry.events.off("changedata-landingSite", this.handleLandingSiteChange, this);
         this.scene.tweens.killTweensOf(this.container);
         this.container.destroy(true);
     }

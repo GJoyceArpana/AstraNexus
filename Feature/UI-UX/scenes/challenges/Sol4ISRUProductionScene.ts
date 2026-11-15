@@ -120,7 +120,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
     /** Randomised each run so the correct answer isn't always on the same side. */
     private morningCorrectFirst = true;
     private afternoonCorrectFirst = true;
-    private quizOrder: number[][] = [[0, 1], [0, 1]];
+    private quizOrder: number[][] = [[0, 1], [0, 1], [0, 1]];
 
     private readonly quiz: QuizQuestion[] = [
         {
@@ -132,6 +132,14 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
             question: "How were we able to unplug MOXIE in the afternoon safely?",
             answers: ["We had already stored enough oxygen during the morning.", "MOXIE is not needed anywhere on Mars."],
             correct: 0
+        },
+        {
+            question: "How does Canadian Space Agency (CSA) space-food research also benefit people on Earth?",
+            answers: [
+                "LED closed-loop greenhouses let remote, cold communities grow fresh food year-round.",
+                "Earth farms no longer need water or nutrients."
+            ],
+            correct: 0
         }
     ];
 
@@ -141,9 +149,9 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
             title: "SOL 4: AIR, ICE & LED POTATOES",
             codename: "CLOSED-LOOP RESOURCE SEQUENCING",
             hazardBadge: "OXYGEN & FOOD SUPPLY CRITICAL",
-            briefing: "Earth supply drops are months away. Produce oxygen from Mars air, melt buried ice, and grow dwarf potatoes with limited Kilopower electricity.",
-            nasaFact: "MOXIE made oxygen from Mars's carbon-dioxide atmosphere at approximately 800°C. Plants still need liquid water before LED light can help them grow.",
-            primaryTarget: "Sequence oxygen, water, power, and food production safely.",
+            briefing: "Earth supply drops are months away. Produce oxygen from Mars air, melt buried ice, and grow dwarf potatoes using Canadian Space Agency (CSA) closed-loop greenhouse techniques.",
+            nasaFact: "NASA's MOXIE made oxygen from Mars CO₂ at ~800°C, while Canadian Space Agency (CSA) research on food production in space and remote Arctic regions shows tuned red/blue LEDs and water recycling grow nutritious crops with minimal power.",
+            primaryTarget: "Sequence oxygen, water, power, and CSA closed-loop food production safely.",
             unit: "Mission",
             targetVal: 1,
             initialVal: 0
@@ -212,7 +220,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
                 break;
             case "MORNING_GUIDANCE":
                 this.renderGuidance(
-                    "Commander Maya: NASA CEA farms need melted ice water before turning on LEDs.",
+                    "Commander Maya: NASA & CSA Controlled-Environment Agriculture (CEA) farms need melted ice water before turning on LEDs.",
                     "Set Ice Melter ON, MOXIE ON, and LED Farm OFF."
                 );
                 break;
@@ -227,7 +235,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
                 break;
             case "AFTERNOON_GUIDANCE":
                 this.renderGuidance(
-                    "Commander Maya: You banked enough O2 this morning—divert power to LED crops!",
+                    "Commander Maya: You banked enough O₂ this morning—divert power to the CSA LED potato farm!",
                     "Switch MOXIE OFF, keep the suitport SEALED, and power the LED Farm."
                 );
                 break;
@@ -324,7 +332,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
         });
     }
 
-    private drawIcon(kind: "water" | "power" | "moxie" | "sequence", x: number, y: number) {
+    private drawIcon(kind: "water" | "power" | "moxie" | "sequence" | "csa_food" | "earth_benefit", x: number, y: number) {
         const g = this.add.graphics();
         this.missionUi.add(g);
         if (kind === "water") {
@@ -344,6 +352,26 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
             g.fillStyle(0x0b2b40, 1);
             g.fillRoundedRect(x - 20, y - 14, 40, 28, 4);
             this.addText("O₂", x, y, { fontFamily: UITheme.fonts.heading, fontSize: "16px", color: "#4de3ff", fontStyle: "bold" });
+        } else if (kind === "csa_food") {
+            // Red + Blue LED light beams over a green sprout
+            g.fillStyle(0xff4d6d, 0.35);
+            g.fillTriangle(x - 16, y - 24, x - 34, y + 16, x + 2, y + 16);
+            g.fillStyle(0x38bdf8, 0.35);
+            g.fillTriangle(x + 16, y - 24, x - 2, y + 16, x + 34, y + 16);
+            g.fillStyle(0x52e26a, 1);
+            g.fillEllipse(x - 9, y + 6, 16, 9);
+            g.fillEllipse(x + 9, y + 4, 16, 9);
+            g.lineStyle(3, 0x52e26a, 1);
+            g.lineBetween(x, y + 22, x, y + 2);
+        } else if (kind === "earth_benefit") {
+            // Planet Earth globe with green leaf ring (CSA Space + Remote Areas connection)
+            g.fillStyle(0x1d8fe1, 1);
+            g.fillCircle(x, y, 22);
+            g.fillStyle(0x46d369, 1);
+            g.fillCircle(x - 7, y - 5, 8);
+            g.fillCircle(x + 8, y + 6, 7);
+            g.lineStyle(2, 0x9ff0ff, 0.95);
+            g.strokeCircle(x, y, 24);
         } else {
             g.lineStyle(3, 0xffc928, 1);
             [-1, 0].forEach((i) => g.lineBetween(x + i * 50 + 14, y, x + i * 50 + 36, y));
@@ -356,11 +384,6 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
 
     // ------------------------------------------------------------------
     // 1. Mission introduction (illustrated scene + START MISSION button)
-    //
-    // Everything is drawn on a fixed INTRO_W x INTRO_H design canvas inside
-    // one container. That container is uniformly scaled and centred to fit
-    // the current viewport, so the panel, artwork and button always stay
-    // inside the visible game area (fullscreen or windowed).
     // ------------------------------------------------------------------
 
     private renderIntroduction() {
@@ -405,7 +428,6 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
         }
         root.add(stars);
 
-        // A few twinkling stars (tracked so they are cleaned up)
         for (let i = 0; i < 8; i += 1) {
             const twinkle = this.add.circle(40 + ((i * 331) % (W - 80)), 16 + ((i * 67) % 120), 2, 0xffffff, 0.9);
             root.add(twinkle);
@@ -546,17 +568,18 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
             root.add([label, caption]);
         });
 
-        // ---------- NASA terrain attribution (only meaningful if the NASA texture is used) ----------
-        if (terrain) {
-            const attribution = this.add.text(W - 14, H - 8, "NASA Mars Trek terrain mosaic • Jezero Crater, Mars", {
-                fontFamily: UITheme.fonts.body,
-                fontSize: "12px",
-                color: "#9ff0ff",
-                stroke: "#1a0a14",
-                strokeThickness: 3
-            }).setOrigin(1, 1);
-            root.add(attribution);
-        }
+        // ---------- NASA + Canadian Space Agency (CSA) Science Attribution ----------
+        const attributionLabel = terrain
+            ? "NASA Mars Trek terrain • CSA Food Production in Space & Remote Areas"
+            : "NASA MOXIE • CSA Food Production in Space & Remote Areas";
+        const attribution = this.add.text(W - 14, H - 8, attributionLabel, {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "12px",
+            color: "#9ff0ff",
+            stroke: "#1a0a14",
+            strokeThickness: 3
+        }).setOrigin(1, 1);
+        root.add(attribution);
 
         // ---------- START MISSION (bottom-centre, fully inside the panel, added LAST so it is on top) ----------
         const startButton = this.createStartMissionButton(cx, H - 50, 380, 64, () => this.startMission());
@@ -780,24 +803,63 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
     }
 
     // ------------------------------------------------------------------
-    // 2. Learn before playing (two science cards per page)
+    // 2. Learn before playing (3 pages including Canadian Space Agency CEA)
     // ------------------------------------------------------------------
 
     private renderLearningCard() {
-        const pages: Array<Array<{ title: string; icon: "water" | "power" | "moxie" | "sequence"; body: string; tip: string }>> = [
+        const pages: Array<Array<{
+            title: string;
+            icon: "water" | "power" | "moxie" | "sequence" | "csa_food" | "earth_benefit";
+            body: string;
+            tip: string;
+        }>> = [
             [
-                { title: "WATER FIRST!", icon: "water", body: "Plants and astronauts need liquid water before anything can grow.", tip: "Light alone cannot hydrate potato roots." },
-                { title: "LIMITED POWER!", icon: "power", body: "MOXIE and the LED Potato Farm cannot run at full power at the same time in this simplified simulation.", tip: "Sequence the high-power systems instead of overloading Kilopower." }
+                {
+                    title: "WATER FIRST!",
+                    icon: "water",
+                    body: "Plants and astronauts need liquid water before anything can grow.",
+                    tip: "Light alone cannot hydrate potato roots."
+                },
+                {
+                    title: "LIMITED POWER!",
+                    icon: "power",
+                    body: "MOXIE and the LED Potato Farm cannot run at full power at the same time in this simplified simulation.",
+                    tip: "Sequence the high-power systems instead of overloading Kilopower."
+                }
             ],
             [
-                { title: "MOXIE MAKES OXYGEN", icon: "moxie", body: "MOXIE extracts oxygen from Mars's mostly carbon-dioxide atmosphere.", tip: "Its solid-oxide system operates at approximately 800°C." },
-                { title: "RESOURCE SEQUENCING", icon: "sequence", body: "Make and store enough oxygen first, then redirect power to the greenhouse.", tip: "Stored oxygen lets us safely unplug MOXIE in the afternoon." }
+                {
+                    title: "MOXIE MAKES OXYGEN",
+                    icon: "moxie",
+                    body: "MOXIE extracts oxygen from Mars's mostly carbon-dioxide atmosphere.",
+                    tip: "Its solid-oxide system operates at approximately 800°C."
+                },
+                {
+                    title: "RESOURCE SEQUENCING",
+                    icon: "sequence",
+                    body: "Make and store enough oxygen first, then redirect power to the greenhouse.",
+                    tip: "Stored oxygen lets us safely unplug MOXIE in the afternoon."
+                }
+            ],
+            [
+                {
+                    title: "CSA SPACE LED FARMING",
+                    icon: "csa_food",
+                    body: "Canadian Space Agency (CSA) research tunes red & blue LEDs and recycles water to grow fresh crops in tight habitats.",
+                    tip: "Fresh crops give astronauts vitamins and boost crew morale."
+                },
+                {
+                    title: "SPACE TECH HELPS EARTH",
+                    icon: "earth_benefit",
+                    body: "CSA's closed-loop greenhouse systems also help remote, cold Earth communities grow fresh food year-round.",
+                    tip: "Saving water and energy works in space and on Earth!"
+                }
             ]
         ];
         const page = pages[Math.min(this.state.learningCard, pages.length - 1)];
 
         this.addCompanions();
-        this.renderHeader("LEARN BEFORE PLAYING", `BLEEP SCIENCE CARDS ${this.state.learningCard + 1} OF ${pages.length}`);
+        this.renderHeader("LEARN BEFORE PLAYING", `NASA & CSA SCIENCE CARDS ${this.state.learningCard + 1} OF ${pages.length}`);
 
         page.forEach((card, i) => {
             const x = COL_X + i * 410;
@@ -945,13 +1007,13 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
     }
 
     // ------------------------------------------------------------------
-    // 6. Greenhouse mini-game
+    // 6. Greenhouse mini-game (CSA Controlled-Environment Agriculture)
     // ------------------------------------------------------------------
 
     private renderGreenhouse() {
-        this.renderHeader("LED HYDROPONIC GREENHOUSE", "Complete both interactions before the potatoes can be harvested.");
+        this.renderHeader("CSA CLOSED-LOOP LED GREENHOUSE", "Tune red/blue LED wavelengths and route CO₂ before harvesting potatoes.");
         this.addPanel(80, 175, 1120, 410, UITheme.colors.cardBg, UITheme.colors.bioGreen);
-        this.addText("LED WAVELENGTH CONTROL", 300, 215, { fontFamily: UITheme.fonts.heading, fontSize: "16px", color: UITheme.colors.solarGoldStr, fontStyle: "bold" });
+        this.addText("LED WAVELENGTH CONTROL (CSA CEA)", 300, 215, { fontFamily: UITheme.fonts.heading, fontSize: "15px", color: UITheme.colors.solarGoldStr, fontStyle: "bold" });
         this.addText("RED LED BALANCE", 300, 260, { fontSize: "13px", color: UITheme.colors.textSecondary });
         const slider = this.add.rectangle(300, 315, 390, 18, UITheme.colors.spaceDark).setInteractive({ useHandCursor: true });
         this.missionUi.add(slider);
@@ -966,7 +1028,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
             sliderFill.width = bounded - 105;
             redText.setText(`RED ${this.state.redLed}%  •  BLUE ${this.state.blueLed}%`);
             const valid = this.state.redLed >= 60 && this.state.redLed <= 75;
-            balanceText.setText(valid ? "✓ BALANCE READY FOR POTATOES" : "Adjust red LED to 60–75%");
+            balanceText.setText(valid ? "✓ OPTIMAL CSA PHOTOSYNTHESIS SPECTRUM" : "Adjust red LED to 60–75%");
             balanceText.setColor(valid ? UITheme.colors.bioGreenStr : UITheme.colors.textWarning);
             this.updateGreenhouseFeedback();
         };
@@ -1073,14 +1135,14 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
     }
 
     // ------------------------------------------------------------------
-    // 7. Quiz (uniform purple answer cards, no green/red reveal)
+    // 7. Quiz (3 questions including CSA space & Earth remote-food connection)
     // ------------------------------------------------------------------
 
     private renderQuiz() {
         const question = this.quiz[this.state.quizIndex];
         const order = this.quizOrder[this.state.quizIndex] ?? [0, 1];
         this.addCompanions();
-        this.renderHeader("QUICK QUIZ", `QUESTION ${this.state.quizIndex + 1} OF 2 • SCORE ${this.state.quizScore}/2`);
+        this.renderHeader("QUICK QUIZ", `QUESTION ${this.state.quizIndex + 1} OF ${this.quiz.length} • SCORE ${this.state.quizScore}/${this.quiz.length}`);
         this.addPanel(COL_X, 175, COL_W, 335, UITheme.colors.cardBg, UITheme.colors.primaryCyan);
         this.addText(question.question, 640, 235, { fontSize: "20px", wordWrap: { width: COL_W - 80 }, lineSpacing: 8 });
 
@@ -1088,7 +1150,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
             const x = COL_X + 20 + slot * 390;
             this.addPanel(x, 290, 370, 110, 0x0e1a32, CHOICE_COLOR);
             this.addText(`${slot === 0 ? "A" : "B"}. ${question.answers[answerIndex]}`, x + 185, 345, {
-                fontSize: "16px", wordWrap: { width: 330 }
+                fontSize: "15px", wordWrap: { width: 330 }
             });
             this.addButton(slot === 0 ? "CHOOSE A" : "CHOOSE B", x + 185, 440, () => this.answerQuiz(answerIndex), CHOICE_COLOR, 200);
         });
@@ -1096,7 +1158,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
     }
 
     // ------------------------------------------------------------------
-    // 8. Summary
+    // 8. Summary (includes CSA Earth & Space Agricultural takeaway)
     // ------------------------------------------------------------------
 
     private renderSummary() {
@@ -1104,17 +1166,17 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
         this.renderHeader("MISSION SUMMARY", "SOL 4 COMPLETE • AIR, ICE & LED POTATOES");
         this.addPanel(COL_X, 170, COL_W, 420, UITheme.colors.cardBg, UITheme.colors.bioGreen);
         this.addText("FINAL RESOURCES", 400, 215, { fontFamily: UITheme.fonts.heading, fontSize: "16px", color: UITheme.colors.solarGoldStr, fontStyle: "bold" });
-        this.addText("OXYGEN  75%", 400, 270, { fontFamily: UITheme.fonts.heading, fontSize: "21px", color: UITheme.colors.primaryCyanStr, fontStyle: "bold" });
-        this.addText("WATER  45%", 400, 320, { fontFamily: UITheme.fonts.heading, fontSize: "21px", color: UITheme.colors.primaryCyanStr, fontStyle: "bold" });
-        this.addText("FOOD  70%", 400, 370, { fontFamily: UITheme.fonts.heading, fontSize: "21px", color: UITheme.colors.bioGreenStr, fontStyle: "bold" });
+        this.addText("OXYGEN  75%", 400, 265, { fontFamily: UITheme.fonts.heading, fontSize: "21px", color: UITheme.colors.primaryCyanStr, fontStyle: "bold" });
+        this.addText("WATER  45%", 400, 310, { fontFamily: UITheme.fonts.heading, fontSize: "21px", color: UITheme.colors.primaryCyanStr, fontStyle: "bold" });
+        this.addText("FOOD  70%", 400, 355, { fontFamily: UITheme.fonts.heading, fontSize: "21px", color: UITheme.colors.bioGreenStr, fontStyle: "bold" });
         this.addText("MISSION CHECKLIST", 800, 215, { fontFamily: UITheme.fonts.heading, fontSize: "16px", color: UITheme.colors.solarGoldStr, fontStyle: "bold" });
         [
-            "✓ Oxygen production", "✓ Ice extraction", "✓ Water management", "✓ Greenhouse activation",
-            "✓ Electrical power management", "✓ Martian dust safety", "✓ Potato harvest", "✓ Mission quiz"
-        ].forEach((item, index) => this.addText(item, 800, 252 + index * 26, { fontSize: "14px", color: UITheme.colors.textSuccess }));
-        this.addText("Commander Maya: Excellent sequencing, Cadet. You kept our habitat supplied.", 640, 465, { fontSize: "14px", color: UITheme.colors.primaryCyanStr, wordWrap: { width: COL_W - 60 } });
-        this.addText("Bleep: Potatoes secured! \"You mastered closed-loop resource sequencing using Mars ISRU engineering!\"", 640, 500, { fontSize: "14px", color: UITheme.colors.textWarning, wordWrap: { width: COL_W - 60 } });
-        this.addButton("ADVANCE TO SOL 5", 640, 555, () => this.finishMission(), UITheme.colors.bioGreen, 300);
+            "✓ Oxygen production (MOXIE)", "✓ Ice extraction & water routing", "✓ Electrical power sequencing",
+            "✓ Martian dust safety", "✓ CSA LED spectrum optimization", "✓ Potato harvest & mission quiz"
+        ].forEach((item, index) => this.addText(item, 800, 250 + index * 27, { fontSize: "14px", color: UITheme.colors.textSuccess }));
+        this.addText("Commander Maya: Excellent sequencing, Cadet. Your closed-loop farm kept our crew nourished.", 640, 445, { fontSize: "14px", color: UITheme.colors.primaryCyanStr, wordWrap: { width: COL_W - 60 } });
+        this.addText("Bleep: CSA space-agriculture tech works on Mars AND in remote cold communities on Earth!", 640, 485, { fontSize: "14px", color: UITheme.colors.textWarning, wordWrap: { width: COL_W - 60 } });
+        this.addButton("ADVANCE TO SOL 5", 640, 550, () => this.finishMission(), UITheme.colors.bioGreen, 300);
     }
 
     private addResourceStrip(water: number) {
@@ -1124,7 +1186,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
     }
 
     // ------------------------------------------------------------------
-    // Game logic (unchanged behaviour)
+    // Game logic
     // ------------------------------------------------------------------
 
     private chooseMorning(correct: boolean) {
@@ -1196,8 +1258,7 @@ export class Sol4ISRUProductionScene extends SolChallengeBaseScene {
     private answerQuiz(answer: number) {
         const question = this.quiz[this.state.quizIndex];
         if (answer !== question.correct) {
-            // Neutral gold hint (no red) and no per-answer colouring
-            this.quizFeedback?.setText("Not quite. Re-read the science cards and try again.");
+            this.quizFeedback?.setText("Not quite. Re-read the NASA & CSA science cards and try again.");
             this.quizFeedback?.setColor(UITheme.colors.solarGoldStr);
             SoundFX.playAlert();
             return;

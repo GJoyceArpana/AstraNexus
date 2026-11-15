@@ -44,82 +44,142 @@ export class MissionModals {
         container.add(bg);
 
         // Modal Frame
-        const modalW = 760;
-        const modalH = 520;
+        const modalW = 820;
+        const modalH = 550;
         const modalX = (width - modalW) / 2;
         const modalY = (height - modalH) / 2;
 
         const frame = scene.add.graphics();
-        frame.fillStyle(UITheme.colors.panelBg, 0.98);
-        frame.fillRoundedRect(modalX, modalY, modalW, modalH, 16);
-        frame.lineStyle(2.5, UITheme.colors.primaryCyan, 0.9);
-        frame.strokeRoundedRect(modalX, modalY, modalW, modalH, 16);
+        frame.fillStyle(0x07152B, 0.98);
+        frame.fillRoundedRect(modalX, modalY, modalW, modalH, 20);
+        frame.lineStyle(3, UITheme.colors.primaryCyan, 0.95);
+        frame.strokeRoundedRect(modalX, modalY, modalW, modalH, 20);
         container.add(frame);
 
-        // Header
-        const tag = scene.add.text(width / 2, modalY + 32, "✦ INCOMING NASA TRANSMISSION ✦", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "12px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold"
+        // Header Tag
+        const tag = scene.add.text(width / 2, modalY + 32, "✦ MISSION BRIEFING ✦", {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "14px",
+            color: "#00E5FF",
+            fontStyle: "bold",
+            letterSpacing: 2
         }).setOrigin(0.5);
 
-        const title = scene.add.text(width / 2, modalY + 62, "SOL 01: OUTPOST SOL ACTIVATION", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "24px",
+        // Main Title: EXPLORE YOUR BASE!
+        const title = scene.add.text(width / 2, modalY + 68, "EXPLORE YOUR BASE!", {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "32px",
             color: "#FFFFFF",
+            fontStyle: "bold",
+            letterSpacing: 2
+        }).setOrigin(0.5);
+
+        // Subtitle
+        const sub = scene.add.text(width / 2, modalY + 102, "Welcome to Mars, Cadet! Put on your space suit and explore your new home.", {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "15px",
+            color: "#D0E4FA",
             fontStyle: "bold"
         }).setOrigin(0.5);
-        container.add([tag, title]);
+        container.add([tag, title, sub]);
 
-        // Transmission Body Box
+        // Welcoming Transmission Box
         const bodyBox = scene.add.graphics();
-        bodyBox.fillStyle(0x071426, 0.9);
-        bodyBox.fillRoundedRect(modalX + 35, modalY + 95, modalW - 70, 100, 8);
-        bodyBox.lineStyle(1.5, UITheme.colors.panelBorder, 1);
-        bodyBox.strokeRoundedRect(modalX + 35, modalY + 95, modalW - 70, 100, 8);
+        bodyBox.fillStyle(0x061122, 0.9);
+        bodyBox.fillRoundedRect(modalX + 35, modalY + 126, modalW - 70, 72, 12);
+        bodyBox.lineStyle(1.5, 0x1A385C, 1);
+        bodyBox.strokeRoundedRect(modalX + 35, modalY + 126, modalW - 70, 72, 12);
         container.add(bodyBox);
 
         const commText = scene.add.text(
             modalX + 50,
-            modalY + 110,
-            "HOUSTON CAPCOM TO OUTPOST SOL:\nCongratulations on touching down on Mars! Your initial mandate is to bring base life support online, inspect the habitat dome, and balance the 3-plug power switchboard before Martian sunset.",
+            modalY + 138,
+            "🎉 HOUSTON CAPCOM: Touchdown confirmed! Your base modules are ready for exploration. Step outside, check your life support, and see what you can discover!",
             {
-                fontFamily: UITheme.fonts.body,
-                fontSize: "14px",
-                color: "#E2EDFC",
-                lineSpacing: 6,
+                fontFamily: "Nunito, Montserrat, sans-serif",
+                fontSize: "14.5px",
+                color: "#E8F2FF",
+                lineSpacing: 5,
                 wordWrap: { width: modalW - 100 }
             }
         );
         container.add(commText);
 
-        // Objectives Checklist
-        const objTitle = scene.add.text(modalX + 35, modalY + 215, "SOL 01 MANDATORY OBJECTIVES:", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "13px",
+        // Section Title
+        const actTitle = scene.add.text(width / 2, modalY + 222, "✦ COOL THINGS TO EXPLORE & DO ✦", {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "14px",
             color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
-        });
-        container.add(objTitle);
+            fontStyle: "bold",
+            letterSpacing: 1.5
+        }).setOrigin(0.5);
+        container.add(actTitle);
 
-        const objectives = [
-            "1. Inspect the Mars Habitat dome pressurization airlock.",
-            "2. Route power to the greenhouse while keeping life support online.",
-            "3. Activate the greenhouse and harvest fresh crops.",
-            "4. Scan both marked survey beacons with the exploration rover."
+        // 4 Kid-Friendly Activity Cards (2x2 Grid)
+        const activities = [
+            {
+                icon: "🏠",
+                title: "HABITAT DOME",
+                color: "#00E5FF",
+                desc: "Check your airlock & cozy living quarters!"
+            },
+            {
+                icon: "⚡",
+                title: "POWER SWITCHBOARD",
+                color: "#FFD54F",
+                desc: "Plug in cords to power up lights & heaters!"
+            },
+            {
+                icon: "🍅",
+                title: "SPACE GREENHOUSE",
+                color: "#69F0AE",
+                desc: "Harvest fresh space salad & yummy tomatoes!"
+            },
+            {
+                icon: "🚜",
+                title: "MARS ROVER",
+                color: "#FF9100",
+                desc: "Hop inside & drive across the red dunes!"
+            }
         ];
 
-        objectives.forEach((obj, idx) => {
-            const checkY = modalY + 245 + idx * 32;
-            const check = scene.add.circle(modalX + 50, checkY + 8, 8, 0x112A4F);
-            check.setStrokeStyle(1.5, UITheme.colors.primaryCyan, 1);
-            const text = scene.add.text(modalX + 70, checkY, obj, {
-                fontFamily: UITheme.fonts.body,
-                fontSize: "14px",
-                color: "#FFFFFF"
+        const cardW = 360;
+        const cardH = 74;
+        const gridX = [modalX + 40, modalX + 420];
+        const gridY = [modalY + 248, modalY + 334];
+
+        activities.forEach((act, idx) => {
+            const col = idx % 2;
+            const row = Math.floor(idx / 2);
+            const cx = gridX[col];
+            const cy = gridY[row];
+
+            const actCard = scene.add.graphics();
+            actCard.fillStyle(0x0A1C33, 0.9);
+            actCard.fillRoundedRect(cx, cy, cardW, cardH, 12);
+            actCard.lineStyle(1.5, Phaser.Display.Color.HexStringToColor(act.color).color, 0.65);
+            actCard.strokeRoundedRect(cx, cy, cardW, cardH, 12);
+            container.add(actCard);
+
+            const iconText = scene.add.text(cx + 18, cy + cardH / 2, act.icon, {
+                fontSize: "28px"
+            }).setOrigin(0, 0.5);
+
+            const titleText = scene.add.text(cx + 60, cy + 14, act.title, {
+                fontFamily: "Nunito, Montserrat, sans-serif",
+                fontSize: "15px",
+                color: act.color,
+                fontStyle: "bold"
             });
-            container.add([check, text]);
+
+            const descText = scene.add.text(cx + 60, cy + 38, act.desc, {
+                fontFamily: "Nunito, Montserrat, sans-serif",
+                fontSize: "13.5px",
+                color: "#FFFFFF",
+                wordWrap: { width: cardW - 70 }
+            });
+
+            container.add([iconText, titleText, descText]);
         });
 
         let started = false;
@@ -142,19 +202,20 @@ export class MissionModals {
         const startBtn = ButtonFactory.createButton({
             scene,
             x: width / 2,
-            y: modalY + modalH - 50,
-            width: 320,
-            height: 48,
-            text: "COMMENCE SOL 01 MISSION ➔",
+            y: modalY + modalH - 58,
+            width: 340,
+            height: 50,
+            fontSize: "16px",
+            text: "LET'S EXPLORE MARS! 🚀",
             primaryColor: UITheme.colors.solarGold,
             textColor: UITheme.colors.solarGoldStr,
             onClick: startMission
         });
         container.add(startBtn);
 
-        const keyboardHint = scene.add.text(width / 2, modalY + modalH - 8, "PRESS ENTER TO COMMENCE", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "9px",
+        const keyboardHint = scene.add.text(width / 2, modalY + modalH - 16, "[ Press ENTER or Click to Start ]", {
+            fontFamily: "Nunito, Montserrat, sans-serif",
+            fontSize: "13px",
             color: "#9FB0BD",
             fontStyle: "bold"
         }).setOrigin(0.5, 1);

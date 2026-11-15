@@ -43,18 +43,18 @@ export class Sol5ResourceManager {
         return { ...this.state };
     }
 
-    public start() {
-        if (this.isStarted) return;
-        this.isStarted = true;
-        this.startTime = Date.now();
-    }
-
     public isRepaired(id: SubsystemId): boolean {
         return this.repairedSystems[id];
     }
 
     public getRepairsCount(): number {
         return this.repairsCount;
+    }
+
+    public start() {
+        if (this.isEnded || this.isStarted) return;
+        this.isStarted = true;
+        this.startTime = Date.now();
     }
 
     public update(deltaMs: number) {
@@ -121,20 +121,6 @@ export class Sol5ResourceManager {
 
         this.state.isCriticalWarning = isLowPressure || isLowO2 || isLowHull || this.state.timeRemainingSec < 60;
 
-        // 4. Catastrophic Failure Conditions
-        if (this.state.habitatPressure <= 18.0) {
-            this.triggerFailure("DEPRESSURIZATION");
-            return;
-        }
-        if (this.state.oxygenReserve <= 0) {
-            this.triggerFailure("HYPOXIA");
-            return;
-        }
-        if (this.state.structuralIntegrity <= 0) {
-            this.triggerFailure("STRUCTURAL_COLLAPSE");
-            return;
-        }
-
         this.callbacks.onResourceUpdate(this.getState());
     }
 
@@ -142,7 +128,7 @@ export class Sol5ResourceManager {
      * Called when a player completes an engineering puzzle
      */
     public markSystemRepaired(id: SubsystemId) {
-        if (this.repairedSystems[id]) return;
+        if (!this.isStarted || this.repairedSystems[id]) return;
 
         this.repairedSystems[id] = true;
         this.repairsCount++;

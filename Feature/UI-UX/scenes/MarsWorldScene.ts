@@ -92,8 +92,20 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     preload() {
-        // NASA Jezero Mosaic terrain
-        this.load.image("mars_terrain", "/assets/game/mars/jezero-ctx-mosaic-3x3.png");
+        // NASA Jezero CTX mosaic terrain (always needed)
+        if (!this.textures.exists("mars_terrain_jezero")) {
+            this.load.image("mars_terrain_jezero", "/assets/game/mars/jezero-ctx-mosaic-3x3.png");
+        }
+        if (!this.textures.exists("mars_terrain")) {
+            this.load.image("mars_terrain", "/assets/game/mars/jezero-ctx-mosaic-3x3.png");
+        }
+
+        // Arcadia Planitia mosaic: only requested when the player actually landed at Arcadia,
+        // so a missing file can never break Jezero runs.
+        const selectedSite = (this.registry.get("landingSite") as LandingSiteId) || "jezero";
+        if (selectedSite === "arcadia" && !this.textures.exists("arcadia-mosaic")) {
+            this.load.image("arcadia-mosaic", "/assets/game/mars/arcadia-planitia-ctx-mosaic-3x3.png");
+        }
 
         // Mars base assets
         this.load.image("base-station", "/assets/game/base/base-station.png");
@@ -147,7 +159,7 @@ export class MarsWorldScene extends Phaser.Scene {
             this.warningSystem.show({
                 type: "INFO",
                 title: `SOL 0${this.solLevel} UNLOCKED · MISSION ADVANCED`,
-                message: `Congratulations! Mission engineering milestone Sol 0${this.solLevel - 1} validated by NASA flight controllers.`,
+                message: `Congratulations! Mission engineering milestone Sol 0${this.solLevel} validated by NASA flight controllers.`,
                 durationMs: 5000
             });
         });
@@ -185,12 +197,13 @@ export class MarsWorldScene extends Phaser.Scene {
         this.baseMaterial = regMaterial || savedMaterial || "glass";
 
         // Initialize Level Objectives based on Sol Level
+        const surveyLocation = this.landingSite === "arcadia" ? "Arcadia Planitia plains" : "Jezero Crater rim";
         if (this.solLevel === 1) {
             this.objectives = [
                 { id: "hab", text: "1. Inspect Mars Habitat airlock", done: false },
                 { id: "power", text: "2. Engage Power Switchboard (Press P)", done: false },
                 { id: "greenhouse", text: "3. Activate Mars Greenhouse crops", done: false },
-                { id: "rover", text: "4. Board Rover & survey Jezero Crater rim", done: false }
+                { id: "rover", text: `4. Board Rover & survey ${surveyLocation}`, done: false }
             ];
         } else if (this.solLevel === 2) {
             this.objectives = [
@@ -230,10 +243,7 @@ export class MarsWorldScene extends Phaser.Scene {
         // 5. Initialize HUD Systems (Tasks 5, 6, 7, 9, 10)
         this.setupMarsHUD();
 
-        // 6. Objective Checklist Box
-        this.createObjectivesCard();
-
-        // 7. Interaction Prompt HUD
+        // 6. Interaction Prompt HUD
         this.createInteractionPrompt();
 
         // 8. Welcome Notification Toast
@@ -260,17 +270,26 @@ export class MarsWorldScene extends Phaser.Scene {
     // 1. MARS JEZERO / ARCADIA ENVIRONMENT
     // =========================================================
     private createMarsEnvironment() {
+        const isArcadia = this.landingSite === "arcadia";
         const skyColors = [0x180E1C, 0x0C1826, 0x2A1408];
         const terrainTints = [0xE38656, 0xBC7558, 0x9E4B28];
-        const currentSky = skyColors[this.solLevel - 1] || skyColors[0];
-        const currentTint = terrainTints[this.solLevel - 1] || terrainTints[0];
+        const currentSky = isArcadia ? 0x0C1826 : (skyColors[this.solLevel - 1] || skyColors[0]);
+        const currentTint = isArcadia ? 0xBC7558 : (terrainTints[this.solLevel - 1] || terrainTints[0]);
 
         // Deep Atmospheric Sky
         this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, currentSky).setDepth(-20);
 
-        // NASA Jezero / Arcadia CTX Mosaic Backdrop
-        if (this.textures.exists("mars_terrain")) {
-            const terrain = this.add.image(this.W / 2, this.H / 2, "mars_terrain");
+        // NASA Jezero / Arcadia CTX Mosaic Backdrop.
+        // Falls back to the Jezero mosaic (then to nothing) if the Arcadia file failed to load.
+        let terrainKey: string | null = null;
+        if (isArcadia && this.textures.exists("arcadia-mosaic")) {
+            terrainKey = "arcadia-mosaic";
+        } else if (this.textures.exists("mars_terrain_jezero")) {
+            terrainKey = "mars_terrain_jezero";
+        }
+
+        if (terrainKey) {
+            const terrain = this.add.image(this.W / 2, this.H / 2, terrainKey);
             terrain.setDisplaySize(this.W, this.H);
             terrain.setTint(currentTint);
             terrain.setAlpha(0.92);
@@ -278,7 +297,7 @@ export class MarsWorldScene extends Phaser.Scene {
         }
 
         // Mars Dust Overlay & Horizon Glow
-        const horizonColor = this.solLevel === 2 ? 0x4A709C : 0xC8573E;
+        const horizonColor = (isArcadia || this.solLevel === 2) ? 0x4A709C : 0xC8573E;
         const horizon = this.add.ellipse(640, 360, 1300, 320, horizonColor, 0.28).setDepth(-18);
         this.tweens.add({
             targets: horizon,
@@ -289,7 +308,7 @@ export class MarsWorldScene extends Phaser.Scene {
         });
 
         // Mars Base Surface Pad: Expansive and wide
-        const padColor = this.solLevel === 2 ? 0x6E4238 : 0x8C3F2D;
+        const padColor = (isArcadia || this.solLevel === 2) ? 0x6E4238 : 0x8C3F2D;
         const pad = this.add.ellipse(640, 560, 1220, 290, padColor, 0.85).setDepth(-15);
         pad.setStrokeStyle(2, 0xB8573E, 0.6);
     }
@@ -595,83 +614,10 @@ export class MarsWorldScene extends Phaser.Scene {
     }
 
     // =========================================================
-    // 6. OBJECTIVES CARD
+    // 6. OBJECTIVES CARD (Removed for simplified, kid-friendly HUD)
     // =========================================================
     private createObjectivesCard() {
-        const cardW = 340;
-        const cardH = 205;
-        const cardX = 24;
-        const cardY = 190;
-
-        const container = this.add.container(cardX, cardY).setDepth(100);
-
-        const bg = this.add.graphics();
-        bg.fillStyle(UITheme.colors.panelBg, 0.92);
-        bg.fillRoundedRect(0, 0, cardW, cardH, 10);
-        bg.lineStyle(1.5, UITheme.colors.panelBorder, 0.9);
-        bg.strokeRoundedRect(0, 0, cardW, cardH, 10);
-        container.add(bg);
-
-        const title = this.add.text(14, 12, `SOL 0${this.solLevel} MISSION OBJECTIVES:`, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold"
-        });
-        container.add(title);
-
-        this.objectives.forEach((obj, idx) => {
-            const line = this.add.text(14, 32 + idx * 24, obj.text, {
-                fontFamily: UITheme.fonts.body,
-                fontSize: "12px",
-                color: obj.done ? UITheme.colors.bioGreenStr : "#FFFFFF",
-                wordWrap: { width: cardW - 28 }
-            });
-
-            // Make Switchboard objective directly clickable
-            if (obj.id === "power") {
-                line.setInteractive({ useHandCursor: true });
-                line.on("pointerover", () => {
-                    line.setColor(UITheme.colors.solarGoldStr);
-                });
-                line.on("pointerout", () => {
-                    line.setColor(obj.done ? UITheme.colors.bioGreenStr : "#FFFFFF");
-                });
-                line.on("pointerdown", () => {
-                    SoundFX.playClick();
-                    this.openSwitchboard();
-                });
-            }
-
-            this.objectiveListTexts.push(line);
-            container.add(line);
-        });
-
-        // 5-Sol Mission Challenges link
-        const challengesLink = this.add.text(14, 146, "✦ VIEW 5-SOL CHALLENGES [M] ✦", {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "11px",
-            color: UITheme.colors.primaryCyanStr,
-            fontStyle: "bold"
-        });
-        challengesLink.setInteractive({ useHandCursor: true });
-        challengesLink.on("pointerover", () => challengesLink.setColor("#FFFFFF"));
-        challengesLink.on("pointerout", () => challengesLink.setColor(UITheme.colors.primaryCyanStr));
-        challengesLink.on("pointerdown", () => {
-            SoundFX.playClick();
-            this.toggleMissionChallenges();
-        });
-        container.add(challengesLink);
-
-        // Equipped suit model & callsign badge at bottom of objectives card
-        const suitTag = this.add.text(14, 176, `✦ ACTIVE SUIT: ${this.equippedSuitName.replace("ASTRONAUT ", "")} ✦`, {
-            fontFamily: UITheme.fonts.heading,
-            fontSize: "10px",
-            color: UITheme.colors.solarGoldStr,
-            fontStyle: "bold",
-            wordWrap: { width: cardW - 28 }
-        });
-        container.add(suitTag);
+        // Sol objective tab removed to keep screen spacious and clutter-free for young cadets
     }
 
     private markObjectiveDone(id: string) {
@@ -817,10 +763,11 @@ export class MarsWorldScene extends Phaser.Scene {
         });
 
         this.markObjectiveDone("rover");
+        const roverSiteLabel = this.landingSite === "arcadia" ? "Arcadia Planitia" : "Jezero Crater";
         this.warningSystem.show({
             type: "INFO",
             title: "ROVER ENGAGED",
-            message: "You are now driving the exploration rover across Jezero Crater! Move with WASD. Press [ E ] to Jump Out.",
+            message: `You are now driving the exploration rover across ${roverSiteLabel}! Move with WASD. Press [ E ] to Jump Out.`,
             durationMs: 4000
         });
     }
@@ -1105,12 +1052,16 @@ export class MarsWorldScene extends Phaser.Scene {
             powerEfficiencyScore: Math.round(this.resourceMeters.getMeterValue("hullPower")),
             samplesCollected: this.solLevel * 4,
             insightTitle: this.solLevel === 1
-                ? "Ancient Water Sediments in Jezero Crater"
+                ? (this.landingSite === "arcadia"
+                    ? "Subsurface Water-Ice Sheets in Arcadia Planitia"
+                    : "Ancient Water Sediments in Jezero Crater")
                 : (this.solLevel === 2
                     ? "Subsurface Permafrost Glaciers in Arcadia Planitia"
                     : "Planetary Dust Devils & Atmospheric Dynamics"),
             insightDesc: this.solLevel === 1
-                ? "NASA's Perseverance rover discovered fine-grained mudstones in Jezero delta that preserved ancient organic compounds. Outpost Sol's location provides prime access to these scientific treasures."
+                ? (this.landingSite === "arcadia"
+                    ? "Arcadia Planitia features vast sheets of water ice buried just 1 to 2.5 meters below the red dust, making it a prime candidate for future human ISRU landing sites."
+                    : "NASA's Perseverance rover discovered fine-grained mudstones in Jezero delta that preserved ancient organic compounds. Outpost Sol's location provides prime access to these scientific treasures.")
                 : (this.solLevel === 2
                     ? "Arcadia Planitia features vast sheets of water ice buried just 1 to 2.5 meters below the red dust, accessible by simple core drills for astronaut drinking water and rocket fuel propellant."
                     : "Global Martian dust storms can shroud the entire planet for months. Outpost Sol's automated solar array wiper systems and shielded domes safeguard the expedition against extreme electrostatic dust.")
