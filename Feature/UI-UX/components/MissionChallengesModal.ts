@@ -172,6 +172,20 @@ export class MissionChallengesModal {
         backdrop.setInteractive();
         this.container.add(backdrop);
 
+        // A quiet star field and Mars glow keep the modal connected to the game world.
+        const spaceDecor = this.scene.add.graphics();
+        spaceDecor.fillStyle(UITheme.colors.marsSky, 0.28);
+        spaceDecor.fillCircle(width * 0.14, height * 0.22, Math.min(width, height) * 0.2);
+        spaceDecor.fillStyle(UITheme.colors.marsSurface, 0.18);
+        spaceDecor.fillCircle(width * 0.88, height * 0.82, Math.min(width, height) * 0.25);
+        spaceDecor.fillStyle(0xd8f7ff, 0.8);
+        for (let i = 0; i < 42; i += 1) {
+            const starX = 18 + ((i * 193) % Math.max(20, width - 36));
+            const starY = 16 + ((i * 97) % Math.max(20, height - 32));
+            spaceDecor.fillCircle(starX, starY, i % 7 === 0 ? 2 : 1);
+        }
+        this.container.add(spaceDecor);
+
         // 2. Main High-Tech Frame (1160 x 640)
         const frameW = MODAL_W;
         const frameH = MODAL_H;
@@ -179,26 +193,38 @@ export class MissionChallengesModal {
         const frameY = (height - frameH) / 2;
 
         const frameBg = this.scene.add.graphics();
+        frameBg.fillStyle(0x000000, 0.38);
+        frameBg.fillRoundedRect(frameX + 8, frameY + 10, frameW, frameH, UITheme.layout.cardRadius + 4);
         frameBg.fillStyle(UITheme.colors.panelBg, 0.98);
         frameBg.fillRoundedRect(frameX, frameY, frameW, frameH, UITheme.layout.cardRadius);
         frameBg.lineStyle(2, UITheme.colors.primaryCyan, 0.9);
         frameBg.strokeRoundedRect(frameX, frameY, frameW, frameH, UITheme.layout.cardRadius);
 
         // Top Header Accent Bar
-        frameBg.fillStyle(UITheme.colors.cardSelected, 0.5);
-        frameBg.fillRoundedRect(frameX, frameY, frameW, 56, { tl: 16, tr: 16, bl: 0, br: 0 });
+        frameBg.fillStyle(0x07549a, 0.72);
+        frameBg.fillRoundedRect(frameX, frameY, frameW, 64, { tl: 16, tr: 16, bl: 0, br: 0 });
+        frameBg.fillStyle(UITheme.colors.primaryCyan, 0.8);
+        frameBg.fillRoundedRect(frameX + 22, frameY + 61, frameW - 44, 3, 2);
         this.container.add(frameBg);
 
         // Header Title
         const headerTitle = this.scene.add.text(frameX + 24, frameY + 10, "ASTRANEXUS\n→ SOL SURVIVOR ←", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "16px",
+            fontSize: "18px",
             color: "#FFFFFF",
             fontStyle: "bold",
             letterSpacing: 1.5,
             lineSpacing: -2
         });
         this.container.add(headerTitle);
+        const headerSubtitle = this.scene.add.text(frameX + 25, frameY + 49, "CHOOSE A MISSION • HELP THE CREW • EARN YOUR STAR", {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "11px",
+            color: "#a9efff",
+            fontStyle: "bold",
+            letterSpacing: 1
+        });
+        this.container.add(headerSubtitle);
 
         // Close Button (Top-Right)
         const closeBtn = ButtonFactory.createButton({
@@ -219,7 +245,7 @@ export class MissionChallengesModal {
         this.container.add(closeBtn);
 
         // 3. Sol Navigation Carousel Tabs (Sols 1 - 5)
-        this.createSolTabs(frameX + 300, frameY + 70, frameW - 324);
+        this.createSolTabs(frameX + 300, frameY + 72, frameW - 324);
 
         // 4. Dynamic Content Container (re-drawn when switching Sols)
         this.contentContainer = this.scene.add.container(0, 0);
@@ -227,6 +253,22 @@ export class MissionChallengesModal {
 
         // Render Initial Active Sol
         this.renderSolChallenge(this.currentSolTab);
+
+        // Keep the frame usable on smaller laptop windows and fullscreen canvases.
+        const modalScale = Math.min(1, (width - 24) / MODAL_W, (height - 24) / MODAL_H);
+        const offsetX = (width - width * modalScale) / 2;
+        const offsetY = (height - height * modalScale) / 2;
+        this.container.setScale(modalScale);
+        this.container.setPosition(offsetX, offsetY);
+        backdrop.setScale(1 / modalScale);
+        backdrop.setPosition(-offsetX / modalScale, -offsetY / modalScale);
+
+        this.scene.tweens.add({
+            targets: this.container,
+            alpha: { from: 0, to: 1 },
+            duration: 180,
+            ease: "Quad.easeOut"
+        });
     }
 
     /**
@@ -236,7 +278,7 @@ export class MissionChallengesModal {
         const tabCount = 5;
         const tabSpacing = 8;
         const tabW = (totalWidth - (tabSpacing * (tabCount - 1))) / tabCount;
-        const tabH = 40;
+        const tabH = 46;
 
         for (let i = 1; i <= tabCount; i++) {
             const tabX = startX + (i - 1) * (tabW + tabSpacing) + tabW / 2;
@@ -246,12 +288,12 @@ export class MissionChallengesModal {
             const tabContainer = this.scene.add.container(tabX, y + tabH / 2);
 
             const bg = this.scene.add.graphics();
-            this.drawTabBackground(bg, tabW, tabH, isSelected, false, i === 4);
+            this.drawTabBackground(bg, tabW, tabH, isSelected, false, i === 4, this.activeSolData[i].completed);
             tabContainer.add(bg);
 
-            const label = this.scene.add.text(0, 0, `${data.icon} SOL ${i}`, {
+            const label = this.scene.add.text(0, 0, `${this.activeSolData[i].completed ? "✓" : data.icon} SOL ${i}`, {
                 fontFamily: UITheme.fonts.heading,
-                fontSize: "13px",
+                fontSize: "14px",
                 color: isSelected
                     ? (i === 4 ? "#0E1A32" : "#FFFFFF")
                     : UITheme.colors.textSecondary,
@@ -292,13 +334,14 @@ export class MissionChallengesModal {
         h: number,
         isSelected: boolean,
         isHovered: boolean = false,
-        isSol4: boolean = false
+        isSol4: boolean = false,
+        isCompleted: boolean = false
     ) {
         g.clear();
         if (isSelected) {
-            g.fillStyle(isSol4 ? UITheme.colors.solarGold : UITheme.colors.cardSelected, 0.95);
+            g.fillStyle(isSol4 ? UITheme.colors.solarGold : (isCompleted ? UITheme.colors.bioGreen : UITheme.colors.cardSelected), 0.95);
             g.fillRoundedRect(-w / 2, -h / 2, w, h, 8);
-            g.lineStyle(2, isSol4 ? UITheme.colors.marsAmber : UITheme.colors.primaryCyan, 1);
+            g.lineStyle(2.5, isSol4 ? UITheme.colors.marsAmber : (isCompleted ? UITheme.colors.bioGreen : UITheme.colors.primaryCyan), 1);
             g.strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
         } else if (isHovered) {
             g.fillStyle(UITheme.colors.cardHover, 0.85);
@@ -306,9 +349,9 @@ export class MissionChallengesModal {
             g.lineStyle(1.5, UITheme.colors.marsAmber, 0.9);
             g.strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
         } else {
-            g.fillStyle(UITheme.colors.cardBg, 0.7);
+            g.fillStyle(isCompleted ? 0x124b48 : UITheme.colors.cardBg, 0.78);
             g.fillRoundedRect(-w / 2, -h / 2, w, h, 8);
-            g.lineStyle(1, UITheme.colors.panelBorder, 0.8);
+            g.lineStyle(isCompleted ? 1.5 : 1, isCompleted ? UITheme.colors.bioGreen : UITheme.colors.panelBorder, 0.8);
             g.strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
         }
     }
@@ -323,10 +366,11 @@ export class MissionChallengesModal {
             const label = tabContainer.getAt(1) as Phaser.GameObjects.Text;
             const isSelected = solNum === this.currentSolTab;
 
-            this.drawTabBackground(bg, tabContainer.width, tabContainer.height, isSelected, false, solNum === 4);
+            this.drawTabBackground(bg, tabContainer.width, tabContainer.height, isSelected, false, solNum === 4, this.activeSolData[solNum].completed);
+            label.setText(`${this.activeSolData[solNum].completed ? "✓" : this.challenges[solNum].icon} SOL ${solNum}`);
             label.setColor(isSelected
                 ? (solNum === 4 ? "#0E1A32" : "#FFFFFF")
-                : UITheme.colors.textSecondary);
+                : (this.activeSolData[solNum].completed ? UITheme.colors.textSuccess : UITheme.colors.textSecondary));
         });
 
         // Re-render Challenge details
@@ -344,6 +388,7 @@ export class MissionChallengesModal {
         this.contentContainer.removeAll(true);
         if (sol === 4) {
             this.renderSol4Briefing();
+            this.animateContentIn();
             return;
         }
 
@@ -363,16 +408,18 @@ export class MissionChallengesModal {
         const leftX = frameX + 24;
 
         const leftBg = this.scene.add.graphics();
-        leftBg.fillStyle(UITheme.colors.cardBg, 0.85);
+        leftBg.fillStyle(0x12356a, 0.9);
         leftBg.fillRoundedRect(leftX, topY, colW, colH, 12);
-        leftBg.lineStyle(1, UITheme.colors.panelBorder, 0.9);
+        leftBg.fillStyle(UITheme.colors.primaryCyan, 0.12);
+        leftBg.fillRoundedRect(leftX + 4, topY + 4, colW - 8, 36, 8);
+        leftBg.lineStyle(1.5, UITheme.colors.panelBorderGlow, 0.9);
         leftBg.strokeRoundedRect(leftX, topY, colW, colH, 12);
         this.contentContainer.add(leftBg);
 
         // Title & Codename
         const titleText = this.scene.add.text(leftX + 20, topY + 18, data.title, {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "20px",
+            fontSize: "22px",
             color: UITheme.colors.solarGoldStr,
             fontStyle: "bold",
             letterSpacing: 1.5,
@@ -420,7 +467,7 @@ export class MissionChallengesModal {
 
         const briefBody = this.scene.add.text(leftX + 20, topY + 152, data.briefing, {
             fontFamily: UITheme.fonts.body,
-            fontSize: "14px",
+            fontSize: "16px",
             color: UITheme.colors.textPrimary,
             lineSpacing: 5,
             wordWrap: { width: colW - 40 }
@@ -460,16 +507,18 @@ export class MissionChallengesModal {
         const rightX = leftX + colW + 20;
 
         const rightBg = this.scene.add.graphics();
-        rightBg.fillStyle(UITheme.colors.cardBg, 0.85);
+        rightBg.fillStyle(0x12356a, 0.9);
         rightBg.fillRoundedRect(rightX, topY, colW, colH, 12);
-        rightBg.lineStyle(1, UITheme.colors.panelBorder, 0.9);
+        rightBg.fillStyle(UITheme.colors.marsAmber, 0.12);
+        rightBg.fillRoundedRect(rightX + 4, topY + 4, colW - 8, 36, 8);
+        rightBg.lineStyle(1.5, UITheme.colors.panelBorderGlow, 0.9);
         rightBg.strokeRoundedRect(rightX, topY, colW, colH, 12);
         this.contentContainer.add(rightBg);
 
         // Challenge Objectives Header
         const rightTitle = this.scene.add.text(rightX + 20, topY + 18, "MISSION CHALLENGE & CONTROLS", {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "13.5px",
+            fontSize: "16px",
             color: "#FFFFFF",
             fontStyle: "bold",
             letterSpacing: 1.2,
@@ -495,7 +544,7 @@ export class MissionChallengesModal {
 
         const targetDesc = this.scene.add.text(rightX + 34, topY + 84, data.primaryTarget, {
             fontFamily: UITheme.fonts.body,
-            fontSize: "13px",
+            fontSize: "15px",
             color: "#FFFFFF",
             wordWrap: { width: colW - 70 }
         });
@@ -507,7 +556,7 @@ export class MissionChallengesModal {
 
         const metricTitle = this.scene.add.text(rightX + 20, gaugeY, `${data.progressMetric.toUpperCase()}: ${stateRecord.currentVal} / ${data.targetVal} ${data.unit}`, {
             fontFamily: UITheme.fonts.heading,
-            fontSize: "13px",
+            fontSize: "15px",
             color: UITheme.colors.primaryCyanStr,
             fontStyle: "bold"
         });
@@ -555,7 +604,7 @@ export class MissionChallengesModal {
             primaryColor: UITheme.colors.solarGold,
             secondaryColor: 0x1A1406,
             textColor: UITheme.colors.solarGoldStr,
-            fontSize: "14px",
+            fontSize: "15px",
             icon: "🚀",
             onClick: () => {
                 this.launchSolScene(sol);
@@ -616,6 +665,19 @@ export class MissionChallengesModal {
             }
         });
         this.contentContainer.add(completeBtn);
+        this.animateContentIn();
+    }
+
+    private animateContentIn() {
+        this.contentContainer.setAlpha(0);
+        this.contentContainer.y = 8;
+        this.scene.tweens.add({
+            targets: this.contentContainer,
+            alpha: 1,
+            y: 0,
+            duration: 220,
+            ease: "Quad.easeOut"
+        });
     }
 
     // =====================================================================

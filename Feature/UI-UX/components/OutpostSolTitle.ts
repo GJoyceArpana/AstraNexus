@@ -56,6 +56,20 @@ export class OutpostSolTitle {
         void this.loadSpaceWeather();
     }
 
+    private getAvailableTerrainTexture(): string | null {
+        const selectedSite = this.scene.registry.get("landingSite") as string | undefined;
+        if (selectedSite === "arcadia" && this.scene.textures.exists("arcadia-mosaic")) {
+            return "arcadia-mosaic";
+        }
+        if (this.scene.textures.exists("jezero-mosaic")) {
+            return "jezero-mosaic";
+        }
+        if (this.scene.textures.exists("arcadia-mosaic")) {
+            return "arcadia-mosaic";
+        }
+        return null;
+    }
+
     private createBackground(width: number, height: number) {
         const sky = this.scene.add.rectangle(0, 0, width, height, 0x071331).setOrigin(0);
         this.container.add(sky);
@@ -114,8 +128,9 @@ export class OutpostSolTitle {
         const ground = this.scene.add.rectangle(0, height * 0.86, width, height * 0.14, 0xc65d3e).setOrigin(0);
         this.container.add([distant, distantHighlight, midground, ground]);
 
-        if (this.scene.textures.exists("jezero-mosaic")) {
-            const terrain = this.scene.add.image(width * 0.5, height * 0.91, "jezero-mosaic");
+        const terrainTexture = this.getAvailableTerrainTexture();
+        if (terrainTexture) {
+            const terrain = this.scene.add.image(width * 0.5, height * 0.91, terrainTexture);
             terrain.setDisplaySize(width, height * 0.23);
             terrain.setAlpha(0.18);
             terrain.setTint(0xe1774e);
@@ -305,13 +320,13 @@ export class OutpostSolTitle {
             letterSpacing: 1
         }).setOrigin(0, 1);
 
+        const terrainConnected = this.getAvailableTerrainTexture() !== null;
         const separator = this.scene.add.rectangle(367, footerY - 11, 2, 32, 0xffe0a0, 0.82);
         const terrainIcon = this.scene.add.text(395, footerY, "⛰", {
             fontFamily: "Nunito",
             fontSize: "22px",
-            color: this.scene.textures.exists("jezero-mosaic") ? "#8be0b0" : "#b8b8b8"
+            color: terrainConnected ? "#8be0b0" : "#b8b8b8"
         }).setOrigin(0, 1);
-        const terrainConnected = this.scene.textures.exists("jezero-mosaic");
         const terrain = this.scene.add.text(426, footerY, "MARS TERRAIN ●", {
             fontFamily: "Nunito",
             fontSize: "15px",

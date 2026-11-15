@@ -27,6 +27,12 @@ export class OutpostSolScene extends Phaser.Scene {
     }
 
     preload() {
+        this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
+            if (file.key === "arcadia-mosaic" && this.textures.exists("arcadia-mosaic")) {
+                this.textures.remove("arcadia-mosaic");
+            }
+        });
+
         // Preload any essential base images if not already preloaded by BootScene
         if (!this.textures.exists("sand-base-station")) {
             this.load.image("sand-base-station", "/assets/game/base/sand-base-station.png");
@@ -57,6 +63,9 @@ export class OutpostSolScene extends Phaser.Scene {
         }
         if (!this.textures.exists("jezero-mosaic")) {
             this.load.image("jezero-mosaic", "/assets/game/mars/jezero-ctx-mosaic-3x3.png");
+        }
+        if (!this.textures.exists("arcadia-mosaic")) {
+            this.load.image("arcadia-mosaic", "/assets/game/mars/arcadia-planitia-mosaic.png");
         }
         // Role selection panels are rendered as live Phaser UI using transparent astronaut portraits.
 
