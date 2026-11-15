@@ -759,7 +759,9 @@ export class AstronautCustomizer {
         this.layoutContainer.setPosition(offsetX, offsetY);
 
         if (this.launchButton) {
-            const isCompactViewport = viewW < 700 || viewH < 500;
+            const displayW = this.scene.scale.displaySize.width;
+            const displayH = this.scene.scale.displaySize.height;
+            const isCompactViewport = displayW < 700 || displayH < 500;
             this.launchButton.setPosition(
                 isCompactViewport ? DESIGN.WIDTH / 2 : DESIGN.WIDTH - DESIGN.MARGIN_X - 210,
                 DESIGN.HEIGHT - DESIGN.NAV_BOTTOM_MARGIN - DESIGN.NAV_HEIGHT / 2
