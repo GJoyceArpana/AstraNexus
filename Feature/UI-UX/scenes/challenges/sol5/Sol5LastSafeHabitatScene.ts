@@ -77,6 +77,9 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
     private introductionModal?: Phaser.GameObjects.Container;
     private introductionIndex = 0;
     private introductionActive = false;
+    private tutorialModal?: Phaser.GameObjects.Container;
+    private tutorialIndex = 0;
+    private tutorialActive = false;
 
     // Interactive Stations & Crates
     private stations: DamagedStation[] = [];
@@ -151,6 +154,9 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         this.introductionModal = undefined;
         this.introductionIndex = 0;
         this.introductionActive = false;
+        this.tutorialModal = undefined;
+        this.tutorialIndex = 0;
+        this.tutorialActive = false;
         this.stations = [];
         this.crates = [];
         this.nearbyStation = null;
@@ -561,7 +567,7 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
 
     override update(_time: number, delta: number) {
         // Update Resource Manager (only when no blocking pause / results modal)
-        if (!this.introductionActive && !this.pauseModal && !this.resultsModal && !this.guideModal && !this.missionEnded) {
+        if (!this.introductionActive && !this.tutorialActive && !this.pauseModal && !this.resultsModal && !this.guideModal && !this.missionEnded) {
             this.resourceManager.update(delta);
         }
 
@@ -572,7 +578,7 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         this.updateEmergencyLighting();
 
         // Player Movement (disabled during interactive puzzle or pause modal)
-        if (!this.introductionActive && !this.missionEnded && !this.activePuzzle && !this.pauseModal && !this.resultsModal && !this.guideModal) {
+        if (!this.introductionActive && !this.tutorialActive && !this.missionEnded && !this.activePuzzle && !this.pauseModal && !this.resultsModal && !this.guideModal) {
             this.handlePlayerMovement(delta);
             this.checkProximities();
         }
@@ -743,6 +749,180 @@ export class Sol5LastSafeHabitatScene extends Phaser.Scene {
         const modal = this.introductionModal;
         this.introductionModal = undefined;
 
+        this.tweens.add({
+            targets: modal,
+            alpha: 0,
+            y: this.H / 2 + 24,
+            duration: 260,
+            ease: "Quad.easeIn",
+            onComplete: () => {
+                modal.destroy();
+                this.showRepairTutorial();
+            }
+        });
+    }
+
+    private showRepairTutorial() {
+        const cards = [
+            {
+                title: "AIR DISTRIBUTION",
+                icon: "💨",
+                body: "Reconnect the pipe network from the air source to the habitat target to stop the oxygen leak.",
+                tip: "Rotate each pipe tile until one continuous path is complete."
+            },
+            {
+                title: "POWER GRID",
+                icon: "⚡",
+                body: "Restore the electrical circuit so heaters, life support and habitat systems receive stable power.",
+                tip: "Build a valid connection from the source through the relay matrix."
+            },
+            {
+                title: "OXYGEN REGULATION",
+                icon: "🎛️",
+                body: "Tune the pressure valves and keep the habitat inside its safe operating range.",
+                tip: "Small valve adjustments are safer than large corrections."
+            },
+            {
+                title: "STRUCTURAL INTEGRITY",
+                icon: "🛡️",
+                body: "Seal every exterior breach with the correct composite repair material.",
+                tip: "Use the supplied patches wisely; all four systems must be restored."
+            }
+        ];
+
+        this.tutorialActive = true;
+        this.tutorialIndex = 0;
+
+        const modal = this.add.container(this.W / 2, this.H / 2).setDepth(300);
+        this.tutorialModal = modal;
+
+        const scrim = this.add.rectangle(0, 0, this.W, this.H, 0x020713, 0.78).setInteractive();
+        modal.add(scrim);
+
+        const cardBg = this.add.graphics();
+        cardBg.fillStyle(0x07172A, 0.98);
+        cardBg.fillRoundedRect(-450, -245, 900, 490, 20);
+        cardBg.lineStyle(2, UITheme.colors.primaryCyan, 0.9);
+        cardBg.strokeRoundedRect(-450, -245, 900, 490, 20);
+        modal.add(cardBg);
+
+        const eyebrow = this.add.text(0, -200, "LEARN BEFORE PLAYING", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "13px",
+            color: UITheme.colors.solarGoldStr,
+            fontStyle: "bold",
+            letterSpacing: 2
+        }).setOrigin(0.5);
+        modal.add(eyebrow);
+
+        const title = this.add.text(0, -155, "", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "25px",
+            color: UITheme.colors.primaryCyanStr,
+            fontStyle: "bold",
+            letterSpacing: 1.4
+        }).setOrigin(0.5);
+        modal.add(title);
+
+        const icon = this.add.text(0, -78, "", { fontSize: "54px" }).setOrigin(0.5);
+        modal.add(icon);
+
+        const body = this.add.text(0, 5, "", {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "18px",
+            color: "#E8F7FF",
+            align: "center",
+            lineSpacing: 8,
+            wordWrap: { width: 720 }
+        }).setOrigin(0.5);
+        modal.add(body);
+
+        const tip = this.add.text(0, 92, "", {
+            fontFamily: UITheme.fonts.body,
+            fontSize: "14px",
+            color: UITheme.colors.solarGoldStr,
+            fontStyle: "bold",
+            align: "center",
+            wordWrap: { width: 720 }
+        }).setOrigin(0.5);
+        modal.add(tip);
+
+        const progress = this.add.text(-390, 196, "", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "11px",
+            color: "#8FAFC8",
+            fontStyle: "bold"
+        });
+        modal.add(progress);
+
+        const nextButton = ButtonFactory.createButton({
+            scene: this,
+            x: 255,
+            y: 195,
+            width: 230,
+            height: 44,
+            text: "NEXT CARD  ➜",
+            primaryColor: UITheme.colors.primaryCyan,
+            secondaryColor: 0x103B59,
+            fontSize: "13px",
+            onClick: () => {
+                SoundFX.playClick();
+                if (this.tutorialIndex === cards.length - 1) {
+                    this.closeRepairTutorial();
+                } else {
+                    this.tutorialIndex++;
+                    renderCard();
+                }
+            }
+        });
+        modal.add(nextButton);
+
+        const skip = this.add.text(390, -220, "SKIP TUTORIAL", {
+            fontFamily: UITheme.fonts.heading,
+            fontSize: "10px",
+            color: "#A9C3D7",
+            fontStyle: "bold",
+            backgroundColor: "#061322",
+            padding: { x: 10, y: 7 }
+        }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+        skip.on("pointerdown", () => {
+            SoundFX.playClick();
+            this.closeRepairTutorial();
+        });
+        modal.add(skip);
+
+        const renderCard = () => {
+            const card = cards[this.tutorialIndex];
+            title.setText(card.title);
+            icon.setText(card.icon);
+            body.setText(card.body);
+            tip.setText(`FIELD TIP: ${card.tip}`);
+            progress.setText(`CARD ${this.tutorialIndex + 1} / ${cards.length}`);
+            nextButton.getAll().forEach((child) => {
+                if (child instanceof Phaser.GameObjects.Text) {
+                    child.setText(this.tutorialIndex === cards.length - 1 ? "BEGIN MISSION  ➜" : "NEXT CARD  ➜");
+                }
+            });
+        };
+
+        renderCard();
+        modal.setAlpha(0);
+        modal.y += 24;
+        this.tweens.add({
+            targets: modal,
+            alpha: 1,
+            y: this.H / 2,
+            duration: 360,
+            ease: "Back.easeOut"
+        });
+    }
+
+    private closeRepairTutorial() {
+        if (!this.tutorialActive || !this.tutorialModal) return;
+
+        this.tutorialActive = false;
+        const modal = this.tutorialModal;
+        this.tutorialModal = undefined;
         this.tweens.add({
             targets: modal,
             alpha: 0,

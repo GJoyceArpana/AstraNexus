@@ -57,8 +57,8 @@ export class Sol5HUD {
     private init() {
         const { width } = this.scene.scale;
 
-        // 1. TOP EMERGENCY DASHBOARD (Width: 1020, centered, leaving room for #fullscreen-btn)
-        const dashW = 1010;
+        // 1. TOP EMERGENCY DASHBOARD spans the game canvas; fullscreen is keyboard-only.
+        const dashW = 1240;
         const dashH = 68;
         const dashX = 20;
         const dashY = 12;

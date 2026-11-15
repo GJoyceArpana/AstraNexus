@@ -121,20 +121,6 @@ export class Sol5ResourceManager {
 
         this.state.isCriticalWarning = isLowPressure || isLowO2 || isLowHull || this.state.timeRemainingSec < 60;
 
-        // 4. Catastrophic Failure Conditions
-        if (this.state.habitatPressure <= 18.0) {
-            this.triggerFailure("DEPRESSURIZATION");
-            return;
-        }
-        if (this.state.oxygenReserve <= 0) {
-            this.triggerFailure("HYPOXIA");
-            return;
-        }
-        if (this.state.structuralIntegrity <= 0) {
-            this.triggerFailure("STRUCTURAL_COLLAPSE");
-            return;
-        }
-
         this.callbacks.onResourceUpdate(this.getState());
     }
 

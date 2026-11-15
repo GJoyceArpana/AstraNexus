@@ -153,18 +153,7 @@ export class Sol5ResultsModal {
     }
 
     private getFailureDescription(): string {
-        switch (this.results.failureReason) {
-            case "DEPRESSURIZATION":
-                return "CATASTROPHIC DEPRESSURIZATION: Cabin pressure plummeted below Armstrong Limit threshold (<18 kPa)!";
-            case "HYPOXIA":
-                return "ACUTE HYPOXIA: Oxygen reserve exhausted (0%) due to uncontained air distribution leaks!";
-            case "STRUCTURAL_COLLAPSE":
-                return "STRUCTURAL COLLAPSE: External hull breach compromised the pressurized habitat shell!";
-            case "TIME_EXPIRED":
-                return "TIME EXPIRED: The habitat emergency reserve battery and buffer were completely depleted!";
-            default:
-                return "EMERGENCY PROTOCOL FAILED: Critical life-support systems were lost.";
-        }
+        return "TIME EXPIRED: The emergency countdown reached zero before all habitat systems were restored.";
     }
 
     private createPerformancePanel(x: number, y: number, w: number, h: number) {
